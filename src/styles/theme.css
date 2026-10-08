@@ -1,0 +1,164 @@
+/* ==========================================================================
+   Task Manager — Design System tokens
+   Soft-grey canvas, white cards, deep forest green primary.
+   Accent themes (Forest / Ocean / Plum / Ember) swap the --primary ramp only;
+   status colours stay semantically fixed.
+   ========================================================================== */
+
+:root {
+  /* --- Canvas & surfaces --- */
+  --tm-bg: #f4f5f4;
+  --tm-bg-sunken: #eceeec;
+  --tm-card: #ffffff;
+  --tm-card-muted: #fafbfa;
+  --tm-border: #e6e8e6;
+  --tm-border-strong: #d6dad6;
+
+  /* --- Ink --- */
+  --tm-ink: #16211c;
+  --tm-ink-soft: #5c6b63;
+  --tm-ink-muted: #6b7a72;
+  --tm-ink-invert: #ffffff;
+
+  /* --- Primary ramp: Forest (default accent) --- */
+  --tm-primary: #1f5f3f;
+  --tm-primary-dark: #0f3d27;
+  --tm-primary-light: #5fbf8a;
+  --tm-primary-soft: #e7f1ea;
+  --tm-primary-softer: #f2f8f4;
+  --tm-on-primary: #ffffff;
+
+  /* --- Status (fixed across accents) --- */
+  --tm-success: #1f7a4d;
+  --tm-success-bg: #e3f4ea;
+  --tm-success-ring: #c2e6d2;
+
+  --tm-warning: #8a5a06;
+  --tm-warning-bg: #fdf1dc;
+  --tm-warning-ring: #f6dfb4;
+
+  --tm-danger: #a32a2a;
+  --tm-danger-bg: #fbe6e6;
+  --tm-danger-ring: #f2c9c9;
+
+  --tm-info: #1f5a7a;
+  --tm-info-bg: #e3eff6;
+  --tm-info-ring: #c3dcea;
+
+  --tm-neutral: #5c6b63;
+  --tm-neutral-bg: #eef0ee;
+  --tm-neutral-ring: #dfe3df;
+
+  /* --- Radii --- */
+  --tm-radius-sm: 12px;
+  --tm-radius-md: 16px;
+  --tm-radius-lg: 20px;
+  --tm-radius-xl: 24px;
+  --tm-radius-pill: 999px;
+
+  /* --- Very soft shadows --- */
+  --tm-shadow-xs: 0 1px 2px rgba(22, 33, 28, 0.04);
+  --tm-shadow-sm: 0 2px 8px rgba(22, 33, 28, 0.045);
+  --tm-shadow-md: 0 6px 20px rgba(22, 33, 28, 0.06);
+  --tm-shadow-lg: 0 16px 40px rgba(22, 33, 28, 0.08);
+  --tm-shadow-hero: 0 18px 44px rgba(15, 61, 39, 0.22);
+
+  /* --- Motion --- */
+  --tm-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --tm-dur-fast: 180ms;
+  --tm-dur: 260ms;
+  --tm-dur-slow: 340ms;
+}
+
+/* ---------- Accent themes ---------- */
+:root[data-accent='forest'] {
+  --tm-primary: #1f5f3f;
+  --tm-primary-dark: #0f3d27;
+  --tm-primary-light: #5fbf8a;
+  --tm-primary-soft: #e7f1ea;
+  --tm-primary-softer: #f2f8f4;
+  --tm-shadow-hero: 0 18px 44px rgba(15, 61, 39, 0.22);
+}
+
+:root[data-accent='ocean'] {
+  --tm-primary: #1b5a78;
+  --tm-primary-dark: #0c374b;
+  --tm-primary-light: #58b4d6;
+  --tm-primary-soft: #e4eff5;
+  --tm-primary-softer: #f1f7fa;
+  --tm-shadow-hero: 0 18px 44px rgba(12, 55, 75, 0.22);
+}
+
+:root[data-accent='plum'] {
+  --tm-primary: #5a2a62;
+  --tm-primary-dark: #39163f;
+  --tm-primary-light: #b57cc0;
+  --tm-primary-soft: #f1e7f3;
+  --tm-primary-softer: #f8f3f9;
+  --tm-shadow-hero: 0 18px 44px rgba(57, 22, 63, 0.22);
+}
+
+:root[data-accent='ember'] {
+  --tm-primary: #8a3a1c;
+  --tm-primary-dark: #5a2110;
+  --tm-primary-light: #e08a5c;
+  --tm-primary-soft: #fbeae1;
+  --tm-primary-softer: #fdf5f1;
+  --tm-shadow-hero: 0 18px 44px rgba(90, 33, 16, 0.22);
+}
+
+/* ==========================================================================
+   Tailwind v4 theme bridge — exposes every token as a utility
+   (bg-card, text-ink-soft, rounded-xl2, shadow-soft, font-sans, …)
+   ========================================================================== */
+@theme inline {
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', sans-serif;
+
+  --color-canvas: var(--tm-bg);
+  --color-sunken: var(--tm-bg-sunken);
+  --color-card: var(--tm-card);
+  --color-card-muted: var(--tm-card-muted);
+  --color-line: var(--tm-border);
+  --color-line-strong: var(--tm-border-strong);
+
+  --color-ink: var(--tm-ink);
+  --color-ink-soft: var(--tm-ink-soft);
+  --color-ink-muted: var(--tm-ink-muted);
+
+  --color-primary: var(--tm-primary);
+  --color-primary-dark: var(--tm-primary-dark);
+  --color-primary-light: var(--tm-primary-light);
+  --color-primary-soft: var(--tm-primary-soft);
+  --color-primary-softer: var(--tm-primary-softer);
+  --color-on-primary: var(--tm-on-primary);
+
+  --color-ok: var(--tm-success);
+  --color-ok-bg: var(--tm-success-bg);
+  --color-ok-ring: var(--tm-success-ring);
+  --color-warn: var(--tm-warning);
+  --color-warn-bg: var(--tm-warning-bg);
+  --color-warn-ring: var(--tm-warning-ring);
+  --color-bad: var(--tm-danger);
+  --color-bad-bg: var(--tm-danger-bg);
+  --color-bad-ring: var(--tm-danger-ring);
+  --color-info: var(--tm-info);
+  --color-info-bg: var(--tm-info-bg);
+  --color-info-ring: var(--tm-info-ring);
+  --color-neutral-soft: var(--tm-neutral);
+  --color-neutral-bg: var(--tm-neutral-bg);
+  --color-neutral-ring: var(--tm-neutral-ring);
+
+  --radius-sm2: var(--tm-radius-sm);
+  --radius-md2: var(--tm-radius-md);
+  --radius-lg2: var(--tm-radius-lg);
+  --radius-xl2: var(--tm-radius-xl);
+
+  --shadow-soft-xs: var(--tm-shadow-xs);
+  --shadow-soft-sm: var(--tm-shadow-sm);
+  --shadow-soft: var(--tm-shadow-md);
+  --shadow-soft-lg: var(--tm-shadow-lg);
+  --shadow-hero: var(--tm-shadow-hero);
+
+  --ease-soft: var(--tm-ease);
+}

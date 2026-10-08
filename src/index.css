@@ -1,0 +1,169 @@
+@import 'tailwindcss';
+@import './styles/theme.css';
+@config '../tailwind.config.ts';
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--tm-bg);
+    color: var(--tm-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: 'ss01', 'cv01';
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: var(--tm-primary);
+    color: #fff;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.018em;
+  }
+
+  /* Keyboard focus only — never a ring on mouse press */
+  :focus-visible {
+    outline: 2px solid var(--tm-primary-light);
+    outline-offset: 2px;
+  }
+}
+
+/* ==========================================================================
+   Scrollbars — thin, unobtrusive
+   ========================================================================== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d4d9d5;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #b6bfb9;
+  background-clip: content-box;
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* ==========================================================================
+   Hatched diagonal-stripe fills — used for empty / pending / future values
+   ========================================================================== */
+@utility hatch {
+  background-image: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--tm-primary) 16%, transparent) 0,
+    color-mix(in srgb, var(--tm-primary) 16%, transparent) 2px,
+    transparent 2px,
+    transparent 6px
+  );
+  background-color: var(--tm-primary-softer);
+}
+
+@utility hatch-neutral {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(22, 33, 28, 0.1) 0,
+    rgba(22, 33, 28, 0.1) 2px,
+    transparent 2px,
+    transparent 6px
+  );
+  background-color: var(--tm-bg-sunken);
+}
+
+@utility hatch-light {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.22) 0,
+    rgba(255, 255, 255, 0.22) 2px,
+    transparent 2px,
+    transparent 6px
+  );
+}
+
+/* SVG-friendly pattern target for charts */
+.hatch-pattern-stroke {
+  stroke: color-mix(in srgb, var(--tm-primary) 30%, transparent);
+}
+
+/* ==========================================================================
+   Skeleton shimmer — replaces spinners
+   ========================================================================== */
+@keyframes tm-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background-image: linear-gradient(
+    90deg,
+    var(--tm-bg-sunken) 25%,
+    #f6f7f6 37%,
+    var(--tm-bg-sunken) 63%
+  );
+  background-size: 200% 100%;
+  animation: tm-shimmer 1.4s linear infinite;
+  border-radius: var(--tm-radius-sm);
+}
+
+/* ==========================================================================
+   Legacy helper kept so pre-redesign markup keeps working
+   ========================================================================== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn var(--tm-dur) var(--tm-ease) forwards;
+}
+
+/* ==========================================================================
+   Reduced motion — honour the OS setting everywhere
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .skeleton {
+    animation: none;
+    background: var(--tm-bg-sunken);
+  }
+}

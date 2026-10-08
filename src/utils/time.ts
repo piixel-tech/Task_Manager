@@ -1,0 +1,71 @@
+import { format, parseISO, differenceInMinutes, isValid, getDaysInMonth, startOfMonth, getDay } from 'date-fns';
+
+export function getSimulatedDate(): string | null {
+  return localStorage.getItem('tm_simulated_date');
+}
+
+export function setSimulatedDate(dateStr: string | null): void {
+  if (!dateStr) {
+    localStorage.removeItem('tm_simulated_date');
+  } else {
+    localStorage.setItem('tm_simulated_date', dateStr);
+  }
+}
+
+export function getTodayDateString(): string {
+  const sim = getSimulatedDate();
+  if (sim) return sim;
+  return format(new Date(), 'yyyy-MM-dd');
+}
+
+export function getNowISO(): string {
+  const simDate = getSimulatedDate();
+  const now = new Date();
+  if (simDate) {
+    const [y, m, d] = simDate.split('-').map(Number);
+    const dateObj = new Date(now);
+    dateObj.setFullYear(y, m - 1, d);
+    return dateObj.toISOString();
+  }
+  return now.toISOString();
+}
+
+export function formatDate(dateString?: string, formatStr: string = 'MMM dd, yyyy'): string {
+  if (!dateString) return 'N/A';
+  try {
+    const date = parseISO(dateString);
+    if (!isValid(date)) return dateString;
+    return format(date, formatStr);
+  } catch {
+    return dateString;
+  }
+}
+
+export function formatTime(dateString?: string): string {
+  if (!dateString) return '--:--';
+  try {
+    const date = parseISO(dateString);
+    if (!isValid(date)) return dateString;
+    return format(date, 'hh:mm a');
+  } catch {
+    return dateString;
+  }
+}
+
+export function calculateDurationMinutes(startTimeISO: string, endTimeISO?: string): number {
+  try {
+    const start = parseISO(startTimeISO);
+    const end = endTimeISO ? parseISO(endTimeISO) : parseISO(getNowISO());
+    if (!isValid(start) || !isValid(end)) return 0;
+    return Math.max(0, differenceInMinutes(end, start));
+  } catch {
+    return 0;
+  }
+}
+
+export function getMonthInfo(year: number, monthIndex: number) {
+  const date = new Date(year, monthIndex, 1);
+  const totalDays = getDaysInMonth(date);
+  const startDayOfWeek = getDay(startOfMonth(date)); // 0 = Sun, 1 = Mon...
+  return { totalDays, startDayOfWeek };
+}
