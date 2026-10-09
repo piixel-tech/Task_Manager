@@ -1,14 +1,30 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Square, Send, Clock, ThumbsUp, AlertCircle, Sparkles, Paperclip } from 'lucide-react';
+import {
+  ArrowLeft,
+  Play,
+  Square,
+  Send,
+  Clock,
+  ThumbsUp,
+  AlertCircle,
+  Sparkles,
+  Paperclip,
+  Trash2,
+  Edit2
+} from 'lucide-react';
 import { taskService, gamificationService } from '../../../services';
 import type { Task, Kudos, TaskSession, Submission, TaskPauseReason } from '../../../types';
 import { useAuthStore } from '../../../store/authStore';
 import { useAppStore } from '../../../store/useAppStore';
+import { useTaskStore } from '../../../store/useTaskStore';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
 import { UserName } from '../../../components/ui/UserName';
+import { Modal } from '../../../components/ui/Modal';
+import { Input, Textarea } from '../../../components/ui/Input';
+import { Select } from '../../../components/ui/Select';
 import { formatDate, formatTime } from '../../../utils/time';
 import { formatHours } from '../../../utils/format';
 import { TaskSubmitModal } from '../components/TaskSubmitModal';
@@ -23,7 +39,17 @@ export const TaskDetailPage: React.FC = () => {
 
   const [task, setTask] = useState<Task | null>(null);
   const [kudosList, setKudosList] = useState<Kudos[]>([]);
+
+  // Modal controls
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  // Edit form states
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editPriority, setEditPriority] = useState<'low' | 'medium' | 'high'>('medium');
+  const [editDueDate, setEditDueDate] = useState('');
 
   const fetchTask = async () => {
     if (!id) return;
@@ -31,6 +57,10 @@ export const TaskDetailPage: React.FC = () => {
     setTask(t);
     if (t) {
       gamificationService.getKudosForTask(t.id).then(setKudosList).catch(console.error);
+      setEditTitle(t.title);
+      setEditDescription(t.description || '');
+      setEditPriority(t.priority as any);
+      setEditDueDate(t.dueDate || '');
     }
   };
 
@@ -41,6 +71,12 @@ export const TaskDetailPage: React.FC = () => {
   if (!task) {
     return <div className="p-8 text-center text-[var(--tm-ink-muted)]">Loading task details...</div>;
   }
+
+  const isAssignedToMe = user?.id === task.assignedUserId;
+  const isCreatedByMe = user?.id === task.assignedByUserId;
+  // Employees can only delete tasks they created themselves. If someone else assigned it to them, they can't delete it.
+  const canDelete = isAdmin || (isAssignedToMe && isCreatedByMe);
+  const canEdit = isAdmin || isAssignedToMe;
 
   const activeSession = task.sessions.find((s: TaskSession) => !s.endTime);
 
@@ -71,6 +107,36 @@ export const TaskDetailPage: React.FC = () => {
       await taskService.stopTaskSession(id, user.id).catch(() => {});
     }
     setIsSubmitModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!task) return;
+    try {
+      await useTaskStore.getState().deleteTask(task.id);
+      showToast(`Task "${task.title}" deleted.`);
+      setIsDeleteModalOpen(false);
+      navigate(`${prefix}/tasks`);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to delete task');
+    }
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!task || !editTitle.trim()) return;
+    try {
+      await useTaskStore.getState().updateTask(task.id, {
+        title: editTitle.trim(),
+        description: editDescription,
+        priority: editPriority,
+        dueDate: editDueDate
+      });
+      showToast('Task updated successfully!');
+      setIsEditModalOpen(false);
+      fetchTask();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update task');
+    }
   };
 
   const handleGiveKudos = async () => {
@@ -123,6 +189,17 @@ export const TaskDetailPage: React.FC = () => {
                     {task.revisions} {task.revisions === 1 ? 'Revision' : 'Revisions'}
                   </Badge>
                 )}
+
+                {/* Start Date & End Date displayed at the top */}
+                <div className="flex items-center gap-3 text-xs font-semibold text-[var(--tm-ink-soft)] bg-[var(--tm-card-muted)] px-2.5 py-1 rounded-md border border-[var(--tm-border)] ml-1">
+                  {task.startDate && (
+                    <span>Start: <strong className="text-[var(--tm-ink)]">{formatDate(task.startDate)}</strong></span>
+                  )}
+                  {task.startDate && (task.dueDate || task.completedAt) && <span className="text-[var(--tm-ink-muted)]">•</span>}
+                  <span>
+                    End: <strong className="text-[var(--tm-ink)]">{formatDate(task.status === 'completed' ? task.completedAt || task.dueDate : task.dueDate)}</strong>
+                  </span>
+                </div>
               </div>
               <h1 className="text-2xl font-bold text-[var(--tm-ink)]">{task.title}</h1>
               {task.subHeading && (
@@ -162,7 +239,8 @@ export const TaskDetailPage: React.FC = () => {
                 {formatHours(task.loggedHours || 0)} / {task.estimatedHours || 8}h
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                {task.status !== 'completed' && (
+                {/* Action buttons appear only on tasks assigned to the logged-in user */}
+                {task.status !== 'completed' && isAssignedToMe && (
                   <Button
                     variant={activeSession ? 'danger' : 'primary'}
                     size="sm"
@@ -172,7 +250,7 @@ export const TaskDetailPage: React.FC = () => {
                     {activeSession ? 'Pause Timer' : 'Start Timer'}
                   </Button>
                 )}
-                {task.status !== 'completed' && (
+                {task.status !== 'completed' && isAssignedToMe && (
                   <Button
                     variant="primary"
                     size="sm"
@@ -182,6 +260,26 @@ export const TaskDetailPage: React.FC = () => {
                     End your task
                   </Button>
                 )}
+                {canEdit && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditModalOpen(true)}
+                    leftIcon={<Edit2 className="w-3.5 h-3.5" />}
+                  >
+                    Edit
+                  </Button>
+                )}
+                {canDelete && (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => setIsDeleteModalOpen(true)}
+                    leftIcon={<Trash2 className="w-3.5 h-3.5" />}
+                  >
+                    Delete
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -189,7 +287,7 @@ export const TaskDetailPage: React.FC = () => {
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Deliverable Submissions Section (Hidden until submitted) */}
+        {/* Deliverable Submissions Section */}
         {hasSubmissions && (
           <Card>
             <CardHeader>
@@ -307,7 +405,7 @@ export const TaskDetailPage: React.FC = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-[var(--tm-warning)]" /> Interruption & Pause Logs
+              <AlertCircle className="w-4 h-4 text-[var(--tm-warning)]" /> Interruption &amp; Pause Logs
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0 divide-y divide-[var(--tm-border)] text-xs">
@@ -331,6 +429,76 @@ export const TaskDetailPage: React.FC = () => {
         task={task}
         onSubmitSuccess={fetchTask}
       />
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        title="Delete Task?"
+        description={`Are you sure you want to delete "${task.title}"? This action cannot be undone.`}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleConfirmDelete}>
+              Delete Task
+            </Button>
+          </>
+        }
+      >
+        <p className="text-xs text-[var(--tm-ink-muted)]">
+          All associated timer logs and submissions for this task will be permanently removed.
+        </p>
+      </Modal>
+
+      {/* Edit Task Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        title="Edit Task"
+      >
+        <form onSubmit={handleSaveEdit} className="space-y-4">
+          <Input
+            label="Task Title *"
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            required
+          />
+          <Textarea
+            label="Description"
+            rows={3}
+            value={editDescription}
+            onChange={(e) => setEditDescription(e.target.value)}
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label="Priority"
+              value={editPriority}
+              onChange={(e) => setEditPriority(e.target.value as any)}
+              options={[
+                { value: 'low', label: 'Low' },
+                { value: 'medium', label: 'Medium' },
+                { value: 'high', label: 'High' }
+              ]}
+            />
+            <Input
+              label="Due Date"
+              type="date"
+              value={editDueDate}
+              onChange={(e) => setEditDueDate(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-3 border-t border-[var(--tm-border)]">
+            <Button variant="outline" type="button" onClick={() => setIsEditModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit">
+              Save Changes
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

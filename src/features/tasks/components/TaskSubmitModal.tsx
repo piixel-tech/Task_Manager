@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Upload, X, Link as LinkIcon, Paperclip } from 'lucide-react';
-import { taskService } from '../../../services';
 import type { Task, AttachedFile } from '../../../types';
 import { useAuthStore } from '../../../store/authStore';
 import { useAppStore } from '../../../store/useAppStore';
+import { useTaskStore } from '../../../store/useTaskStore';
 import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
-import { formatDate, getTodayDateString } from '../../../utils/time';
+import { formatDate, getTodayDateString, getNowISO } from '../../../utils/time';
 import { formatHours } from '../../../utils/format';
 
 interface TaskSubmitModalProps {
@@ -112,11 +112,11 @@ export const TaskSubmitModal: React.FC<TaskSubmitModalProps> = ({
     try {
       setIsSubmitting(true);
       // Stop timer if running
-      await taskService.stopTaskSession(task.id, user.id).catch(() => {});
+      await useTaskStore.getState().stopTaskSession(task.id, user.id).catch(() => {});
       // Submit work
-      await taskService.submitTaskWork(task.id, user.id, notes, files, urls);
-      // Update task status directly to completed (Done)
-      await taskService.updateTask(task.id, { status: 'completed' });
+      await useTaskStore.getState().submitTaskWork(task.id, user.id, notes, files, urls);
+      // Update task status directly to completed (Done) with completedAt timestamp
+      await useTaskStore.getState().updateTask(task.id, { status: 'completed', completedAt: getNowISO() });
 
       showToast('Task completed and deliverable submitted!');
       setNotes('');

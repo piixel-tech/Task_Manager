@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Avatar, avatarSizeClasses, type AvatarProps } from './Avatar';
+import { avatarSizeClasses, type AvatarProps } from './Avatar';
+import { UserAvatar } from './UserAvatar';
 import { useMotionPrefs } from './useMotionPrefs';
 import { fastT } from './motion';
 
@@ -46,7 +47,7 @@ export const AvatarStack: React.FC<AvatarStackProps> = ({
           transition={fastT}
           style={{ zIndex: shown.length - i }}
         >
-          <Avatar name={person.name} src={person.avatarUrl} size={size} ring />
+          <UserAvatar userId={person.id} name={person.name} src={person.avatarUrl} size={size} ring />
         </motion.div>
       ))}
 

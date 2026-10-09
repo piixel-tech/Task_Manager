@@ -7,31 +7,25 @@ import {
   Clock,
   LogOut,
   Menu,
-  Search,
   Settings,
   Shield,
   User as UserIcon
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useAppStore } from '../../store/useAppStore';
-import { useNavCounts } from '../../hooks/useNavCounts';
-import { attendanceService, userService } from '../../services';
-import type { AttendanceDay, User } from '../../types';
+import { useNotificationStore } from '../../store/useNotificationStore';
+import { attendanceService } from '../../services';
+import type { AttendanceDay } from '../../types';
 import { getTodayDateString } from '../../utils/time';
-import { Avatar } from '../ui/Avatar';
+import { UserAvatar } from '../ui/UserAvatar';
 import { Badge } from '../ui/Badge';
 import { CommandPalette } from './CommandPalette';
 import { useMotionPrefs } from '../ui/useMotionPrefs';
 import { EASE_OUT } from '../ui/motion';
 
-/** Is this a Mac? Only affects which modifier glyph we print. */
-const isMac = () =>
-  typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
-
 export const Topbar: React.FC = () => {
   const { user, logout } = useAuthStore();
   const { toggleSidebar, toastMessage } = useAppStore();
-  const counts = useNavCounts();
   const navigate = useNavigate();
   const { reduced } = useMotionPrefs();
 
@@ -42,14 +36,11 @@ export const Topbar: React.FC = () => {
   const bellRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const [allUsers, setAllUsers] = useState<User[]>([]);
-
   useEffect(() => {
     if (user?.id) {
       attendanceService.getAttendance(user.id, getTodayDateString()).then((records) => {
         if (records.length > 0) setTodayAttendance(records[0]);
       });
-      userService.getUsers().then(setAllUsers);
     }
   }, [user]);
 
@@ -79,52 +70,8 @@ export const Topbar: React.FC = () => {
   const isAdmin = user?.role === 'admin';
   const prefix = isAdmin ? '/admin' : '/app';
 
-  const todayMMDD = getTodayDateString().slice(5);
-
-  const birthdayNotifications = allUsers
-    .filter((u) => u.birthday && u.birthday.endsWith(todayMMDD))
-    .map((bdayUser) => ({
-      id: `bday-${bdayUser.id}`,
-      tone: 'warn' as const,
-      title: bdayUser.id === user?.id ? `🎉 Happy Birthday, ${user?.name || 'there'}!` : `🎉 Today is ${bdayUser.name}'s birthday!`,
-      body: bdayUser.id === user?.id ? 'Hope you have a wonderful day!' : 'Wish them a happy birthday in team chat!',
-      to: bdayUser.id === user?.id ? `${prefix}/profile` : `${prefix}/chat`
-    }));
-
-  const notifications = [
-    ...birthdayNotifications,
-    counts.overdue > 0 && {
-      id: 'overdue',
-      tone: 'bad' as const,
-      title: `${counts.overdue} overdue ${counts.overdue === 1 ? 'task' : 'tasks'}`,
-      body: 'Past the due date and still open.',
-      to: `${prefix}/tasks`
-    },
-    isAdmin &&
-      counts.pendingSubmissions > 0 && {
-        id: 'submissions',
-        tone: 'warn' as const,
-        title: `${counts.pendingSubmissions} submission${
-          counts.pendingSubmissions === 1 ? '' : 's'
-        } to review`,
-        body: 'Waiting on your approval.',
-        to: `${prefix}/submissions`
-      },
-    !activePunch &&
-      user?.role === 'employee' && {
-        id: 'punch',
-        tone: 'warn' as const,
-        title: 'You are not punched in',
-        body: 'Mark attendance to start tracking time.',
-        to: `${prefix}/attendance`
-      }
-  ].filter(Boolean) as {
-    id: string;
-    tone: 'bad' | 'warn';
-    title: string;
-    body: string;
-    to: string;
-  }[];
+  const { notifications, markAsRead, markAllAsRead } = useNotificationStore();
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   const popTransition = { duration: reduced ? 0 : 0.2, ease: EASE_OUT };
 
@@ -135,7 +82,7 @@ export const Topbar: React.FC = () => {
           border-b border-[var(--tm-border)] bg-[color-mix(in_srgb,var(--tm-bg)_82%,transparent)]
           px-4 backdrop-blur-xl lg:px-8"
       >
-        {/* Left: menu toggle + search */}
+        {/* Left: menu toggle + admin console badge */}
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <button
             onClick={toggleSidebar}
@@ -147,23 +94,10 @@ export const Topbar: React.FC = () => {
           </button>
 
           {isAdmin && (
-            <button
-              onClick={() => setPaletteOpen(true)}
-              className="group flex h-11 w-full max-w-sm items-center gap-2.5 rounded-full
-                border border-[var(--tm-border)] bg-[var(--tm-card)] px-4 text-left
-                transition-colors hover:border-[var(--tm-border-strong)]"
-            >
-              <Search className="h-[17px] w-[17px] shrink-0 text-[var(--tm-ink-muted)]" />
-              <span className="flex-1 truncate text-[13.5px] text-[var(--tm-ink-muted)]">
-                Search tasks, projects, people…
-              </span>
-              <kbd
-                className="hidden shrink-0 rounded-md bg-[var(--tm-bg-sunken)] px-2 py-1
-                  text-[10.5px] font-bold text-[var(--tm-ink-muted)] sm:block"
-              >
-                {isMac() ? '⌘' : 'Ctrl'} K
-              </kbd>
-            </button>
+            <div className="flex items-center gap-1.5 rounded-full bg-[#0F1F17] px-3.5 py-1.5 text-[11.5px] font-extrabold text-emerald-400 border border-emerald-800/40 shadow-xs">
+              <Shield className="h-3.5 w-3.5 text-emerald-400" />
+              <span>Admin Console</span>
+            </div>
           )}
 
           <AnimatePresence>
@@ -183,7 +117,7 @@ export const Topbar: React.FC = () => {
           </AnimatePresence>
         </div>
 
-        {/* Right: status, bell, user */}
+        {/* Right: status, bell (immediately left of profile avatar), user */}
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           {user?.role === 'employee' && (
             <div
@@ -199,23 +133,23 @@ export const Topbar: React.FC = () => {
             </div>
           )}
 
-          {/* Notifications */}
-          <div className="relative" ref={bellRef}>
+          {/* Notifications bell placed immediately left of profile avatar */}
+          <div className="relative flex items-center" ref={bellRef}>
             <button
               onClick={() => setBellOpen((o) => !o)}
               aria-label="Notifications"
-              className="relative grid h-11 w-11 place-items-center rounded-full border
+              className="relative grid h-10 w-10 place-items-center rounded-full border
                 border-[var(--tm-border)] bg-[var(--tm-card)] text-[var(--tm-ink-soft)]
                 transition-colors hover:border-[var(--tm-border-strong)] hover:text-[var(--tm-ink)]"
             >
-              <Bell className="h-[18px] w-[18px]" />
-              {notifications.length > 0 && (
+              <Bell className="h-4 w-4" />
+              {unreadCount > 0 && (
                 <span
-                  className="absolute right-2.5 top-2.5 grid h-[17px] min-w-[17px] place-items-center
-                    rounded-full bg-[var(--tm-danger)] px-1 text-[10px] font-bold text-white
-                    ring-2 ring-[var(--tm-card)]"
+                  className="absolute -top-1 -right-1 grid h-4.5 min-w-[18px] place-items-center
+                    rounded-full bg-red-600 px-1 text-[10px] font-extrabold text-white
+                    ring-2 ring-[var(--tm-card)] shadow-xs"
                 >
-                  {notifications.length}
+                  {unreadCount}
                 </span>
               )}
             </button>
@@ -227,12 +161,27 @@ export const Topbar: React.FC = () => {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -6, scale: 0.98 }}
                   transition={popTransition}
-                  className="absolute right-0 top-[calc(100%+10px)] w-80 overflow-hidden
+                  className="absolute right-0 top-[calc(100%+8px)] w-88 overflow-hidden
                     rounded-[var(--tm-radius-lg)] border border-[var(--tm-border)]
-                    bg-[var(--tm-card)] shadow-soft-lg"
+                    bg-[var(--tm-card)] shadow-soft-lg z-50"
                 >
-                  <div className="border-b border-[var(--tm-border)] px-5 py-3.5">
-                    <h3 className="text-[14px] font-bold text-[var(--tm-ink)]">Notifications</h3>
+                  <div className="flex items-center justify-between border-b border-[var(--tm-border)] px-5 py-3.5">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-[14px] font-extrabold text-[var(--tm-ink)]">Notifications</h3>
+                      {unreadCount > 0 && (
+                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10.5px] font-bold text-red-600">
+                          {unreadCount} new
+                        </span>
+                      )}
+                    </div>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={markAllAsRead}
+                        className="text-[11.5px] font-bold text-[var(--tm-primary)] hover:underline"
+                      >
+                        Mark all as read
+                      </button>
+                    )}
                   </div>
 
                   {notifications.length === 0 ? (
@@ -240,27 +189,39 @@ export const Topbar: React.FC = () => {
                       You are all caught up.
                     </p>
                   ) : (
-                    <ul className="max-h-80 overflow-y-auto p-2">
+                    <ul className="max-h-80 overflow-y-auto p-2 divide-y divide-[var(--tm-border)]">
                       {notifications.map((n) => (
                         <li key={n.id}>
                           <Link
                             to={n.to}
-                            onClick={() => setBellOpen(false)}
-                            className="flex gap-3 rounded-[var(--tm-radius-md)] px-3 py-3
-                              transition-colors hover:bg-[var(--tm-bg-sunken)]"
+                            onClick={() => {
+                              markAsRead(n.id);
+                              setBellOpen(false);
+                            }}
+                            className={`flex gap-3 rounded-[var(--tm-radius-md)] px-3 py-3
+                              transition-colors hover:bg-[var(--tm-bg-sunken)] ${
+                                !n.read ? 'bg-[var(--tm-primary-softer)]/60 border-l-2 border-[var(--tm-primary)]' : ''
+                              }`}
                           >
                             <span
-                              className={`mt-1 h-2 w-2 shrink-0 rounded-full ${
+                              className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
                                 n.tone === 'bad'
                                   ? 'bg-[var(--tm-danger)]'
-                                  : 'bg-[var(--tm-warning)]'
+                                  : n.tone === 'warn'
+                                  ? 'bg-[var(--tm-warning)]'
+                                  : 'bg-[var(--tm-primary)]'
                               }`}
                             />
-                            <span className="min-w-0">
-                              <span className="block text-[13px] font-semibold text-[var(--tm-ink)]">
-                                {n.title}
+                            <span className="min-w-0 flex-1">
+                              <span className="flex items-center justify-between gap-2">
+                                <span className={`text-[13px] font-bold ${!n.read ? 'text-[var(--tm-ink)]' : 'text-[var(--tm-ink-soft)]'}`}>
+                                  {n.title}
+                                </span>
+                                <span className="text-[10.5px] text-[var(--tm-ink-muted)] shrink-0 font-medium">
+                                  {n.timeAgo}
+                                </span>
                               </span>
-                              <span className="block text-[12px] text-[var(--tm-ink-muted)]">
+                              <span className="block text-[12px] text-[var(--tm-ink-muted)] mt-0.5 leading-snug">
                                 {n.body}
                               </span>
                             </span>
@@ -274,7 +235,7 @@ export const Topbar: React.FC = () => {
             </AnimatePresence>
           </div>
 
-          {/* User */}
+          {/* User Profile Avatar */}
           {user && (
             <div className="relative" ref={menuRef}>
               <button
@@ -283,10 +244,10 @@ export const Topbar: React.FC = () => {
                   bg-[var(--tm-card)] py-1.5 pl-1.5 pr-3 transition-colors
                   hover:border-[var(--tm-border-strong)]"
               >
-                <Avatar name={user.name} src={user.avatarUrl} size="md" />
+                <UserAvatar userId={user.id} size="md" />
                 <span className="hidden text-left leading-tight sm:block">
                   <span className="block text-[13px] font-bold text-[var(--tm-ink)]">
-                    {user.name}
+                    {user.nickname || user.name}
                   </span>
                   <span className="block text-[11.5px] text-[var(--tm-ink-muted)]">
                     {user.jobTitle}
@@ -302,12 +263,12 @@ export const Topbar: React.FC = () => {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -6, scale: 0.98 }}
                     transition={popTransition}
-                    className="absolute right-0 top-[calc(100%+10px)] w-64 overflow-hidden
+                    className="absolute right-0 top-[calc(100%+8px)] w-64 overflow-hidden
                       rounded-[var(--tm-radius-lg)] border border-[var(--tm-border)]
                       bg-[var(--tm-card)] shadow-soft-lg"
                   >
                     <div className="flex items-center gap-3 border-b border-[var(--tm-border)] px-5 py-4">
-                      <Avatar name={user.name} src={user.avatarUrl} size="lg" />
+                      <UserAvatar userId={user.id} size="lg" />
                       <div className="min-w-0 leading-tight">
                         <div className="truncate text-[14px] font-bold text-[var(--tm-ink)]">
                           {user.name}

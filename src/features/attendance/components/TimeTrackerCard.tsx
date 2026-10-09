@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Play, Pause, Square, Coffee } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { useAppStore } from '../../../store/useAppStore';
-import { attendanceService } from '../../../services';
+import { useAttendanceStore } from '../../../store/useAttendanceStore';
 import type { AttendanceDay } from '../../../types';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
@@ -12,9 +12,9 @@ import { useMotionPrefs } from '../../../components/ui/useMotionPrefs';
 import { DailyUpdateModal } from '../../gamification/components/DailyUpdateModal';
 import {
   calculateDurationMinutes,
+  calculateDurationSeconds,
   formatTime,
-  getNowISO,
-  getTodayDateString
+  getNowISO
 } from '../../../utils/time';
 import { formatHours } from '../../../utils/format';
 
@@ -73,29 +73,24 @@ export const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({
   const { user } = useAuthStore();
   const { showToast } = useAppStore();
   const { reduced } = useMotionPrefs();
+  const {
+    todayAttendance: storeRecord,
+    punchIn: storePunchIn,
+    punchOut: storePunchOut,
+    endBreak: storeEndBreak,
+    endMyDay: storeEndMyDay,
+    fetchTodayAttendance
+  } = useAttendanceStore();
 
-  const [internalRecord, setInternalRecord] = useState<AttendanceDay | null>(null);
   const [nowISO, setNowISO] = useState(getNowISO());
   const [isEndDayModalOpen, setIsEndDayModalOpen] = useState(false);
   const [isDailyUpdateModalOpen, setIsDailyUpdateModalOpen] = useState(false);
 
-  const fetchTodayRecord = async () => {
-    if (!user) return;
-    try {
-      const records = await attendanceService.getAttendance(user.id, getTodayDateString());
-      setInternalRecord(records[0] || null);
-    } catch {
-      // ignore
-    }
-  };
-
   useEffect(() => {
-    if (externalRecord !== undefined) {
-      setInternalRecord(externalRecord);
-    } else {
-      fetchTodayRecord();
+    if (user?.id) {
+      fetchTodayAttendance(user.id);
     }
-  }, [externalRecord, user]);
+  }, [user, fetchTodayAttendance]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -104,7 +99,7 @@ export const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  const todayRecord = externalRecord !== undefined ? externalRecord : internalRecord;
+  const todayRecord = externalRecord !== undefined ? externalRecord : storeRecord;
 
   const activePunch = todayRecord?.punchSessions.find((s) => !s.punchOut);
   const activeBreak = activePunch?.breaks.find((b) => !b.breakEnd);
@@ -112,7 +107,7 @@ export const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({
   const lastPunchOutSession = todayRecord?.punchSessions.slice().reverse().find((s) => s.punchOut);
   const lastPunchOutTime = lastPunchOutSession?.punchOut;
 
-  // Calculate live break minutes & seconds
+  // Calculate live break minutes
   let liveBreakMinutes = 0;
   if (todayRecord) {
     for (const session of todayRecord.punchSessions) {
@@ -129,14 +124,14 @@ export const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({
   if (todayRecord) {
     for (const session of todayRecord.punchSessions) {
       if (session.punchIn) {
-        const sessSecs = calculateDurationMinutes(session.punchIn, session.punchOut || (activeBreak ? activeBreak.breakStart : nowISO)) * 60;
+        const sessSecs = calculateDurationSeconds(session.punchIn, session.punchOut || (activeBreak ? activeBreak.breakStart : nowISO));
         let breakSecs = 0;
         for (const b of session.breaks) {
           if (b.breakStart) {
-            breakSecs += calculateDurationMinutes(
+            breakSecs += calculateDurationSeconds(
               b.breakStart,
               b.breakEnd || (session.punchOut ? session.punchOut : nowISO)
-            ) * 60;
+            );
           }
         }
         liveWorkedSeconds += Math.max(0, sessSecs - breakSecs);
@@ -159,7 +154,7 @@ export const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({
   // On break timer calculation
   const breakElapsedSecs = useMemo(() => {
     if (!activeBreak?.breakStart) return 0;
-    return Math.floor(calculateDurationMinutes(activeBreak.breakStart, nowISO) * 60);
+    return Math.floor(calculateDurationSeconds(activeBreak.breakStart, nowISO));
   }, [activeBreak, nowISO]);
 
   const breakTimerString = useMemo(() => {
@@ -177,13 +172,12 @@ export const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({
     if (!user) return;
     try {
       if (!activePunch) {
-        await attendanceService.punchIn(user.id);
+        await storePunchIn(user.id);
         showToast('Punched in! Shift active.');
       } else {
-        await attendanceService.punchOut(user.id);
+        await storePunchOut(user.id);
         showToast('Punched out. Shift timer paused.');
       }
-      fetchTodayRecord();
       onRefresh?.();
     } catch (err: any) {
       showToast(err.message || 'Failed to toggle punch');
@@ -193,9 +187,8 @@ export const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({
   const handleEndBreak = async () => {
     if (!user) return;
     try {
-      await attendanceService.endBreak(user.id);
+      await storeEndBreak(user.id);
       showToast('Break ended. Resumed work session.');
-      fetchTodayRecord();
       onRefresh?.();
     } catch (err: any) {
       showToast(err.message || 'Failed to end break');
@@ -205,16 +198,16 @@ export const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({
   const handleConfirmEndDay = async () => {
     if (!user) return;
     try {
-      await attendanceService.endMyDay(user.id);
+      await storeEndMyDay(user.id);
       showToast('Shift officially ended!');
       setIsEndDayModalOpen(false);
       setIsDailyUpdateModalOpen(true);
-      fetchTodayRecord();
       onRefresh?.();
     } catch (err: any) {
       showToast(err.message || 'Failed to end day');
     }
   };
+
 
   return (
     <>

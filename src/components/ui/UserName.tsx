@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import type { User } from '../../types';
-import { userService } from '../../services';
+import { useUserStore } from '../../store/useUserStore';
 import { getTodayDateString } from '../../utils/time';
-import { Avatar } from './Avatar';
+import { UserAvatar } from './UserAvatar';
 import { Badge } from './Badge';
 import { Skeleton } from './Skeleton';
 
@@ -19,8 +19,6 @@ export interface UserNameProps {
   className?: string;
 }
 
-const userCache = new Map<string, User>();
-
 export const UserName: React.FC<UserNameProps> = ({
   user: userProp,
   userId,
@@ -31,28 +29,17 @@ export const UserName: React.FC<UserNameProps> = ({
   stacked = false,
   className = ''
 }) => {
-  const [resolvedUser, setResolvedUser] = useState<User | null>(userProp || null);
+  const targetId = userProp?.id || userId;
+  const storeUser = useUserStore((state) => (targetId ? state.users[targetId] : null));
+  const fetchUsers = useUserStore((state) => state.fetchUsers);
 
   useEffect(() => {
-    if (userProp) {
-      setResolvedUser(userProp);
-      if (userProp.id) userCache.set(userProp.id, userProp);
-      return;
+    if (targetId && !storeUser) {
+      fetchUsers();
     }
+  }, [targetId, storeUser, fetchUsers]);
 
-    if (userId) {
-      if (userCache.has(userId)) {
-        setResolvedUser(userCache.get(userId)!);
-      } else {
-        userService.getUserById(userId).then((u) => {
-          if (u) {
-            userCache.set(userId, u);
-            setResolvedUser(u);
-          }
-        });
-      }
-    }
-  }, [userProp, userId]);
+  const resolvedUser = storeUser || userProp || null;
 
   const avatarSizes = { sm: 'sm', md: 'md', lg: 'lg' } as const;
 
@@ -65,7 +52,7 @@ export const UserName: React.FC<UserNameProps> = ({
     );
   }
 
-  const { name, jobTitle, company, avatarUrl, birthday } = resolvedUser;
+  const { id, name, jobTitle, company, birthday } = resolvedUser;
   const todayMMDD = getTodayDateString().slice(5);
   const isBirthday = !!birthday && birthday.endsWith(todayMMDD);
 
@@ -73,7 +60,7 @@ export const UserName: React.FC<UserNameProps> = ({
 
   return (
     <div className={`inline-flex items-center gap-2.5 ${className}`}>
-      {showAvatar && <Avatar name={name} src={avatarUrl} size={avatarSizes[size]} />}
+      {showAvatar && <UserAvatar userId={id} user={resolvedUser} size={avatarSizes[size]} />}
 
       <div className={stacked ? 'min-w-0 leading-tight' : 'inline-flex flex-wrap items-center gap-1.5'}>
         <span className={`font-bold text-[var(--tm-ink)] ${nameSizes[size]}`}>{name}</span>

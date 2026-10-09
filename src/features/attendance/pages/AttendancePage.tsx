@@ -12,7 +12,8 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { useAppStore } from '../../../store/useAppStore';
-import { attendanceService, taskService, projectService } from '../../../services';
+import { useAttendanceStore } from '../../../store/useAttendanceStore';
+import { attendanceService, projectService } from '../../../services';
 import type { AttendanceDay, Task, Project, TaskSession } from '../../../types';
 import {
   Card,
@@ -32,7 +33,7 @@ import { EmptyState } from '../../../components/ui/EmptyState';
 import { HatchedBarChart, type HatchedBarDatum } from '../../../components/ui/HatchedBarChart';
 import { StaggerItem } from '../../../components/ui/Stagger';
 import {
-  calculateDurationMinutes,
+  calculateDurationSeconds,
   formatDate,
   formatTime,
   getNowISO,
@@ -42,17 +43,27 @@ import { formatHours } from '../../../utils/format';
 import { TaskSubmitModal } from '../../tasks/components/TaskSubmitModal';
 import { DailyUpdateModal } from '../../gamification/components/DailyUpdateModal';
 import { TimeTrackerCard } from '../components/TimeTrackerCard';
-import { parseISO, format, subDays, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
+import { parseISO, format, subDays } from 'date-fns';
+
+import { useTaskStore, getTasksDoneThisWeekCount } from '../../../store/useTaskStore';
+import { calculateBreakMinutes } from '../../../store/useAttendanceStore';
 
 export const AttendancePage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { showToast } = useAppStore();
+  const {
+    todayAttendance: storeRecord,
+    punchIn: storePunchIn,
+    punchOut: storePunchOut,
+    endMyDay: storeEndMyDay,
+    fetchTodayAttendance
+  } = useAttendanceStore();
 
-  const [todayRecord, setTodayRecord] = useState<AttendanceDay | null>(null);
+  const storeTasks = useTaskStore((state) => state.tasks);
+  const fetchStoreTasks = useTaskStore((state) => state.fetchTasks);
+
   const [history, setHistory] = useState<AttendanceDay[]>([]);
-  const [runningTask, setRunningTask] = useState<Task | null>(null);
-  const [myTasks, setMyTasks] = useState<Task[]>([]);
   const [myProjects, setMyProjects] = useState<Project[]>([]);
   const [taskToSubmit, setTaskToSubmit] = useState<Task | null>(null);
   const [isEndDayModalOpen, setIsEndDayModalOpen] = useState(false);
@@ -63,26 +74,16 @@ export const AttendancePage: React.FC = () => {
   const fetchAttendance = async () => {
     if (!user) return;
     try {
-      const [records, allTasks, allProjects] = await Promise.all([
+      const [records, , allProjects] = await Promise.all([
         attendanceService.getAttendance(user.id),
-        taskService.getTasks(),
+        fetchStoreTasks(),
         projectService.getProjects()
       ]);
       setHistory(records);
-      const todayStr = getTodayDateString();
-      const today = records.find((r: AttendanceDay) => r.date === todayStr);
-      setTodayRecord(today || null);
-
-      const userTsks = allTasks.filter((t: Task) => t.assignedUserId === user.id);
-      setMyTasks(userTsks);
+      fetchTodayAttendance(user.id);
 
       const userPrjs = allProjects.filter((p: Project) => p.memberIds.includes(user.id));
       setMyProjects(userPrjs);
-
-      const running = allTasks.find((t: Task) =>
-        t.sessions.some((s: TaskSession) => !s.endTime && s.userId === user.id)
-      );
-      setRunningTask(running || null);
     } catch (err: any) {
       showToast(err.message || 'Error loading dashboard data');
     }
@@ -97,12 +98,23 @@ export const AttendancePage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  const myTasks = useMemo(() => {
+    if (!user) return [];
+    return storeTasks.filter((t) => t.assignedUserId === user.id);
+  }, [storeTasks, user]);
+
+  const runningTask = useMemo(() => {
+    if (!user) return null;
+    return storeTasks.find((t) =>
+      t.sessions.some((s: TaskSession) => !s.endTime && s.userId === user.id)
+    ) || null;
+  }, [storeTasks, user]);
+
   const handlePauseRunningTask = async () => {
     if (!user || !runningTask) return;
     try {
-      await taskService.stopTaskSession(runningTask.id, user.id);
+      await useTaskStore.getState().stopTaskSession(runningTask.id, user.id);
       showToast('Running task paused.');
-      fetchAttendance();
     } catch (err: any) {
       showToast(err.message || 'Failed to pause task');
     }
@@ -111,69 +123,52 @@ export const AttendancePage: React.FC = () => {
   const handleStartTaskTimer = async (taskId: string) => {
     if (!user) return;
     try {
-      const res = await taskService.startTaskSession(taskId, user.id);
+      const res = await useTaskStore.getState().startTaskSession(taskId, user.id);
       if (res.needConfirm) {
         showToast(`Timer already running on ${res.runningTaskName}. Pause it first.`);
       } else {
         showToast('Started task timer!');
-        fetchAttendance();
       }
     } catch (err: any) {
       showToast(err.message || 'Failed to start timer');
     }
   };
 
+  const todayRecord = storeRecord;
   const activePunch = todayRecord?.punchSessions.find((s) => !s.punchOut);
   const firstPunchInTime = todayRecord?.punchSessions[0]?.punchIn;
   const lastPunchOutSession = todayRecord?.punchSessions.slice().reverse().find((s) => s.punchOut);
   const lastPunchOutTime = lastPunchOutSession?.punchOut;
 
-  let liveBreakMinutes = 0;
-  if (todayRecord) {
-    for (const session of todayRecord.punchSessions) {
-      for (const b of session.breaks) {
-        if (b.breakStart) {
-          liveBreakMinutes += calculateDurationMinutes(b.breakStart, b.breakEnd || nowISO);
-        }
-      }
-    }
-  }
+  const liveBreakMinutes = useMemo(() => calculateBreakMinutes(todayRecord, nowISO), [todayRecord, nowISO]);
 
-  let liveWorkedMinutes = 0;
+  let liveWorkedSeconds = 0;
   if (todayRecord) {
     for (const session of todayRecord.punchSessions) {
       if (session.punchIn) {
-        const sessMins = calculateDurationMinutes(session.punchIn, session.punchOut || nowISO);
-        let breakMins = 0;
+        const sessSecs = calculateDurationSeconds(session.punchIn, session.punchOut || nowISO);
+        let breakSecs = 0;
         for (const b of session.breaks) {
           if (b.breakStart) {
-            breakMins += calculateDurationMinutes(
+            breakSecs += calculateDurationSeconds(
               b.breakStart,
               b.breakEnd || (session.punchOut ? session.punchOut : nowISO)
             );
           }
         }
-        liveWorkedMinutes += Math.max(0, sessMins - breakMins);
+        liveWorkedSeconds += Math.max(0, sessSecs - breakSecs);
       }
     }
   }
 
-  const liveWorkedHours = liveWorkedMinutes / 60;
+  const liveWorkedHours = liveWorkedSeconds / 3600;
   const shiftProgress = Math.min(100, (liveWorkedHours / 8) * 100);
 
-  // Tasks done this week
+  // Tasks done this week (Calculated live from Zustand store tasks)
   const tasksDoneThisWeek = useMemo(() => {
-    const now = new Date();
-    const start = startOfWeek(now, { weekStartsOn: 1 });
-    const end = endOfWeek(now, { weekStartsOn: 1 });
-    return myTasks.filter((t) => {
-      if (t.status !== 'completed') return false;
-      const completedSession = t.sessions[t.sessions.length - 1];
-      if (!completedSession?.endTime) return true;
-      const dateObj = parseISO(completedSession.endTime);
-      return isWithinInterval(dateObj, { start, end });
-    }).length;
-  }, [myTasks]);
+    if (!user) return 0;
+    return getTasksDoneThisWeekCount(storeTasks, user.id);
+  }, [storeTasks, user]);
 
   // Weekly hours HatchedBarChart
   const weekBars: HatchedBarDatum[] = useMemo(() => {
@@ -211,7 +206,7 @@ export const AttendancePage: React.FC = () => {
   const handlePunchIn = async () => {
     if (!user) return;
     try {
-      await attendanceService.punchIn(user.id);
+      await storePunchIn(user.id);
       showToast('Punched in! Shift active.');
       fetchAttendance();
     } catch (err: any) {
@@ -222,7 +217,7 @@ export const AttendancePage: React.FC = () => {
   const handlePunchOut = async () => {
     if (!user) return;
     try {
-      await attendanceService.punchOut(user.id);
+      await storePunchOut(user.id);
       showToast('Punched out. Shift timer paused.');
       fetchAttendance();
     } catch (err: any) {
@@ -233,7 +228,7 @@ export const AttendancePage: React.FC = () => {
   const handleConfirmEndDay = async () => {
     if (!user) return;
     try {
-      await attendanceService.endMyDay(user.id);
+      await storeEndMyDay(user.id);
       showToast('Shift officially ended! Great job today.');
       setIsEndDayModalOpen(false);
       setIsDailyUpdateModalOpen(true);
@@ -245,13 +240,14 @@ export const AttendancePage: React.FC = () => {
 
   const currentHour = new Date().getHours();
   const greeting = currentHour < 12 ? 'Good morning' : currentHour < 17 ? 'Good afternoon' : 'Good evening';
+  const displayName = user?.nickname || user?.name || 'Employee';
   const formattedTodayDate = formatDate(getTodayDateString(), 'EEEE, MMMM d, yyyy');
 
   return (
     <>
       {/* Greeting Header */}
       <PageHeader
-        title={`${greeting}, ${user?.name || 'Employee'}`}
+        title={`${greeting}, ${displayName}`}
         description={formattedTodayDate}
         actions={
           <div className="flex items-center gap-2">
@@ -261,6 +257,7 @@ export const AttendancePage: React.FC = () => {
           </div>
         }
       />
+
 
       {/* Row of StatCards */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">

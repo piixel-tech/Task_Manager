@@ -1,12 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { format, parseISO, subDays } from 'date-fns';
 import {
   Activity,
   ArrowRight,
   Clock,
   Coffee,
-  FileCheck,
   Play,
   Plus,
   Sparkles,
@@ -25,20 +23,19 @@ import { Button } from '../../../components/ui/Button';
 import { StatCard } from '../../../components/ui/StatCard';
 import { HeroCard, HeroStat } from '../../../components/ui/HeroCard';
 import { ProgressRing } from '../../../components/ui/ProgressRing';
-import { HatchedBarChart } from '../../../components/ui/HatchedBarChart';
-import type { HatchedBarDatum } from '../../../components/ui/HatchedBarChart';
 import { StatusChip } from '../../../components/ui/StatusChip';
 import { AvatarStack } from '../../../components/ui/AvatarStack';
 import { UserName } from '../../../components/ui/UserName';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { StaggerItem } from '../../../components/ui/Stagger';
 import { SkeletonCard, SkeletonRows } from '../../../components/ui/Skeleton';
+import { useAuthStore } from '../../../store/authStore';
 import { useAppStore } from '../../../store/useAppStore';
 import { getTodayDateString, formatTime } from '../../../utils/time';
-import { TimeTrackerCard } from '../../attendance/components/TimeTrackerCard';
 
 export const AdminDashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const { companyFilter } = useAppStore();
 
   const [users, setUsers] = useState<User[]>([]);
@@ -63,6 +60,10 @@ export const AdminDashboardPage: React.FC = () => {
       .finally(() => setLoading(false));
   }, []);
 
+  const displayName = user?.nickname || user?.name || 'Admin';
+  const currentHour = new Date().getHours();
+  const greeting = currentHour < 12 ? 'Good morning' : currentHour < 17 ? 'Good afternoon' : 'Good evening';
+
   const filteredUsers = useMemo(
     () => users.filter((u) => companyFilter === 'all' || u.company === companyFilter),
     [users, companyFilter]
@@ -84,7 +85,6 @@ export const AdminDashboardPage: React.FC = () => {
   const runningTasks = tasks.filter((t) =>
     t.sessions.some((s) => !s.endTime)
   );
-  const pendingReviews = tasks.filter((t) => t.status === 'review');
 
   const completedTasks = tasks.filter((t) => t.status === 'completed');
   const throughput = tasks.length > 0 ? (completedTasks.length / tasks.length) * 100 : 0;
@@ -99,25 +99,6 @@ export const AdminDashboardPage: React.FC = () => {
     { name: 'Completed', value: completedProjects.length || 1 },
     { name: 'Remaining', value: Math.max(0, filteredProjects.length - completedProjects.length) || 1 }
   ];
-
-  // Hours logged per day over last 7 days
-  const weekBars: HatchedBarDatum[] = useMemo(() => {
-    const todayDate = parseISO(`${today}T00:00:00`);
-    return Array.from({ length: 7 }).map((_, i) => {
-      const day = subDays(todayDate, 6 - i);
-      const key = format(day, 'yyyy-MM-dd');
-      const hours = attendance
-        .filter((a) => a.date === key)
-        .reduce((sum, a) => sum + (a.totalHours || 0), 0);
-
-      return {
-        label: format(day, 'EEE'),
-        value: Math.round(hours * 10) / 10,
-        hatched: hours === 0,
-        note: hours === 0 ? 'No hours logged' : `${format(day, 'MMM d')}`
-      };
-    });
-  }, [attendance, today]);
 
   // Team activity list with status chips
   const teamActivities = useMemo(() => {
@@ -179,14 +160,10 @@ export const AdminDashboardPage: React.FC = () => {
     return list.slice(0, 6);
   }, [todayRecords, tasks, users]);
 
-  const teamForStack = filteredUsers
-    .filter((u) => u.active)
-    .map((u) => ({ id: u.id, name: u.name, avatarUrl: u.avatarUrl }));
-
   return (
     <>
       <PageHeader
-        title="Admin Console &amp; Overview"
+        title={`${greeting}, ${displayName}`}
         description="Real-time workspace stats, project gauges, live board preview, and team activities."
         actions={
           <>
@@ -248,13 +225,10 @@ export const AdminDashboardPage: React.FC = () => {
           <HeroStat label="Present today" value={presentToday.length} />
           <HeroStat label="On leave" value={onLeaveToday.length} />
           <HeroStat label="Tasks running" value={runningTasks.length} />
-          <HeroStat label="Pending reviews" value={pendingReviews.length} />
         </div>
       </HeroCard>
 
-      {/* Shared TimeTrackerCard Component */}
-      <TimeTrackerCard />
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 xl:grid-cols-3">
         <StatCard
           label="Present today"
           value={presentToday.length}
@@ -277,14 +251,6 @@ export const AdminDashboardPage: React.FC = () => {
           icon={<Play className="h-5 w-5" />}
           tone="primary"
           hint="Timers active right now"
-        />
-
-        <StatCard
-          label="Pending reviews"
-          value={pendingReviews.length}
-          icon={<FileCheck className="h-5 w-5" />}
-          tone="bad"
-          hint="Deliverables awaiting admin sign-off"
         />
       </div>
 
@@ -398,69 +364,41 @@ export const AdminDashboardPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* Chart + Team Activities */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        {/* Weekly Hours Logged */}
-        <Card className="xl:col-span-2">
-          <CardHeader>
-            <div>
-              <CardTitle>Hours Logged This Week</CardTitle>
-              <p className="mt-1 text-[13px] text-[var(--tm-ink-muted)]">
-                Daily total attendance hours across the workspace.
-              </p>
-            </div>
-            <AvatarStack people={teamForStack} max={5} size="sm" />
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="skeleton h-[220px] rounded-[var(--tm-radius-lg)]" />
-            ) : (
-              <HatchedBarChart
-                data={weekBars}
-                unit="h"
-                solidLabel="Hours logged"
-                hatchedLabel="Nothing logged"
-              />
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Team Activity List with Status Chips */}
-        <Card>
-          <CardHeader className="flex items-center justify-between">
-            <CardTitle>Team Activity Feed</CardTitle>
-            <StatusChip tone="ok" size="sm" dot>
-              Live
-            </StatusChip>
-          </CardHeader>
-          <CardContent className="px-3">
-            {loading ? (
-              <SkeletonRows count={4} />
-            ) : teamActivities.length === 0 ? (
-              <p className="py-6 text-center text-xs text-[var(--tm-ink-muted)]">
-                No activity recorded yet today.
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {teamActivities.map((act) => (
-                  <li
-                    key={act.id}
-                    className="flex items-center justify-between gap-3 rounded-[var(--tm-radius-md)] px-3 py-2.5 bg-[var(--tm-card-muted)] transition-colors hover:bg-[var(--tm-bg-sunken)]"
-                  >
-                    <div className="min-w-0">
-                      <UserName user={act.user} size="sm" showBadge={false} />
-                      <p className="mt-0.5 truncate text-[11.5px] text-[var(--tm-ink-muted)]">
-                        {act.action}
-                      </p>
-                    </div>
-                    <StatusChip status={act.status} size="sm" />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      {/* Team Activities */}
+      <Card>
+        <CardHeader className="flex items-center justify-between">
+          <CardTitle>Team Activity Feed</CardTitle>
+          <StatusChip tone="ok" size="sm" dot>
+            Live
+          </StatusChip>
+        </CardHeader>
+        <CardContent className="px-3">
+          {loading ? (
+            <SkeletonRows count={4} />
+          ) : teamActivities.length === 0 ? (
+            <p className="py-6 text-center text-xs text-[var(--tm-ink-muted)]">
+              No activity recorded yet today.
+            </p>
+          ) : (
+            <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+              {teamActivities.map((act) => (
+                <li
+                  key={act.id}
+                  className="flex items-center justify-between gap-3 rounded-[var(--tm-radius-md)] px-3 py-2.5 bg-[var(--tm-card-muted)] transition-colors hover:bg-[var(--tm-bg-sunken)]"
+                >
+                  <div className="min-w-0">
+                    <UserName user={act.user} size="sm" showBadge={false} />
+                    <p className="mt-0.5 truncate text-[11.5px] text-[var(--tm-ink-muted)]">
+                      {act.action}
+                    </p>
+                  </div>
+                  <StatusChip status={act.status} size="sm" />
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Initiatives / Projects */}
       <StaggerItem>

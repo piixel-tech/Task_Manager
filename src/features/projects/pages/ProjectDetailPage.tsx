@@ -1,20 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, CheckSquare, Clock, Users, FileText, ExternalLink, Paperclip, Share2, UserX, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Plus, CheckSquare, Clock, Users, Share2, UserX, ShieldCheck, X, AlertTriangle } from 'lucide-react';
 import { projectService, taskService, userService, chatService } from '../../../services';
-import type { Project, Task, User, Submission, ChatRoom } from '../../../types';
+import type { Project, Task, User, ChatRoom } from '../../../types';
 import { useAuthStore } from '../../../store/authStore';
 import { useAppStore } from '../../../store/useAppStore';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
 import { UserName } from '../../../components/ui/UserName';
+import { UserAvatar } from '../../../components/ui/UserAvatar';
 import { Modal } from '../../../components/ui/Modal';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
 import { formatDate, getTodayDateString } from '../../../utils/time';
 import { formatHours } from '../../../utils/format';
-import { WeeklyReportModal } from '../components/WeeklyReportModal';
 
 export const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -27,18 +27,22 @@ export const ProjectDetailPage: React.FC = () => {
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'todo' | 'in_progress' | 'review' | 'completed'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'in_progress' | 'todo' | 'completed'>('all');
   
   const [clientRooms, setClientRooms] = useState<ChatRoom[]>([]);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [title, setTitle] = useState('');
-  const [subHeading, setSubHeading] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [startDate, setStartDate] = useState(getTodayDateString());
   const [dueDate, setDueDate] = useState('');
   const [assignedUserId, setAssignedUserId] = useState(user?.id || '');
+
+  // Member management state
+  const [isAddMembersModalOpen, setIsAddMembersModalOpen] = useState(false);
+  const [selectedNewMemberIds, setSelectedNewMemberIds] = useState<string[]>([]);
+  const [memberToRemove, setMemberToRemove] = useState<User | null>(null);
+  const [runningTaskForRemove, setRunningTaskForRemove] = useState<Task | null>(null);
 
   // Add Client Modal states
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
@@ -69,6 +73,62 @@ export const ProjectDetailPage: React.FC = () => {
       setAssignedUserId(user.id);
     }
   }, [user]);
+
+  const handleRequestRemoveMember = (member: User) => {
+    if (!project) return;
+    const runningTask = tasks.find(
+      (t) =>
+        t.assignedUserId === member.id &&
+        (t.status === 'in_progress' || t.sessions.some((s) => !s.endTime))
+    );
+    if (runningTask) {
+      setMemberToRemove(member);
+      setRunningTaskForRemove(runningTask);
+    } else {
+      executeRemoveMember(member.id, member.name);
+    }
+  };
+
+  const executeRemoveMember = async (memberId: string, memberName: string) => {
+    if (!project) return;
+    try {
+      const updatedMemberIds = (project.memberIds || []).filter((id) => id !== memberId);
+      const updatedAssigned = (project.assignedUserIds || []).filter((id) => id !== memberId);
+      await projectService.updateProject(project.id, {
+        memberIds: updatedMemberIds,
+        assignedUserIds: updatedAssigned
+      });
+      showToast(`Removed ${memberName} from project members.`);
+      setMemberToRemove(null);
+      setRunningTaskForRemove(null);
+      fetchProjectData();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to remove member');
+    }
+  };
+
+  const handleAddMembersSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!project || selectedNewMemberIds.length === 0) return;
+    try {
+      const updatedMemberIds = Array.from(
+        new Set([...(project.memberIds || []), ...selectedNewMemberIds])
+      );
+      const updatedAssigned = Array.from(
+        new Set([...(project.assignedUserIds || []), ...selectedNewMemberIds])
+      );
+      await projectService.updateProject(project.id, {
+        memberIds: updatedMemberIds,
+        assignedUserIds: updatedAssigned
+      });
+      showToast('Project members updated!');
+      setIsAddMembersModalOpen(false);
+      setSelectedNewMemberIds([]);
+      fetchProjectData();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to add members');
+    }
+  };
 
   const handleAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,7 +164,6 @@ export const ProjectDetailPage: React.FC = () => {
       await taskService.createTask({
         projectId: id,
         title,
-        subHeading,
         description,
         status: 'todo',
         priority,
@@ -117,7 +176,6 @@ export const ProjectDetailPage: React.FC = () => {
       showToast('New task added to project!');
       setIsTaskModalOpen(false);
       setTitle('');
-      setSubHeading('');
       setDescription('');
       setStartDate(getTodayDateString());
       setDueDate('');
@@ -136,34 +194,23 @@ export const ProjectDetailPage: React.FC = () => {
   }
 
   // Members list & active running task check per member
-  const projectMembers = allUsers.filter(u => project.memberIds.includes(u.id));
-  
-  // Member is active running if they have an active session in ANY task within this project
+  const projectMembers = allUsers.filter(u => project.memberIds?.includes(u.id) || project.assignedUserIds?.includes(u.id));
+  const availableActiveUsers = allUsers.filter(u => u.active && !project.memberIds?.includes(u.id) && !project.assignedUserIds?.includes(u.id));
+
   const isMemberRunningTask = (memberId: string) => {
     return tasks.some(t => t.sessions.some(s => !s.endTime && s.userId === memberId));
   };
 
-  // Filter tasks by status
-  const filteredTasks = tasks.filter(t => statusFilter === 'all' ? true : t.status === statusFilter);
-
-  // Hours per person breakdown
-  const hoursPerPersonMap: Record<string, number> = {};
-  tasks.forEach(t => {
-    t.sessions.forEach(s => {
-      const hours = (s.durationMinutes || 0) / 60;
-      hoursPerPersonMap[s.userId] = (hoursPerPersonMap[s.userId] || 0) + hours;
-    });
+  // Filter tasks by status (In progress, Upcoming, Done)
+  const filteredTasks = tasks.filter(t => {
+    if (statusFilter === 'all') return true;
+    if (statusFilter === 'in_progress') return t.status === 'in_progress';
+    if (statusFilter === 'todo') return t.status === 'todo' || t.status === 'review';
+    if (statusFilter === 'completed') return t.status === 'completed';
+    return true;
   });
 
   const totalLoggedHours = tasks.reduce((acc, t) => acc + (t.loggedHours || 0), 0);
-
-  // All submissions across tasks in this project
-  const projectSubmissions: { submission: Submission; taskTitle: string }[] = [];
-  tasks.forEach(t => {
-    t.submissions.forEach(sub => {
-      projectSubmissions.push({ submission: sub, taskTitle: t.title });
-    });
-  });
 
   return (
     <div className="space-y-6">
@@ -199,14 +246,6 @@ export const ProjectDetailPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsReportModalOpen(true)}
-            leftIcon={<FileText className="w-4 h-4 text-[var(--tm-primary)]" />}
-          >
-            Generate Report
-          </Button>
           {isAdmin && (
             <Button
               variant="outline"
@@ -217,14 +256,6 @@ export const ProjectDetailPage: React.FC = () => {
               Add Client
             </Button>
           )}
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setIsTaskModalOpen(true)}
-            leftIcon={<Plus className="w-4 h-4" />}
-          >
-            New Task
-          </Button>
         </div>
       </div>
 
@@ -273,32 +304,54 @@ export const ProjectDetailPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* Project Members with Active Running Dot */}
+      {/* Project Members Section */}
       <Card>
-        <CardHeader className="pb-3">
+        <CardHeader className="flex flex-row items-center justify-between gap-4 pb-3">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <Users className="w-4 h-4 text-[var(--tm-primary)]" /> Project Members
           </CardTitle>
+          {isAdmin && (
+            <Button
+              size="sm"
+              variant="outline"
+              leftIcon={<Plus className="w-4 h-4" />}
+              onClick={() => {
+                setSelectedNewMemberIds([]);
+                setIsAddMembersModalOpen(true);
+              }}
+            >
+              Add Members
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-3">
             {projectMembers.map(member => {
               const hasRunning = isMemberRunningTask(member.id);
               return (
                 <div
                   key={member.id}
-                  className="flex items-center gap-2.5 bg-[var(--tm-card-muted)] border border-[var(--tm-border)] px-3 py-2 rounded-xl"
+                  className="flex items-center justify-between gap-2.5 bg-[var(--tm-card-muted)] border border-[var(--tm-border)] px-3 py-2 rounded-xl"
                 >
                   <div className="relative flex items-center gap-2">
-                    <UserName userId={member.id} size="sm" showBadge={false} />
+                    <UserAvatar userId={member.id} size="sm" />
+                    <div>
+                      <div className="text-xs font-bold text-[var(--tm-ink)]">{member.name}</div>
+                      <div className="text-[10px] text-[var(--tm-ink-muted)]">{member.jobTitle}</div>
+                    </div>
                     {hasRunning && (
                       <span className="w-2.5 h-2.5 bg-[var(--tm-success)] rounded-full animate-pulse" title="Currently running a task in this project" />
                     )}
                   </div>
-                  {hasRunning && (
-                    <span className="text-[10px] font-semibold text-[var(--tm-success)] bg-[var(--tm-success-bg)] px-1.5 py-0.5 rounded">
-                      Active Task
-                    </span>
+                  {isAdmin && (
+                    <button
+                      onClick={() => handleRequestRemoveMember(member)}
+                      title={`Remove ${member.name} from project`}
+                      aria-label={`Remove ${member.name}`}
+                      className="grid h-6 w-6 place-items-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors ml-1"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
                   )}
                 </div>
               );
@@ -307,45 +360,27 @@ export const ProjectDetailPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Hours Per Person */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <Clock className="w-4 h-4 text-[var(--tm-success)]" /> Hours Per Person
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {Object.keys(hoursPerPersonMap).length === 0 ? (
-            <p className="text-xs text-[var(--tm-ink-muted)] italic">No time logged on this project yet.</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {Object.entries(hoursPerPersonMap).map(([uId, hrs]) => (
-                <div key={uId} className="flex items-center justify-between p-3 bg-[var(--tm-card-muted)] rounded-xl border border-[var(--tm-border)]">
-                  <UserName userId={uId} size="sm" />
-                  <span className="text-xs font-bold text-[var(--tm-ink)]">{formatHours(hrs)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Tasks by Status Tabs & List */}
+      {/* Project Tasks (In progress, Upcoming, Done like My Tasks) */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4 pb-3">
           <CardTitle className="text-sm font-semibold">Project Tasks</CardTitle>
           <div className="flex items-center gap-1 bg-[var(--tm-bg-sunken)] p-1 rounded-lg">
-            {(['all', 'todo', 'in_progress', 'review', 'completed'] as const).map(st => (
+            {[
+              { id: 'all', label: 'All' },
+              { id: 'in_progress', label: 'In progress' },
+              { id: 'todo', label: 'Upcoming' },
+              { id: 'completed', label: 'Done' }
+            ].map(st => (
               <button
-                key={st}
-                onClick={() => setStatusFilter(st)}
+                key={st.id}
+                onClick={() => setStatusFilter(st.id as any)}
                 className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                  statusFilter === st
-                    ? 'bg-white text-[var(--tm-primary)] shadow-xs'
+                  statusFilter === st.id
+                    ? 'bg-white text-[var(--tm-primary)] shadow-xs font-bold'
                     : 'text-[var(--tm-ink-soft)] hover:text-[var(--tm-ink)]'
                 }`}
               >
-                {st === 'all' ? 'All' : st.replace('_', ' ').toUpperCase()}
+                {st.label}
               </button>
             ))}
           </div>
@@ -353,7 +388,7 @@ export const ProjectDetailPage: React.FC = () => {
         <CardContent className="p-0 divide-y divide-[var(--tm-border)]">
           {filteredTasks.length === 0 ? (
             <div className="p-8 text-center text-[var(--tm-ink-muted)] text-xs">
-              No tasks found for this status.
+              No tasks found for this filter.
             </div>
           ) : (
             filteredTasks.map(task => (
@@ -377,11 +412,8 @@ export const ProjectDetailPage: React.FC = () => {
                       {task.priority.toUpperCase()}
                     </Badge>
                     <Badge variant="primary" size="sm">
-                      {task.status.replace('_', ' ').toUpperCase()}
+                      {task.status === 'in_progress' ? 'IN PROGRESS' : task.status === 'completed' ? 'DONE' : 'UPCOMING'}
                     </Badge>
-                    {task.subHeading && (
-                      <span className="text-xs text-[var(--tm-ink-muted)] font-medium">({task.subHeading})</span>
-                    )}
                   </div>
                   <h4 className="text-sm font-semibold text-[var(--tm-ink)] hover:text-[var(--tm-primary)]">
                     {task.title}
@@ -390,11 +422,6 @@ export const ProjectDetailPage: React.FC = () => {
 
                 <div className="flex items-center gap-4">
                   <UserName userId={task.assignedUserId} size="sm" showBadge={false} />
-                  {(task.revisions || 0) > 0 && (
-                    <Badge variant="danger" size="sm">
-                      {task.revisions} {task.revisions === 1 ? 'Rev' : 'Revs'}
-                    </Badge>
-                  )}
                   <div className="text-xs text-[var(--tm-ink-muted)] font-medium bg-[var(--tm-bg-sunken)] px-2 py-1 rounded-md">
                     {formatHours(task.loggedHours || 0)}
                   </div>
@@ -405,65 +432,11 @@ export const ProjectDetailPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Submissions Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <FileText className="w-4 h-4 text-[var(--tm-primary)]" /> Deliverable Submissions
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 divide-y divide-[var(--tm-border)]">
-          {projectSubmissions.length === 0 ? (
-            <div className="p-6 text-center text-xs text-[var(--tm-ink-muted)]">
-              No work submissions recorded for this project yet.
-            </div>
-          ) : (
-            projectSubmissions.map(({ submission, taskTitle }) => (
-              <div key={submission.id} className="p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <UserName userId={submission.userId} size="sm" />
-                    <span className="text-xs text-[var(--tm-ink-muted)]">on</span>
-                    <span className="text-xs font-semibold text-[var(--tm-ink-soft)]">{taskTitle}</span>
-                  </div>
-                  <Badge variant={submission.status === 'approved' ? 'success' : submission.status === 'needs_changes' ? 'danger' : 'warning'}>
-                    {submission.status.replace('_', ' ').toUpperCase()}
-                  </Badge>
-                </div>
-                {submission.notes && (
-                  <p className="text-xs text-[var(--tm-ink-soft)] bg-[var(--tm-card-muted)] p-2 rounded-lg border border-[var(--tm-border)]">
-                    "{submission.notes}"
-                  </p>
-                )}
-                {/* Files attached */}
-                {((submission.files?.length || 0) > 0 || (submission.fileUrls?.length || 0) > 0) && (
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {(submission.files || []).map((file, i) => (
-                      <div key={i} className="flex items-center gap-1.5 text-xs text-[var(--tm-primary)] bg-[var(--tm-primary-softer)] px-2 py-1 rounded-md">
-                        <Paperclip className="w-3.5 h-3.5" />
-                        <span>{file.name}</span>
-                        <span className="text-[10px] text-[var(--tm-primary-light)]">({(file.size / 1024).toFixed(1)} KB)</span>
-                      </div>
-                    ))}
-                    {(submission.fileUrls || []).map((url, i) => (
-                      <a key={i} href={url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-[var(--tm-primary)] bg-[var(--tm-primary-softer)] px-2 py-1 rounded-md hover:underline">
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        <span>{url}</span>
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
-
       {/* Client Portal Rooms & Invites Section */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-[var(--tm-success)]" /> Client Portal Access & WhatsApp Invites
+            <ShieldCheck className="w-4 h-4 text-[var(--tm-success)]" /> Client Portal Access &amp; WhatsApp Invites
           </CardTitle>
           {isAdmin && (
             <Button
@@ -573,7 +546,7 @@ export const ProjectDetailPage: React.FC = () => {
               Cancel
             </Button>
             <Button variant="primary" type="submit" className="bg-[var(--tm-success)] hover:bg-[var(--tm-success)]">
-              Create Client Room & Link
+              Create Client Room &amp; Link
             </Button>
           </div>
         </form>
@@ -593,13 +566,6 @@ export const ProjectDetailPage: React.FC = () => {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             required
-          />
-
-          <Input
-            label="Sub-Heading"
-            placeholder="e.g. Header layout & responsiveness"
-            value={subHeading}
-            onChange={(e) => setSubHeading(e.target.value)}
           />
 
           <div className="space-y-1">
@@ -635,7 +601,7 @@ export const ProjectDetailPage: React.FC = () => {
             />
 
             <Input
-              label="Due Date (Optional)"
+              label="Due Date"
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
@@ -663,17 +629,121 @@ export const ProjectDetailPage: React.FC = () => {
         </form>
       </Modal>
 
-      {/* Weekly Report Modal */}
-      {project && (
-        <WeeklyReportModal
-          isOpen={isReportModalOpen}
-          onClose={() => setIsReportModalOpen(false)}
-          projectId={project.id}
-          projectName={project.name}
-          clientRoom={clientRooms.length > 0 ? clientRooms[0] : null}
-        />
-      )}
+      {/* Add Members Modal */}
+      <Modal
+        isOpen={isAddMembersModalOpen}
+        onClose={() => setIsAddMembersModalOpen(false)}
+        title="Add Project Members"
+        description="Select active employees to add to this project."
+      >
+        <form onSubmit={handleAddMembersSubmit} className="space-y-4">
+          <div className="max-h-64 overflow-y-auto space-y-2 p-2 bg-[var(--tm-card-muted)] rounded-xl border border-[var(--tm-border)]">
+            {availableActiveUsers.length === 0 ? (
+              <p className="p-4 text-center text-xs text-[var(--tm-ink-muted)]">
+                All active employees are already members of this project.
+              </p>
+            ) : (
+              availableActiveUsers.map((u) => {
+                const isSelected = selectedNewMemberIds.includes(u.id);
+                return (
+                  <label
+                    key={u.id}
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedNewMemberIds(selectedNewMemberIds.filter((id) => id !== u.id));
+                      } else {
+                        setSelectedNewMemberIds([...selectedNewMemberIds, u.id]);
+                      }
+                    }}
+                    className={`flex items-center justify-between p-2.5 rounded-lg cursor-pointer transition-colors ${
+                      isSelected
+                        ? 'bg-[var(--tm-primary-softer)] border border-[var(--tm-primary-soft)]'
+                        : 'hover:bg-[var(--tm-bg-sunken)]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <UserAvatar userId={u.id} size="sm" />
+                      <div>
+                        <div className="text-xs font-bold text-[var(--tm-ink)]">{u.name}</div>
+                        <div className="text-[10px] text-[var(--tm-ink-muted)]">{u.jobTitle}</div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => {}}
+                      className="w-4 h-4 text-[var(--tm-primary)] rounded border-[var(--tm-border-strong)]"
+                    />
+                  </label>
+                );
+              })
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-3 border-t border-[var(--tm-border)]">
+            <Button variant="outline" type="button" onClick={() => setIsAddMembersModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              type="submit"
+              disabled={selectedNewMemberIds.length === 0}
+            >
+              Add Selected Members ({selectedNewMemberIds.length})
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Remove Member Warning Modal */}
+      <Modal
+        isOpen={!!memberToRemove}
+        onClose={() => {
+          setMemberToRemove(null);
+          setRunningTaskForRemove(null);
+        }}
+        title="Warning: Running Task in Progress"
+        description="Active task detection warning."
+      >
+        {memberToRemove && (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs leading-relaxed">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <strong>{memberToRemove.name}</strong> currently has an active running task in this project:
+                {runningTaskForRemove && (
+                  <div className="mt-1 font-bold text-amber-900 bg-amber-100 p-2 rounded border border-amber-300">
+                    "{runningTaskForRemove.title}"
+                  </div>
+                )}
+                <p className="mt-1.5">
+                  Are you sure you want to remove them from the project team?
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => {
+                  setMemberToRemove(null);
+                  setRunningTaskForRemove(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                type="button"
+                onClick={() => executeRemoveMember(memberToRemove.id, memberToRemove.name)}
+              >
+                Remove Member Anyway
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };
-

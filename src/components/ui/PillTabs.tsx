@@ -69,7 +69,7 @@ export const PillTabs: React.FC<PillTabsProps> = ({
             <span className="relative z-10 inline-flex items-center gap-2 whitespace-nowrap">
               {tab.icon}
               {tab.label}
-              {tab.count !== undefined && (
+              {tab.count !== undefined && tab.count > 0 && (
                 <span
                   className={`inline-flex min-w-5 items-center justify-center rounded-full px-1.5
                     text-[10px] font-bold leading-[17px] tabular-nums

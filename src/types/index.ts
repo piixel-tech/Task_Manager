@@ -11,9 +11,11 @@ export interface User {
   password?: string;
   mustChangePassword?: boolean;
   active: boolean;
+  leftJobDate?: string; // YYYY-MM-DD
   avatarUrl?: string;
   birthday?: string; // MM-DD or YYYY-MM-DD
   joiningDate?: string; // YYYY-MM-DD
+  nickname?: string;
 }
 
 export type BreakType = 'lunch' | 'tea' | 'personal';
@@ -136,6 +138,7 @@ export interface Task {
   revisions?: number;
   pauseReasons?: TaskPauseReason[];
   createdAt: string;
+  completedAt?: string;
 }
 
 export interface ChatRoom {

@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   chatService,
-  projectService,
-  taskService
+  projectService
 } from '../services';
 import { useAuthStore } from '../store/authStore';
+import { useTaskStore } from '../store/useTaskStore';
 
 export interface NavCounts {
   tasks: number;
@@ -22,60 +22,57 @@ const EMPTY: NavCounts = {
   overdue: 0
 };
 
-/**
- * Read-only badge counts for the sidebar. Pure derivation over the existing
- * services — no writes, no business-logic changes.
- */
 export function useNavCounts(): NavCounts {
   const { user } = useAuthStore();
-  const [counts, setCounts] = useState<NavCounts>(EMPTY);
+  const tasks = useTaskStore((state) => state.tasks);
+
+  const [projectsCount, setProjectsCount] = useState(0);
+  const [unreadChats, setUnreadChats] = useState(0);
+  const [pendingSubmissions, setPendingSubmissions] = useState(0);
 
   useEffect(() => {
-    if (!user) {
-      setCounts(EMPTY);
-      return;
-    }
-
-    let alive = true;
+    if (!user) return;
     const isAdmin = user.role === 'admin';
 
-    const load = async () => {
-      try {
-        const [tasks, projects, rooms, submissions] = await Promise.all([
-          taskService.getTasks(undefined, isAdmin ? undefined : user.id),
-          projectService.getProjects(undefined, isAdmin ? undefined : user.id),
-          chatService.getChatRooms(user.id),
-          isAdmin ? taskService.getSubmissionsFeed() : Promise.resolve([])
-        ]);
+    projectService.getProjects(undefined, isAdmin ? undefined : user.id).then((pList) => {
+      setProjectsCount(pList.filter((p) => p.status !== 'completed').length);
+    }).catch(() => {});
 
-        if (!alive) return;
+    chatService.getChatRooms(user.id).then((rList) => {
+      setUnreadChats(rList.filter((r) => !!r.lastMessage && !r.revoked).length);
+    }).catch(() => {});
 
-        const today = new Date().setHours(0, 0, 0, 0);
-
-        setCounts({
-          tasks: tasks.filter((t) => t.status !== 'completed').length,
-          projects: projects.filter((p) => p.status !== 'completed').length,
-          unreadChats: rooms.filter(
-            (r) => !!r.lastMessage && !r.revoked
-          ).length,
-          pendingSubmissions: submissions.filter((s) => s.submission.status === 'pending').length,
-          overdue: tasks.filter(
-            (t) =>
-              t.status !== 'completed' &&
-              !!t.dueDate &&
-              new Date(t.dueDate).setHours(0, 0, 0, 0) < today
-          ).length
+    if (isAdmin) {
+      import('../services').then(({ taskService }) => {
+        taskService.getSubmissionsFeed().then((subs) => {
+          setPendingSubmissions(subs.filter((s) => s.submission.status === 'pending').length);
         });
-      } catch {
-        if (alive) setCounts(EMPTY);
-      }
-    };
-
-    load();
-    return () => {
-      alive = false;
-    };
+      });
+    }
   }, [user]);
+
+  const counts = useMemo(() => {
+    if (!user) return EMPTY;
+    const isAdmin = user.role === 'admin';
+    const userTasks = tasks.filter((t) => isAdmin || t.assignedUserId === user.id);
+    const today = new Date().setHours(0, 0, 0, 0);
+
+    const remainingTasksCount = userTasks.filter((t) => t.status !== 'completed').length;
+    const overdueCount = userTasks.filter(
+      (t) =>
+        t.status !== 'completed' &&
+        !!t.dueDate &&
+        new Date(t.dueDate).setHours(0, 0, 0, 0) < today
+    ).length;
+
+    return {
+      tasks: remainingTasksCount,
+      projects: projectsCount,
+      unreadChats,
+      pendingSubmissions,
+      overdue: overdueCount
+    };
+  }, [user, tasks, projectsCount, unreadChats, pendingSubmissions]);
 
   return counts;
 }

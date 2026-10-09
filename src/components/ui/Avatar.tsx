@@ -1,4 +1,20 @@
 import React, { useState } from 'react';
+import {
+  Award,
+  Briefcase,
+  Code,
+  Coffee,
+  Crown,
+  Flame,
+  Heart,
+  Laptop,
+  Shield,
+  Smile,
+  Sparkles,
+  Star,
+  User as UserIcon,
+  Zap
+} from 'lucide-react';
 
 export interface AvatarProps {
   name: string;
@@ -16,6 +32,32 @@ export const avatarSizeClasses = {
   lg: 'w-12 h-12 text-[15px]',
   xl: 'w-16 h-16 text-xl',
   '2xl': 'w-24 h-24 text-3xl'
+};
+
+const iconSizes = {
+  xs: 'w-3 h-3',
+  sm: 'w-4 h-4',
+  md: 'w-5 h-5',
+  lg: 'w-6 h-6',
+  xl: 'w-8 h-8',
+  '2xl': 'w-12 h-12'
+};
+
+export const AVATAR_ICONS: Record<string, React.ElementType> = {
+  Star,
+  Shield,
+  Zap,
+  Smile,
+  Heart,
+  User: UserIcon,
+  Sparkles,
+  Briefcase,
+  Coffee,
+  Code,
+  Flame,
+  Award,
+  Crown,
+  Laptop
 };
 
 /** Deterministic soft tint per person, drawn from the accent family. */
@@ -43,13 +85,51 @@ export const Avatar: React.FC<AvatarProps> = ({
 }) => {
   const [failed, setFailed] = useState(false);
 
-  const charCodeSum = (name || '')
-    .split('')
-    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const tint = tints[charCodeSum % tints.length];
   const ringClass = ring ? 'ring-2 ring-white' : '';
 
   if (src && !failed) {
+    if (src.startsWith('initials:')) {
+      const bgColor = src.split(':')[1] || '#0F3D27';
+      return (
+        <div
+          className={`shrink-0 rounded-full font-bold text-white flex items-center justify-center ${avatarSizeClasses[size]} ${ringClass} ${className}`}
+          style={{ backgroundColor: bgColor }}
+          title={name}
+        >
+          {getInitials(name)}
+        </div>
+      );
+    }
+
+    if (src.startsWith('icon:')) {
+      const [, iconName, bgColor] = src.split(':');
+      const IconComponent = AVATAR_ICONS[iconName] || Star;
+      const bg = bgColor || '#0F3D27';
+      return (
+        <div
+          className={`shrink-0 rounded-full text-white flex items-center justify-center ${avatarSizeClasses[size]} ${ringClass} ${className}`}
+          style={{ backgroundColor: bg }}
+          title={name}
+        >
+          <IconComponent className={iconSizes[size]} />
+        </div>
+      );
+    }
+
+    if (src.startsWith('emoji:')) {
+      const [, emojiChar, bgColor] = src.split(':');
+      const bg = bgColor || '#0F3D27';
+      return (
+        <div
+          className={`shrink-0 rounded-full flex items-center justify-center ${avatarSizeClasses[size]} ${ringClass} ${className}`}
+          style={{ backgroundColor: bg }}
+          title={name}
+        >
+          <span className="leading-none">{emojiChar || '🚀'}</span>
+        </div>
+      );
+    }
+
     return (
       <img
         src={src}
@@ -59,6 +139,11 @@ export const Avatar: React.FC<AvatarProps> = ({
       />
     );
   }
+
+  const charCodeSum = (name || '')
+    .split('')
+    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const tint = tints[charCodeSum % tints.length];
 
   return (
     <div
@@ -70,3 +155,4 @@ export const Avatar: React.FC<AvatarProps> = ({
     </div>
   );
 };
+

@@ -1,4 +1,4 @@
-import { format, parseISO, differenceInMinutes, isValid, getDaysInMonth, startOfMonth, getDay } from 'date-fns';
+import { format, parseISO, differenceInMinutes, differenceInSeconds, isValid, getDaysInMonth, startOfMonth, getDay, endOfWeek } from 'date-fns';
 
 export function getSimulatedDate(): string | null {
   return localStorage.getItem('tm_simulated_date');
@@ -63,9 +63,36 @@ export function calculateDurationMinutes(startTimeISO: string, endTimeISO?: stri
   }
 }
 
+export function calculateDurationSeconds(startTimeISO: string, endTimeISO?: string): number {
+  try {
+    const start = parseISO(startTimeISO);
+    const end = endTimeISO ? parseISO(endTimeISO) : parseISO(getNowISO());
+    if (!isValid(start) || !isValid(end)) return 0;
+    return Math.max(0, differenceInSeconds(end, start));
+  } catch {
+    return 0;
+  }
+}
+
+export function isDueThisWeek(dueDateStr?: string, weekStartsOn: 0 | 1 | 6 = 1): boolean {
+  if (!dueDateStr) return false;
+  try {
+    const todayStr = getTodayDateString(); // e.g. '2026-10-09'
+    const todayDate = parseISO(`${todayStr}T00:00:00`);
+    const weekEnd = endOfWeek(todayDate, { weekStartsOn });
+    const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
+
+    const taskDateStr = dueDateStr.slice(0, 10);
+    return taskDateStr >= todayStr && taskDateStr <= weekEndStr;
+  } catch {
+    return false;
+  }
+}
+
 export function getMonthInfo(year: number, monthIndex: number) {
   const date = new Date(year, monthIndex, 1);
   const totalDays = getDaysInMonth(date);
   const startDayOfWeek = getDay(startOfMonth(date)); // 0 = Sun, 1 = Mon...
   return { totalDays, startDayOfWeek };
 }
+

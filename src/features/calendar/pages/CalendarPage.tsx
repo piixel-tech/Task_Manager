@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Plus, ChevronLeft, ChevronRight, Settings, Calendar as CalendarIcon, Clock } from 'lucide-react';
-import { holidayService, attendanceService } from '../../../services';
-import type { Holiday, AttendanceDay } from '../../../types';
+import { holidayService } from '../../../services';
+import type { Holiday } from '../../../types';
 import { useAuthStore } from '../../../store/authStore';
 import { useAppStore } from '../../../store/useAppStore';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
@@ -15,10 +15,15 @@ import { PageHeader } from '../../../components/ui/PageHeader';
 import { getMonthInfo, formatDate, formatTime, getTodayDateString, calculateDurationMinutes } from '../../../utils/time';
 import { formatHours } from '../../../utils/format';
 
+import { useAttendanceStore, calculateBreakMinutes } from '../../../store/useAttendanceStore';
+
 export const CalendarPage: React.FC = () => {
   const { user } = useAuthStore();
   const { showToast } = useAppStore();
   const isAdmin = user?.role === 'admin';
+
+  const storeHistory = useAttendanceStore((state) => state.history);
+  const fetchAttendanceHistory = useAttendanceStore((state) => state.fetchAttendanceHistory);
 
   const todayStr = getTodayDateString();
   const todayDateObj = new Date();
@@ -27,7 +32,6 @@ export const CalendarPage: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState(todayDateObj.getMonth()); // 0-indexed
 
   const [holidays, setHolidays] = useState<Holiday[]>([]);
-  const [attendance, setAttendance] = useState<AttendanceDay[]>([]);
   const [weekOffs, setWeekOffs] = useState<number[]>([0, 6]);
 
   const [isHolidayModalOpen, setIsHolidayModalOpen] = useState(false);
@@ -47,14 +51,15 @@ export const CalendarPage: React.FC = () => {
     setWeekOffs(wOffs);
 
     if (user) {
-      const attList = await attendanceService.getAttendance(isAdmin ? undefined : user.id);
-      setAttendance(attList);
+      fetchAttendanceHistory(isAdmin ? undefined : user.id);
     }
   };
 
   useEffect(() => {
     fetchData();
   }, [user, currentYear, currentMonth]);
+
+  const attendance = storeHistory;
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -378,19 +383,36 @@ export const CalendarPage: React.FC = () => {
               const firstPunchIn = att?.punchSessions[0]?.punchIn;
               const lastPunchOut = att?.punchSessions.slice().reverse().find((s) => s.punchOut)?.punchOut;
 
-              const breakSessions: { start: string; end?: string; duration: number }[] = [];
-              let totalBreakMinutes = 0;
+              const breakSessions: { label: string; start: string; end?: string; duration: number }[] = [];
+              const totalBreakMinutes = calculateBreakMinutes(att);
 
-              if (att) {
-                for (const sess of att.punchSessions) {
-                  for (const b of sess.breaks) {
+              if (att && att.punchSessions) {
+                att.punchSessions.forEach((sess, sIdx) => {
+                  sess.breaks?.forEach((b, bIdx) => {
                     if (b.breakStart) {
                       const dur = calculateDurationMinutes(b.breakStart, b.breakEnd || getTodayDateString());
-                      breakSessions.push({ start: b.breakStart, end: b.breakEnd, duration: Math.round(dur) });
-                      totalBreakMinutes += dur;
+                      breakSessions.push({
+                        label: `Break #${bIdx + 1}`,
+                        start: b.breakStart,
+                        end: b.breakEnd,
+                        duration: Math.round(dur)
+                      });
+                    }
+                  });
+
+                  if (sess.punchOut && sIdx < att.punchSessions.length - 1) {
+                    const nextSess = att.punchSessions[sIdx + 1];
+                    if (nextSess?.punchIn) {
+                      const gapDur = calculateDurationMinutes(sess.punchOut, nextSess.punchIn);
+                      breakSessions.push({
+                        label: `Interval Break`,
+                        start: sess.punchOut,
+                        end: nextSess.punchIn,
+                        duration: Math.round(gapDur)
+                      });
                     }
                   }
-                }
+                });
               }
 
               return (
@@ -412,8 +434,8 @@ export const CalendarPage: React.FC = () => {
 
                   <div className="rounded-[var(--tm-radius-lg)] bg-[var(--tm-card-muted)] p-4 border border-[var(--tm-border)] space-y-3">
                     <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--tm-ink-muted)] flex items-center justify-between">
-                      <span>Break Sessions</span>
-                      <span>Total: {Math.round(totalBreakMinutes)} min</span>
+                      <span>Break Time Breakdown</span>
+                      <span className="text-[var(--tm-primary)] font-black text-sm">Total: {totalBreakMinutes} min</span>
                     </div>
 
                     {breakSessions.length === 0 ? (
@@ -422,7 +444,7 @@ export const CalendarPage: React.FC = () => {
                       <ul className="space-y-2 text-xs">
                         {breakSessions.map((b, idx) => (
                           <li key={idx} className="flex items-center justify-between p-2 rounded-lg bg-[var(--tm-card)] border border-[var(--tm-border)] font-semibold text-[var(--tm-ink-soft)]">
-                            <span>Break #{idx + 1}: {formatTime(b.start)} – {formatTime(b.end)}</span>
+                            <span>{b.label}: {formatTime(b.start)} – {formatTime(b.end)}</span>
                             <span className="text-[var(--tm-primary)] font-bold">{b.duration} min</span>
                           </li>
                         ))}

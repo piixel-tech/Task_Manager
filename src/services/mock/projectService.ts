@@ -11,7 +11,7 @@ export class MockProjectService implements IProjectService {
       list = list.filter(p => p.company === company || p.company === 'both');
     }
     if (userId) {
-      list = list.filter(p => p.assignedUserIds.includes(userId));
+      list = list.filter(p => (p.memberIds && p.memberIds.includes(userId)) || p.assignedUserIds.includes(userId));
     }
     return list;
   }

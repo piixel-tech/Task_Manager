@@ -2,85 +2,58 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  useDroppable,
-  type DragEndEvent
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import {
   Clock3,
-  GripVertical,
   Play,
   Plus,
   Square,
-  MessageSquare,
-  Calendar as CalendarIcon,
-  FileCheck
+  FileCheck,
+  Trash2,
+  ChevronDown,
+  ChevronRight,
+  Flag
 } from 'lucide-react';
-import { projectService, taskService, userService } from '../../../services';
-import type { Project, Task, User, TaskStatus } from '../../../types';
+import { projectService } from '../../../services';
+import type { Project, Task, User } from '../../../types';
 import { useAuthStore } from '../../../store/authStore';
 import { useAppStore } from '../../../store/useAppStore';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
 import { StatusChip } from '../../../components/ui/StatusChip';
 import { PillTabs } from '../../../components/ui/PillTabs';
-import { Avatar } from '../../../components/ui/Avatar';
+import { UserAvatar } from '../../../components/ui/UserAvatar';
+import { TaskProgressBar } from '../../../components/ui/TaskProgressBar';
+import { useTaskStore } from '../../../store/useTaskStore';
+import { useUserStore } from '../../../store/useUserStore';
 import { Modal } from '../../../components/ui/Modal';
 import { Input, Textarea } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { PageHeader } from '../../../components/ui/PageHeader';
-import { ProgressBar } from '../../../components/ui/ProgressRing';
 import { StaggerItem } from '../../../components/ui/Stagger';
 import { SkeletonRows } from '../../../components/ui/Skeleton';
 import { useMotionPrefs } from '../../../components/ui/useMotionPrefs';
 import { listItemVariants, fastT } from '../../../components/ui/motion';
 import { formatHours } from '../../../utils/format';
-import { formatDate, getTodayDateString } from '../../../utils/time';
+import {
+  formatDate,
+  getTodayDateString,
+  getNowISO,
+  calculateDurationSeconds,
+  isDueThisWeek
+} from '../../../utils/time';
 import { TaskSubmitModal } from '../components/TaskSubmitModal';
-import { startOfWeek, endOfWeek, parseISO, isWithinInterval } from 'date-fns';
 
-/** Kanban Column Definition */
-interface KanbanColumn {
-  id: TaskStatus;
-  title: string;
-  accent: string;
-  badgeTone: 'neutral' | 'ok' | 'warn' | 'primary';
-}
-
-const ADMIN_KANBAN_COLUMNS: KanbanColumn[] = [
-  { id: 'todo', title: 'Upcoming', accent: 'var(--tm-neutral)', badgeTone: 'neutral' },
-  { id: 'in_progress', title: 'In progress', accent: 'var(--tm-primary)', badgeTone: 'primary' },
-  { id: 'review', title: 'In review', accent: 'var(--tm-warning)', badgeTone: 'warn' },
-  { id: 'completed', title: 'Done', accent: 'var(--tm-success)', badgeTone: 'ok' }
-];
-
-const EMPLOYEE_KANBAN_COLUMNS: KanbanColumn[] = [
-  { id: 'in_progress', title: 'In progress', accent: 'var(--tm-primary)', badgeTone: 'primary' },
-  { id: 'todo', title: 'Upcoming', accent: 'var(--tm-neutral)', badgeTone: 'neutral' },
-  { id: 'completed', title: 'Done', accent: 'var(--tm-success)', badgeTone: 'ok' }
-];
-
-/** Draggable Kanban Card component */
-const KanbanCard: React.FC<{
+/** Task Card component */
+const TaskCard: React.FC<{
   task: Task;
   project?: Project;
   assignedUser?: User;
   currentUser?: User | null;
   onNavigate: () => void;
-  onStartTimer: (e: React.MouseEvent) => void;
-  onPauseTimer: (e: React.MouseEvent) => void;
-  onSubmitForm: () => void;
+  onStartTimer?: (e: React.MouseEvent) => void;
+  onPauseTimer?: (e: React.MouseEvent) => void;
+  onSubmitForm?: () => void;
+  onDeleteTask?: (task: Task) => void;
 }> = ({
   task,
   project,
@@ -89,101 +62,85 @@ const KanbanCard: React.FC<{
   onNavigate,
   onStartTimer,
   onPauseTimer,
-  onSubmitForm
+  onSubmitForm,
+  onDeleteTask
 }) => {
   const { reduced } = useMotionPrefs();
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: task.id,
-    data: { task }
-  });
-
   const activeSession = task.sessions.find((s) => !s.endTime && s.userId === currentUser?.id);
-  const logged = task.loggedHours || 0;
-  const estimated = task.estimatedHours || 8;
-  const progressPct = Math.min(100, (logged / estimated) * 100);
   const isOverdue = !!task.dueDate && task.dueDate < getTodayDateString();
 
-  return (
-    <div
-      ref={setNodeRef}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-        zIndex: isDragging ? 30 : 1,
-        opacity: isDragging ? 0.75 : 1
-      }}
-    >
-      <motion.article
-        variants={listItemVariants}
-        initial="hidden"
-        animate="show"
-        whileHover={reduced ? undefined : { y: -2 }}
-        transition={fastT}
-        onClick={onNavigate}
-        className={`group relative cursor-pointer rounded-[var(--tm-radius-lg)] border bg-[var(--tm-card)] p-4 shadow-soft-xs transition-all hover:shadow-soft ${
-          activeSession ? 'border-[var(--tm-primary)] ring-2 ring-[var(--tm-primary-soft)]' : 'border-[var(--tm-border)]'
-        }`}
-      >
-        {/* Grip handle */}
-        <div
-          {...attributes}
-          {...listeners}
-          onClick={(e) => e.stopPropagation()}
-          className="absolute right-3 top-3 cursor-grab p-1 text-[var(--tm-ink-muted)] opacity-40 hover:opacity-100 active:cursor-grabbing"
-          title="Drag to move card"
-        >
-          <GripVertical className="h-4 w-4" />
-        </div>
+  const isAssignedToMe = currentUser?.id === task.assignedUserId;
+  const isCreatedByMe = currentUser?.id === task.assignedByUserId;
+  const canDelete = currentUser?.role === 'admin' || (isAssignedToMe && isCreatedByMe);
 
-        {/* Project Tag & Priority */}
-        <div className="flex flex-wrap items-center gap-1.5 pr-6">
+  return (
+    <motion.article
+      variants={listItemVariants}
+      initial="hidden"
+      animate="show"
+      whileHover={reduced ? undefined : { y: -2 }}
+      transition={fastT}
+      onClick={onNavigate}
+      className={`group relative cursor-pointer rounded-[var(--tm-radius-lg)] border bg-[var(--tm-card)] p-4 shadow-soft-xs transition-all hover:shadow-soft ${
+        activeSession ? 'border-[var(--tm-primary)] ring-2 ring-[var(--tm-primary-soft)]' : 'border-[var(--tm-border)]'
+      }`}
+    >
+      {/* Project Tag & Priority Flag Icon with Tooltip */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
           {project && (
-            <Badge variant="default" size="sm">
+            <Badge variant="default" size="sm" className="truncate">
               {project.name}
             </Badge>
           )}
-          <StatusChip status={task.priority} size="sm" />
         </div>
 
-        {/* Task Title */}
-        <h4 className="mt-2.5 text-[14.5px] font-bold leading-snug text-[var(--tm-ink)]">
-          {task.title}
-        </h4>
+        <span title={`${task.priority.toUpperCase()} priority`}>
+          <Flag
+            className={`w-4 h-4 shrink-0 ${
+              task.priority === 'high' || task.priority === 'urgent'
+                ? 'text-red-500 fill-red-500/20'
+                : task.priority === 'medium'
+                ? 'text-amber-500 fill-amber-500/20'
+                : 'text-gray-400 fill-gray-400/20'
+            }`}
+          />
+        </span>
+      </div>
 
-        {task.subHeading && (
-          <p className="mt-0.5 line-clamp-1 text-[12px] font-semibold text-[var(--tm-ink-muted)]">
-            {task.subHeading}
-          </p>
-        )}
+      {/* Task Title */}
+      <h4 className="mt-2.5 text-[14.5px] font-bold leading-snug text-[var(--tm-ink)]">
+        {task.title}
+      </h4>
 
-        {/* Progress Bar */}
-        <div className="mt-3.5 space-y-1">
-          <div className="flex items-center justify-between text-[11px] font-semibold text-[var(--tm-ink-muted)]">
-            <span>{formatHours(logged)}</span>
-            <span>{estimated}h est</span>
-          </div>
-          <ProgressBar value={progressPct} tone={task.status === 'completed' ? 'ok' : 'primary'} height={6} />
+      {/* Live Task Progress Bar */}
+      <div className="mt-3.5">
+        <TaskProgressBar task={task} userId={currentUser?.id} />
+      </div>
+
+      {/* Footer Meta: Start date, End date, Time worked ("2h 15m"), Avatar */}
+      <div className="mt-4 flex flex-wrap items-center justify-between border-t border-[var(--tm-border)] pt-3 text-[11.5px] gap-2">
+        <div className="flex items-center gap-2.5 font-semibold text-[var(--tm-ink-muted)]">
+          {task.startDate && (
+            <span>Start: <strong className="text-[var(--tm-ink)]">{formatDate(task.startDate, 'MMM d')}</strong></span>
+          )}
+          <span>
+            {task.status === 'completed' ? 'Done' : 'Due'}:{' '}
+            <strong className={isOverdue && task.status !== 'completed' ? 'text-[var(--tm-danger)]' : 'text-[var(--tm-ink)]'}>
+              {formatDate(task.status === 'completed' ? task.completedAt || task.dueDate : task.dueDate, 'MMM d')}
+            </strong>
+          </span>
         </div>
 
-        {/* Footer Meta: Due date, comment count, avatar */}
-        <div className="mt-4 flex items-center justify-between border-t border-[var(--tm-border)] pt-3 text-[11.5px] text-[var(--tm-ink-muted)]">
-          <div className="flex items-center gap-3">
-            {task.dueDate && (
-              <span className={`inline-flex items-center gap-1 font-semibold ${isOverdue ? 'text-[var(--tm-danger)]' : ''}`}>
-                <CalendarIcon className="h-3.5 w-3.5" />
-                {formatDate(task.dueDate, 'MMM d')}
-              </span>
-            )}
+        <div className="flex items-center gap-2">
+          {/* Time worked formatted as e.g. "2h 15m" */}
+          <span className="font-extrabold text-[var(--tm-primary)] tabular-nums">
+            {formatHours(task.loggedHours || 0)}
+          </span>
 
-            <span className="inline-flex items-center gap-1 font-semibold">
-              <MessageSquare className="h-3.5 w-3.5" />
-              {task.sessions.length}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Quick Play/Pause Action */}
-            {activeSession ? (
+          {/* Quick action buttons appear ONLY on tasks assigned to the logged-in user */}
+          {isAssignedToMe && onStartTimer && onPauseTimer && onSubmitForm && (
+            activeSession ? (
               <>
                 <button
                   type="button"
@@ -214,91 +171,139 @@ const KanbanCard: React.FC<{
               >
                 <Play className="h-3 w-3 fill-current ml-0.5" />
               </button>
-            ) : null}
+            ) : null
+          )}
 
-            {assignedUser && (
-              <Avatar name={assignedUser.name} src={assignedUser.avatarUrl} size="sm" />
-            )}
-          </div>
+          {/* Delete button (if task created by user or admin) */}
+          {canDelete && onDeleteTask && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteTask(task);
+              }}
+              className="grid h-7 w-7 place-items-center rounded-full bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-colors"
+              title="Delete task"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+
+          <UserAvatar userId={assignedUser?.id || task.assignedUserId} name={assignedUser?.name} src={assignedUser?.avatarUrl} size="sm" />
         </div>
-      </motion.article>
-    </div>
+      </div>
+    </motion.article>
   );
 };
 
-/** Droppable Kanban Column Wrapper */
-const DroppableKanbanColumn: React.FC<{
-  column: KanbanColumn;
-  tasks: Task[];
-  projectsMap: Map<string, Project>;
-  usersMap: Map<string, User>;
-  currentUser: User | null;
-  onNavigateTask: (id: string) => void;
-  onStartTimer: (e: React.MouseEvent, taskId: string) => void;
-  onPauseTimer: (e: React.MouseEvent, taskId: string) => void;
-  onSubmitForm: (task: Task) => void;
-}> = ({
-  column,
-  tasks,
-  projectsMap,
-  usersMap,
-  currentUser,
-  onNavigateTask,
-  onStartTimer,
-  onPauseTimer,
-  onSubmitForm
-}) => {
-  const { setNodeRef, isOver } = useDroppable({ id: column.id });
+/** Card component for "Assigned to others" tab with live ticking timer */
+const AssignedToOthersCard: React.FC<{
+  task: Task;
+  project?: Project;
+  assignedUser?: User;
+  nowISO: string;
+  onNavigate: () => void;
+}> = ({ task, project, assignedUser, nowISO, onNavigate }) => {
+  const activeSession = task.sessions.find((s) => !s.endTime);
+  let liveSeconds = (task.loggedHours || 0) * 3600;
+  if (activeSession) {
+    liveSeconds += calculateDurationSeconds(activeSession.startTime, nowISO);
+  }
+
+  const formatHHMMSS = (totalSecs: number) => {
+    const s = Math.floor(totalSecs % 60);
+    const m = Math.floor((totalSecs / 60) % 60);
+    const h = Math.floor(totalSecs / 3600);
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
+  const timerString = formatHHMMSS(Math.floor(liveSeconds));
 
   return (
     <div
-      ref={setNodeRef}
-      className={`flex flex-col rounded-[var(--tm-radius-xl)] bg-[var(--tm-card-muted)] border p-3.5 transition-colors ${
-        isOver ? 'border-[var(--tm-primary)] bg-[var(--tm-primary-softer)]' : 'border-[var(--tm-border)]'
-      }`}
+      onClick={onNavigate}
+      className="group relative cursor-pointer rounded-[var(--tm-radius-lg)] border border-[var(--tm-border)] bg-[var(--tm-card)] p-4 shadow-soft-xs transition-all hover:shadow-soft hover:border-[var(--tm-border-strong)]"
     >
-      {/* Column Header */}
-      <div className="mb-3.5 flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <span
-            className="h-2.5 w-2.5 rounded-full"
-            style={{ background: column.accent }}
-          />
-          <h3 className="text-[14px] font-extrabold uppercase tracking-wide text-[var(--tm-ink)]">
-            {column.title}
-          </h3>
+      {/* Assignee Header: Avatar + Name · Job Title & Acceptance Status */}
+      <div className="flex items-center justify-between gap-3 border-b border-[var(--tm-border)] pb-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <UserAvatar userId={assignedUser?.id || task.assignedUserId} name={assignedUser?.name || 'User'} src={assignedUser?.avatarUrl} size="md" />
+          <div className="min-w-0 leading-tight">
+            <div className="text-[13.5px] font-extrabold text-[var(--tm-ink)] truncate">
+              {assignedUser?.name || 'Assigned User'}
+            </div>
+            <div className="text-[11.5px] text-[var(--tm-ink-muted)] truncate">
+              {assignedUser?.jobTitle || 'Team Member'}
+            </div>
+          </div>
         </div>
-        <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[var(--tm-card)] px-1.5 text-[11px] font-bold text-[var(--tm-ink-soft)] border border-[var(--tm-border)]">
-          {tasks.length}
-        </span>
+
+        <Badge
+          variant={
+            task.assignmentStatus === 'rejected'
+              ? 'danger'
+              : task.assignmentStatus === 'accepted'
+              ? 'success'
+              : 'warning'
+          }
+          size="sm"
+          className="shrink-0"
+        >
+          {task.assignmentStatus === 'rejected'
+            ? 'Declined'
+            : task.assignmentStatus === 'accepted'
+            ? 'Accepted'
+            : 'Pending'}
+        </Badge>
       </div>
 
-      {/* Column Cards Container */}
-      <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex-1 space-y-3 min-h-[360px]">
-          {tasks.length === 0 ? (
-            <div className="flex h-full min-h-[160px] flex-col items-center justify-center rounded-[var(--tm-radius-lg)] border border-dashed border-[var(--tm-border)] p-4 text-center">
-              <span className="text-[12px] font-semibold text-[var(--tm-ink-muted)]">
-                No tasks in {column.title}
-              </span>
-            </div>
-          ) : (
-            tasks.map((task) => (
-              <KanbanCard
-                key={task.id}
-                task={task}
-                project={projectsMap.get(task.projectId)}
-                assignedUser={usersMap.get(task.assignedUserId)}
-                currentUser={currentUser}
-                onNavigate={() => onNavigateTask(task.id)}
-                onStartTimer={(e) => onStartTimer(e, task.id)}
-                onPauseTimer={(e) => onPauseTimer(e, task.id)}
-                onSubmitForm={() => onSubmitForm(task)}
-              />
-            ))
+      {/* Task Info */}
+      <div className="mt-3.5 space-y-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {project && <Badge variant="default" size="sm">{project.name}</Badge>}
+          <span title={`${task.priority.toUpperCase()} priority`}>
+            <Flag
+              className={`w-3.5 h-3.5 shrink-0 ${
+                task.priority === 'high' || task.priority === 'urgent'
+                  ? 'text-red-500 fill-red-500/20'
+                  : task.priority === 'medium'
+                  ? 'text-amber-500 fill-amber-500/20'
+                  : 'text-gray-400 fill-gray-400/20'
+              }`}
+            />
+          </span>
+          <StatusChip status={task.status} size="sm" />
+        </div>
+
+        <h4 className="text-[15px] font-bold text-[var(--tm-ink)] leading-snug">
+          {task.title}
+        </h4>
+      </div>
+
+      {/* Footer: Start Date, Due Date & Live Timer */}
+      <div className="mt-4 flex items-center justify-between border-t border-[var(--tm-border)] pt-3 text-[12px] flex-wrap gap-2">
+        <div className="text-[var(--tm-ink-muted)] font-semibold flex items-center gap-3">
+          {task.startDate && (
+            <span>Start: <strong className="text-[var(--tm-ink)]">{formatDate(task.startDate)}</strong></span>
+          )}
+          {task.dueDate && (
+            <span>Due: <strong className="text-[var(--tm-ink)]">{formatDate(task.dueDate)}</strong></span>
           )}
         </div>
-      </SortableContext>
+
+        <div className="flex items-center gap-2">
+          {activeSession ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--tm-success-bg)] px-2.5 py-1 text-[11px] font-extrabold text-[var(--tm-success)]">
+              <span className="h-2 w-2 rounded-full bg-[var(--tm-success)] animate-pulse" />
+              Working now · {timerString}
+            </span>
+          ) : (
+            <span className="font-extrabold text-[var(--tm-primary)] tabular-nums">
+              {formatHours(task.loggedHours || 0)}
+            </span>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
@@ -310,159 +315,158 @@ export const TasksPage: React.FC = () => {
   const isAdmin = user?.role === 'admin';
   const prefix = isAdmin ? '/admin' : '/app';
 
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const tasks = useTaskStore((state) => state.tasks);
+  const fetchStoreTasks = useTaskStore((state) => state.fetchTasks);
+
+  const usersList = useUserStore((state) => state.usersList);
+  const fetchUsers = useUserStore((state) => state.fetchUsers);
+
   const [projects, setProjects] = useState<Project[]>([]);
-  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // PillTabs filter
-  const [filterTab, setFilterTab] = useState<'all' | 'my' | 'high' | 'this_week'>('all');
+  // Filter tabs: All, High priority, Due this week, Assigned to me, Assigned to others
+  const [filterTab, setFilterTab] = useState<'all' | 'high' | 'this_week' | 'assigned_me' | 'assigned_others'>('all');
+
+  // Done section collapsible state (Closed by default)
+  const [isDoneSectionOpen, setIsDoneSectionOpen] = useState(false);
+  // Collapsible state for each day group inside Done section
+  const [openDoneDaysMap, setOpenDoneDaysMap] = useState<Record<string, boolean>>({});
 
   // Modal dialog states
   const [confirmTask, setConfirmTask] = useState<{ targetId: string; runningName: string } | null>(null);
   const [taskToSubmit, setTaskToSubmit] = useState<Task | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
 
-  // New task form
+  // New task form states
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [taskName, setTaskName] = useState('');
-  const [subHeading, setSubHeading] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [startDate, setStartDate] = useState(getTodayDateString());
   const [dueDate, setDueDate] = useState('');
   const [assignedUserId, setAssignedUserId] = useState(user?.id || '');
+  const [formSubmitted, setFormSubmitted] = useState(false);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor)
-  );
+  // Live timer tick for Assigned to others view
+  const [nowISO, setNowISO] = useState(getNowISO());
 
-  const fetchTasks = async () => {
-    const [tskList, prjList, uList] = await Promise.all([
-      taskService.getTasks(),
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNowISO(getNowISO());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchTasksData = async () => {
+    const [, prjList] = await Promise.all([
+      fetchStoreTasks(),
       projectService.getProjects(),
-      userService.getUsers()
+      fetchUsers()
     ]);
-    setTasks(tskList);
     setProjects(prjList);
-    setAllUsers(uList);
     setLoading(false);
   };
 
   useEffect(() => {
-    fetchTasks();
+    fetchTasksData();
   }, []);
 
   const projectsMap = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
-  const usersMap = useMemo(() => new Map(allUsers.map((u) => [u.id, u])), [allUsers]);
+  const usersMap = useMemo(() => new Map(usersList.map((u) => [u.id, u])), [usersList]);
+
+  // Tab count badges
+  const countsMap = useMemo(() => {
+    const userTasks = tasks.filter((t) => isAdmin || t.assignedUserId === user?.id || t.assignedByUserId === user?.id);
+
+    return {
+      all: userTasks.filter((t) => t.status !== 'completed').length,
+      high: userTasks.filter((t) => (t.priority === 'high' || t.priority === 'urgent') && t.status !== 'completed').length,
+      this_week: userTasks.filter((t) => isDueThisWeek(t.dueDate) && t.status !== 'completed').length,
+      assigned_me: tasks.filter((t) => t.assignedUserId === user?.id && t.assignedByUserId !== user?.id && t.status !== 'completed').length,
+      assigned_others: tasks.filter((t) => t.assignedByUserId === user?.id && t.assignedUserId !== user?.id && t.status !== 'completed').length
+    };
+  }, [tasks, user, isAdmin]);
 
   // Filter tasks based on company filter & PillTabs filter
   const filteredTasks = useMemo(() => {
-    const now = new Date();
-    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-    const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-
     return tasks.filter((t) => {
-      // Employee sees only their own tasks
-      if (!isAdmin && t.assignedUserId !== user?.id) return false;
-
       const prj = projectsMap.get(t.projectId);
       if (companyFilter !== 'all' && prj && prj.company !== companyFilter) return false;
 
-      if (filterTab === 'my' && t.assignedUserId !== user?.id) return false;
+      if (filterTab === 'assigned_others') {
+        return t.assignedByUserId === user?.id && t.assignedUserId !== user?.id;
+      }
+
+      if (filterTab === 'assigned_me') {
+        return t.assignedUserId === user?.id && t.assignedByUserId !== user?.id;
+      }
+
+      // Standard tabs: employee sees tasks assigned to them or created by them
+      if (!isAdmin && t.assignedUserId !== user?.id && t.assignedByUserId !== user?.id) return false;
+
       if (filterTab === 'high' && t.priority !== 'high' && t.priority !== 'urgent') return false;
       if (filterTab === 'this_week') {
-        if (!t.dueDate) return false;
-        const d = parseISO(t.dueDate);
-        if (!isWithinInterval(d, { start: weekStart, end: weekEnd })) return false;
+        if (t.status === 'completed') return false;
+        if (!isDueThisWeek(t.dueDate)) return false;
       }
       return true;
     });
   }, [tasks, projectsMap, companyFilter, filterTab, user, isAdmin]);
 
-  // Group tasks by Kanban column status
-  const kanbanTasks = useMemo(() => {
-    const map: Record<TaskStatus, Task[]> = {
-      todo: [],
-      in_progress: [],
-      review: [],
-      completed: []
-    };
+  // Split tasks into In Progress, Upcoming, and Done sections
+  const inProgressTasks = useMemo(
+    () => filteredTasks.filter((t) => t.status === 'in_progress' || t.status === 'review' || t.sessions.some((s) => !s.endTime)),
+    [filteredTasks]
+  );
 
-    filteredTasks.forEach((t) => {
-      if (map[t.status]) {
-        map[t.status].push(t);
-      } else {
-        map.todo.push(t);
-      }
+  const upcomingTasks = useMemo(
+    () => filteredTasks.filter((t) => t.status === 'todo' && !t.sessions.some((s) => !s.endTime)),
+    [filteredTasks]
+  );
+
+  const doneTasks = useMemo(
+    () => filteredTasks.filter((t) => t.status === 'completed'),
+    [filteredTasks]
+  );
+
+  // Group Done tasks by completion date (newest first) with day sub-headings
+  const doneDayGroups = useMemo(() => {
+    const todayStr = getTodayDateString();
+    const groupsMap: Record<string, Task[]> = {};
+
+    doneTasks.forEach((t) => {
+      const dateKey = (t.completedAt || t.dueDate || todayStr).slice(0, 10);
+      if (!groupsMap[dateKey]) groupsMap[dateKey] = [];
+      groupsMap[dateKey].push(t);
     });
 
-    return map;
-  }, [filteredTasks]);
+    const sortedDates = Object.keys(groupsMap).sort((a, b) => b.localeCompare(a));
+    return sortedDates.map((dateKey) => {
+      const dayLabel = formatDate(dateKey, 'EEEE, dd MMM yyyy');
+      const count = groupsMap[dateKey].length;
+      return {
+        dateKey,
+        dayLabel: `${dayLabel} · ${count} ${count === 1 ? 'task' : 'tasks'}`,
+        tasks: groupsMap[dateKey]
+      };
+    });
+  }, [doneTasks]);
 
-  // Drag and Drop Handler
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over) return;
-
-    const taskId = String(active.id);
-    const targetTask = tasks.find((t) => t.id === taskId);
-    if (!targetTask) return;
-
-    // Detect target column ID
-    let newStatus: TaskStatus | null = null;
-    if (over.id in kanbanTasks) {
-      newStatus = over.id as TaskStatus;
-    } else {
-      const overTask = tasks.find((t) => t.id === over.id);
-      if (overTask) newStatus = overTask.status;
-    }
-
-    if (!newStatus || newStatus === targetTask.status) return;
-
-    // Specific rules when dropping into columns:
-    if (newStatus === 'in_progress') {
-      // Dropping into In progress starts the timer (keep the one-running-task rule)
-      if (user) {
-        try {
-          const res = await taskService.startTaskSession(taskId, user.id);
-          if (res.needConfirm && res.runningTaskName) {
-            setConfirmTask({ targetId: taskId, runningName: res.runningTaskName });
-          } else {
-            showToast(`Moved to In progress & started timer for "${targetTask.title}"!`);
-            fetchTasks();
-          }
-        } catch (err: any) {
-          showToast(err.message || 'Failed to start timer');
-        }
-      }
-    } else if (newStatus === 'review') {
-      // Dropping into In review opens the Submit form
-      setTaskToSubmit(targetTask);
-    } else {
-      // Moving to Todo or Completed
-      try {
-        await taskService.updateTask(taskId, { status: newStatus });
-        showToast(`Moved "${targetTask.title}" to ${newStatus === 'completed' ? 'Done' : 'Upcoming'}.`);
-        fetchTasks();
-      } catch (err: any) {
-        showToast(err.message || 'Failed to update task status');
-      }
-    }
+  const toggleDoneDayOpen = (dateKey: string) => {
+    setOpenDoneDaysMap((prev) => ({ ...prev, [dateKey]: prev[dateKey] === false }));
   };
 
   const handleStartTimer = async (e: React.MouseEvent, taskId: string, force = false) => {
     e.stopPropagation();
     if (!user) return;
     try {
-      const res = await taskService.startTaskSession(taskId, user.id, force);
+      const res = await useTaskStore.getState().startTaskSession(taskId, user.id, force);
       if (res.needConfirm && res.runningTaskName) {
         setConfirmTask({ targetId: taskId, runningName: res.runningTaskName });
       } else {
         showToast('Started timer!');
         setConfirmTask(null);
-        fetchTasks();
       }
     } catch (err: any) {
       showToast(err.message || 'Failed to start timer');
@@ -473,40 +477,61 @@ export const TasksPage: React.FC = () => {
     e.stopPropagation();
     if (!user) return;
     try {
-      await taskService.stopTaskSession(taskId, user.id);
+      await useTaskStore.getState().stopTaskSession(taskId, user.id);
       showToast('Task timer paused.');
-      fetchTasks();
     } catch (err: any) {
       showToast(err.message || 'Failed to pause timer');
     }
   };
 
+  const handleConfirmDeleteTask = async () => {
+    if (!taskToDelete) return;
+    try {
+      await useTaskStore.getState().deleteTask(taskToDelete.id);
+      showToast(`Task "${taskToDelete.title}" deleted.`);
+      setTaskToDelete(null);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to delete task');
+    }
+  };
+
   const userProjects = projects.filter((p) => p.memberIds.includes(user?.id || ''));
+
+  // Form validation check
+  const isFormValid = Boolean(
+    selectedProjectId &&
+    taskName.trim() &&
+    priority &&
+    startDate &&
+    dueDate &&
+    assignedUserId
+  );
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedProjectId || !taskName) return;
+    setFormSubmitted(true);
+    if (!isFormValid) return;
 
     try {
-      await taskService.createTask({
+      await useTaskStore.getState().createTask({
         projectId: selectedProjectId,
-        title: taskName,
-        subHeading,
+        title: taskName.trim(),
         description,
         status: 'todo',
         priority,
-        startDate: startDate || getTodayDateString(),
-        dueDate: dueDate || undefined,
-        assignedUserId: assignedUserId || user?.id || 'usr_1',
+        startDate,
+        dueDate,
+        assignedUserId,
         assignedByUserId: user?.id,
+        assignmentStatus: assignedUserId === user?.id ? 'accepted' : 'pending',
         estimatedHours: 8
       });
       showToast('Task created successfully!');
       setIsNewTaskModalOpen(false);
       setTaskName('');
-      setSubHeading('');
       setDescription('');
-      fetchTasks();
+      setDueDate('');
+      setFormSubmitted(false);
     } catch (err: any) {
       showToast(err.message || 'Failed to create task');
     }
@@ -516,10 +541,11 @@ export const TasksPage: React.FC = () => {
     <>
       <PageHeader
         title={isAdmin ? 'Task Hub' : 'My Tasks'}
-        description="Kanban board with live timers, drag-and-drop workflow, and deliverable submission."
+        description="Top-to-bottom workflow layout: In progress, Upcoming, and collapsible day-grouped Done tasks."
         actions={
           <Button size="sm" onClick={() => {
             if (userProjects.length > 0) setSelectedProjectId(userProjects[0].id);
+            setFormSubmitted(false);
             setIsNewTaskModalOpen(true);
           }} leftIcon={<Plus className="h-4 w-4" />}>
             New Task
@@ -527,25 +553,46 @@ export const TasksPage: React.FC = () => {
         }
       />
 
-      {/* PillTabs Filters */}
+      {/* PillTabs Filters: All, High priority, Due this week, Assigned to me, Assigned to others */}
       <StaggerItem>
         <PillTabs
           activeTab={filterTab}
           onChange={(tab) => setFilterTab(tab as typeof filterTab)}
           tabs={[
-            { id: 'all', label: 'All Tasks', count: filteredTasks.length },
-            ...(isAdmin
-              ? [{ id: 'my', label: 'My Tasks', count: tasks.filter((t) => t.assignedUserId === user?.id).length }]
-              : []),
-            { id: 'high', label: 'High Priority', count: filteredTasks.filter((t) => t.priority === 'high' || t.priority === 'urgent').length },
-            { id: 'this_week', label: 'Due This Week' }
+            { id: 'all', label: 'All', count: countsMap.all },
+            { id: 'high', label: 'High priority', count: countsMap.high },
+            { id: 'this_week', label: 'Due this week', count: countsMap.this_week },
+            { id: 'assigned_me', label: 'Assigned to me', count: countsMap.assigned_me },
+            { id: 'assigned_others', label: 'Assigned to others', count: countsMap.assigned_others }
           ]}
         />
       </StaggerItem>
 
-      {/* Kanban Board Container */}
+      {/* View Container */}
       {loading ? (
         <SkeletonRows count={4} />
+      ) : filterTab === 'assigned_others' ? (
+        /* "Assigned to others" Tab View */
+        filteredTasks.length === 0 ? (
+          <EmptyState
+            icon={<Clock3 className="h-6 w-6 text-[var(--tm-primary)]" />}
+            title="No tasks assigned to others"
+            description="Tasks you create and assign to team members will appear here."
+          />
+        ) : (
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {filteredTasks.map((t) => (
+              <AssignedToOthersCard
+                key={t.id}
+                task={t}
+                project={projectsMap.get(t.projectId)}
+                assignedUser={usersMap.get(t.assignedUserId)}
+                nowISO={nowISO}
+                onNavigate={() => navigate(`${prefix}/tasks/${t.id}`)}
+              />
+            ))}
+          </div>
+        )
       ) : filteredTasks.length === 0 ? (
         <EmptyState
           icon={<Clock3 className="h-6 w-6 text-[var(--tm-primary)]" />}
@@ -553,24 +600,132 @@ export const TasksPage: React.FC = () => {
           description="Adjust your filters or create a new task to get started."
         />
       ) : (
-        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-          <div className={`grid grid-cols-1 gap-5 md:grid-cols-2 ${isAdmin ? 'xl:grid-cols-4' : 'xl:grid-cols-3'}`}>
-            {(isAdmin ? ADMIN_KANBAN_COLUMNS : EMPLOYEE_KANBAN_COLUMNS).map((col) => (
-              <DroppableKanbanColumn
-                key={col.id}
-                column={col}
-                tasks={kanbanTasks[col.id]}
-                projectsMap={projectsMap}
-                usersMap={usersMap}
-                currentUser={user}
-                onNavigateTask={(id) => navigate(`${prefix}/tasks/${id}`)}
-                onStartTimer={handleStartTimer}
-                onPauseTimer={handleStopTimer}
-                onSubmitForm={(t) => setTaskToSubmit(t)}
-              />
-            ))}
-          </div>
-        </DndContext>
+        /* Top to Bottom Sections Layout: In Progress, Upcoming, then Done */
+        <div className="space-y-8">
+          {/* 1. IN PROGRESS SECTION */}
+          {inProgressTasks.length > 0 && (
+            <section className="space-y-3.5">
+              <div className="flex items-center gap-2 px-1">
+                <span className="h-3 w-3 rounded-full bg-[var(--tm-primary)]" />
+                <h3 className="text-base font-extrabold text-[var(--tm-ink)]">In Progress</h3>
+                <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[var(--tm-card-muted)] px-2 text-xs font-bold text-[var(--tm-ink-soft)] border border-[var(--tm-border)]">
+                  {inProgressTasks.length}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {inProgressTasks.map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    project={projectsMap.get(task.projectId)}
+                    assignedUser={usersMap.get(task.assignedUserId)}
+                    currentUser={user}
+                    onNavigate={() => navigate(`${prefix}/tasks/${task.id}`)}
+                    onStartTimer={(e) => handleStartTimer(e, task.id)}
+                    onPauseTimer={(e) => handleStopTimer(e, task.id)}
+                    onSubmitForm={() => setTaskToSubmit(task)}
+                    onDeleteTask={(t) => setTaskToDelete(t)}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* 2. UPCOMING SECTION */}
+          {upcomingTasks.length > 0 && (
+            <section className="space-y-3.5">
+              <div className="flex items-center gap-2 px-1">
+                <span className="h-3 w-3 rounded-full bg-[var(--tm-neutral)]" />
+                <h3 className="text-base font-extrabold text-[var(--tm-ink)]">Upcoming</h3>
+                <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[var(--tm-card-muted)] px-2 text-xs font-bold text-[var(--tm-ink-soft)] border border-[var(--tm-border)]">
+                  {upcomingTasks.length}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {upcomingTasks.map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    project={projectsMap.get(task.projectId)}
+                    assignedUser={usersMap.get(task.assignedUserId)}
+                    currentUser={user}
+                    onNavigate={() => navigate(`${prefix}/tasks/${task.id}`)}
+                    onStartTimer={(e) => handleStartTimer(e, task.id)}
+                    onPauseTimer={(e) => handleStopTimer(e, task.id)}
+                    onSubmitForm={() => setTaskToSubmit(task)}
+                    onDeleteTask={(t) => setTaskToDelete(t)}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* 3. DONE SECTION (Collapsible, closed by default) */}
+          <section className="rounded-[var(--tm-radius-xl)] border border-[var(--tm-border)] bg-[var(--tm-card)] overflow-hidden shadow-soft-xs">
+            <button
+              type="button"
+              onClick={() => setIsDoneSectionOpen(!isDoneSectionOpen)}
+              className="w-full px-5 py-4 flex items-center justify-between bg-[var(--tm-card-muted)] hover:bg-[var(--tm-bg-sunken)] transition-colors text-left"
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="h-3 w-3 rounded-full bg-[var(--tm-success)]" />
+                <h3 className="text-base font-extrabold text-[var(--tm-ink)]">Done</h3>
+                <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[var(--tm-card)] px-2 text-xs font-bold text-[var(--tm-ink-soft)] border border-[var(--tm-border)]">
+                  {doneTasks.length}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-xs font-bold text-[var(--tm-ink-muted)]">
+                <span>{isDoneSectionOpen ? 'Hide Done Tasks' : 'Show Done Tasks'}</span>
+                {isDoneSectionOpen ? <ChevronDown className="w-5 h-5 text-[var(--tm-ink)]" /> : <ChevronRight className="w-5 h-5 text-[var(--tm-ink)]" />}
+              </div>
+            </button>
+
+            {isDoneSectionOpen && (
+              <div className="p-5 space-y-5 border-t border-[var(--tm-border)]">
+                {doneDayGroups.length === 0 ? (
+                  <div className="text-xs text-[var(--tm-ink-muted)] text-center py-6">
+                    No completed tasks found in this view.
+                  </div>
+                ) : (
+                  doneDayGroups.map((group) => {
+                    const isGroupOpen = openDoneDaysMap[group.dateKey] !== false; // open by default
+                    return (
+                      <div key={group.dateKey} className="rounded-xl border border-[var(--tm-border)] bg-[var(--tm-card-muted)] overflow-hidden p-3.5 space-y-3">
+                        {/* Collapsible Day Sub-Heading */}
+                        <button
+                          type="button"
+                          onClick={() => toggleDoneDayOpen(group.dateKey)}
+                          className="w-full px-3.5 py-2 flex items-center justify-between text-xs font-extrabold text-[var(--tm-ink)] bg-white rounded-lg border border-[var(--tm-border)] hover:bg-[var(--tm-bg-sunken)] transition-colors"
+                        >
+                          <span>{group.dayLabel}</span>
+                          {isGroupOpen ? <ChevronDown className="w-4 h-4 text-[var(--tm-ink-muted)]" /> : <ChevronRight className="w-4 h-4 text-[var(--tm-ink-muted)]" />}
+                        </button>
+
+                        {isGroupOpen && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pt-1">
+                            {group.tasks.map((task) => (
+                              <TaskCard
+                                key={task.id}
+                                task={task}
+                                project={projectsMap.get(task.projectId)}
+                                assignedUser={usersMap.get(task.assignedUserId)}
+                                currentUser={user}
+                                onNavigate={() => navigate(`${prefix}/tasks/${task.id}`)}
+                                onDeleteTask={(t) => setTaskToDelete(t)}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </section>
+        </div>
       )}
 
       {/* Running Task Confirmation Modal */}
@@ -599,12 +754,34 @@ export const TasksPage: React.FC = () => {
         </p>
       </Modal>
 
+      {/* Delete Task Confirmation Modal */}
+      <Modal
+        isOpen={!!taskToDelete}
+        onClose={() => setTaskToDelete(null)}
+        title="Delete Task?"
+        description={taskToDelete ? `Are you sure you want to delete "${taskToDelete.title}"? This action cannot be undone.` : ''}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setTaskToDelete(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleConfirmDeleteTask}>
+              Delete Task
+            </Button>
+          </>
+        }
+      >
+        <p className="text-xs text-[var(--tm-ink-muted)]">
+          Deleting this task will permanently remove all timer sessions and submissions associated with it.
+        </p>
+      </Modal>
+
       {/* Deliverable Submission Modal */}
       <TaskSubmitModal
         isOpen={!!taskToSubmit}
         onClose={() => setTaskToSubmit(null)}
         task={taskToSubmit}
-        onSubmitSuccess={fetchTasks}
+        onSubmitSuccess={fetchTasksData}
       />
 
       {/* New Task Form Modal */}
@@ -616,34 +793,41 @@ export const TasksPage: React.FC = () => {
         maxWidth="lg"
       >
         <form onSubmit={handleCreateTask} className="space-y-4">
-          <Select
-            label="Project"
-            value={selectedProjectId}
-            onChange={(e) => setSelectedProjectId(e.target.value)}
-            options={userProjects.map((p) => ({
-              value: p.id,
-              label: `${p.name} (${p.company})`
-            }))}
-            required
-          />
+          <div>
+            <Select
+              label="Project *"
+              value={selectedProjectId}
+              onChange={(e) => setSelectedProjectId(e.target.value)}
+              options={userProjects.map((p) => ({
+                value: p.id,
+                label: `${p.name} (${p.company})`
+              }))}
+              required
+            />
+            {formSubmitted && !selectedProjectId && (
+              <span className="text-[11px] font-semibold text-[var(--tm-danger)] mt-1 block">
+                Please select a project.
+              </span>
+            )}
+          </div>
 
-          <Input
-            label="Task Title"
-            placeholder="e.g. Design user profile component"
-            value={taskName}
-            onChange={(e) => setTaskName(e.target.value)}
-            required
-          />
-
-          <Input
-            label="Sub-heading"
-            placeholder="e.g. Form layout and responsive drawer"
-            value={subHeading}
-            onChange={(e) => setSubHeading(e.target.value)}
-          />
+          <div>
+            <Input
+              label="Task Title *"
+              placeholder="e.g. Design user profile component"
+              value={taskName}
+              onChange={(e) => setTaskName(e.target.value)}
+              required
+            />
+            {formSubmitted && !taskName.trim() && (
+              <span className="text-[11px] font-semibold text-[var(--tm-danger)] mt-1 block">
+                Task title is required.
+              </span>
+            )}
+          </div>
 
           <Textarea
-            label="Description"
+            label="Description (Optional)"
             rows={3}
             placeholder="Detailed requirements and acceptance criteria…"
             value={description}
@@ -651,47 +835,76 @@ export const TasksPage: React.FC = () => {
           />
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Select
-              label="Priority"
-              value={priority}
-              onChange={(e) => setPriority(e.target.value as 'low' | 'medium' | 'high')}
-              options={[
-                { value: 'low', label: 'Low' },
-                { value: 'medium', label: 'Medium' },
-                { value: 'high', label: 'High' }
-              ]}
-            />
+            <div>
+              <Select
+                label="Priority *"
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as 'low' | 'medium' | 'high')}
+                options={[
+                  { value: 'low', label: 'Low' },
+                  { value: 'medium', label: 'Medium' },
+                  { value: 'high', label: 'High' }
+                ]}
+                required
+              />
+            </div>
 
-            <Input
-              label="Start Date"
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
+            <div>
+              <Input
+                label="Start Date *"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                required
+              />
+              {formSubmitted && !startDate && (
+                <span className="text-[11px] font-semibold text-[var(--tm-danger)] mt-1 block">
+                  Start date is required.
+                </span>
+              )}
+            </div>
 
-            <Input
-              label="Due Date"
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-            />
+            <div>
+              <Input
+                label="Due Date *"
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                required
+              />
+              {formSubmitted && !dueDate && (
+                <span className="text-[11px] font-semibold text-[var(--tm-danger)] mt-1 block">
+                  Due date is required.
+                </span>
+              )}
+            </div>
           </div>
 
-          <Select
-            label="Assign To"
-            value={assignedUserId}
-            onChange={(e) => setAssignedUserId(e.target.value)}
-            options={allUsers.map((m) => ({
-              value: m.id,
-              label: m.id === user?.id ? `${m.name} (you)` : m.name
-            }))}
-          />
+          <div>
+            <Select
+              label="Assign To *"
+              value={assignedUserId}
+              onChange={(e) => setAssignedUserId(e.target.value)}
+              options={usersList.map((m: User) => ({
+                value: m.id,
+                label: m.id === user?.id ? `${m.name} (you)` : m.name
+              }))}
+              required
+            />
+            {formSubmitted && !assignedUserId && (
+              <span className="text-[11px] font-semibold text-[var(--tm-danger)] mt-1 block">
+                Please assign this task to someone.
+              </span>
+            )}
+          </div>
 
           <div className="flex justify-end gap-3 border-t border-[var(--tm-border)] pt-5">
             <Button variant="outline" type="button" onClick={() => setIsNewTaskModalOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit">Create Task</Button>
+            <Button type="submit" disabled={!isFormValid}>
+              Create Task
+            </Button>
           </div>
         </form>
       </Modal>

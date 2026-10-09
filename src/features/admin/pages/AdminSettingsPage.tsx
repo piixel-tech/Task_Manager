@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Check, Clock, Palette, RotateCcw } from 'lucide-react';
+import { Check, Palette, RotateCcw } from 'lucide-react';
 import { resetDemoData, userService } from '../../../services';
 import { useAuthStore } from '../../../store/authStore';
 import { useAppStore } from '../../../store/useAppStore';
@@ -20,11 +20,6 @@ import { PageHeader } from '../../../components/ui/PageHeader';
 import { SlideToConfirm } from '../../../components/ui/SlideToConfirm';
 import { useMotionPrefs } from '../../../components/ui/useMotionPrefs';
 import { spring } from '../../../components/ui/motion';
-import {
-  getSimulatedDate,
-  getTodayDateString,
-  setSimulatedDate
-} from '../../../utils/time';
 
 export const AdminSettingsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -33,10 +28,8 @@ export const AdminSettingsPage: React.FC = () => {
   const { accent, setAccent } = useThemeStore();
   const { reduced } = useMotionPrefs();
 
-  const [simDateInput, setSimDateInput] = useState(getSimulatedDate() || getTodayDateString());
   const [birthdateInput, setBirthdateInput] = useState(user?.birthday || '');
   const [resetOpen, setResetOpen] = useState(false);
-  const activeSimDate = getSimulatedDate();
 
   const handleUpdateBirthdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,21 +43,6 @@ export const AdminSettingsPage: React.FC = () => {
     } catch (err: any) {
       showToast(err.message || 'Failed to update birthdate');
     }
-  };
-
-  const handleApplySimulatedDate = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!simDateInput) return;
-    setSimulatedDate(simDateInput);
-    showToast(`Workspace date simulated to ${simDateInput}. Refreshing views.`);
-    window.location.reload();
-  };
-
-  const handleClearSimulatedDate = () => {
-    setSimulatedDate(null);
-    setSimDateInput(getTodayDateString());
-    showToast('Simulated date cleared. Workspace using real system date.');
-    window.location.reload();
   };
 
   const handleResetData = async () => {
@@ -174,56 +152,7 @@ export const AdminSettingsPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Simulated date */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-start gap-3.5">
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] bg-[var(--tm-info-bg)] text-[var(--tm-info)]">
-                <Clock className="h-5 w-5" />
-              </span>
-              <div>
-                <CardTitle>Simulate workspace date</CardTitle>
-                <CardDescription>
-                  Override the system date to test past or future attendance and shift timers.
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-
-          <CardContent className="space-y-5">
-            <form onSubmit={handleApplySimulatedDate} className="space-y-4">
-              <Input
-                label="Simulated date"
-                type="date"
-                value={simDateInput}
-                onChange={(e) => setSimDateInput(e.target.value)}
-                required
-              />
-
-              <div className="flex flex-wrap items-center gap-2.5">
-                <Button type="submit" size="sm">
-                  Set simulated date
-                </Button>
-                {activeSimDate && (
-                  <Button variant="outline" type="button" size="sm" onClick={handleClearSimulatedDate}>
-                    Use real today
-                  </Button>
-                )}
-              </div>
-            </form>
-
-            <div className="flex items-center justify-between rounded-[var(--tm-radius-md)] bg-[var(--tm-primary-softer)] px-4 py-3">
-              <span className="text-[12.5px] font-semibold text-[var(--tm-ink-soft)]">
-                Active workspace date
-              </span>
-              <span className="text-[13px] font-bold tabular-nums text-[var(--tm-primary-dark)]">
-                {getTodayDateString()}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
+      <div className="max-w-2xl">
         {/* Reset */}
         <Card>
           <CardHeader>

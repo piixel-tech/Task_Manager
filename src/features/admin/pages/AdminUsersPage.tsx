@@ -29,6 +29,7 @@ import { SkeletonGrid } from '../../../components/ui/Skeleton';
 import { useMotionPrefs } from '../../../components/ui/useMotionPrefs';
 import { fastT, listItemVariants } from '../../../components/ui/motion';
 import { formatHours, formatLoginId } from '../../../utils/format';
+import { getTodayDateString } from '../../../utils/time';
 import { EmployeeTaskTabs } from '../../tasks/components/EmployeeTaskTabs';
 
 export const AdminUsersPage: React.FC = () => {
@@ -44,11 +45,15 @@ export const AdminUsersPage: React.FC = () => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [resettingUser, setResettingUser] = useState<User | null>(null);
   const [viewingUser, setViewingUser] = useState<User | null>(null);
+  const [leavingUser, setLeavingUser] = useState<User | null>(null);
+  const [deletingUser, setDeletingUser] = useState<User | null>(null);
+  const [leavingDate, setLeavingDate] = useState<string>(getTodayDateString());
+  const [confirmName, setConfirmName] = useState<string>('');
   const [userAttendance, setUserAttendance] = useState<AttendanceDay[]>([]);
 
   // Browse controls
   const [query, setQuery] = useState('');
-  const [statusTab, setStatusTab] = useState<'all' | 'active' | 'pending' | 'inactive'>('all');
+  const [statusTab, setStatusTab] = useState<'all' | 'active' | 'pending' | 'left'>('all');
 
   // Form states
   const [name, setName] = useState('');
@@ -128,6 +133,48 @@ export const AdminUsersPage: React.FC = () => {
     }
   };
 
+  const handleConfirmLeftJob = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!leavingUser) return;
+    try {
+      await userService.updateUser(leavingUser.id, {
+        active: false,
+        leftJobDate: leavingDate || getTodayDateString()
+      });
+      showToast(`${leavingUser.name} marked as Left the job.`);
+      setLeavingUser(null);
+      fetchData();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to process left job');
+    }
+  };
+
+  const handleConfirmDeleteUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!deletingUser || confirmName.trim() !== deletingUser.name.trim()) return;
+    try {
+      await userService.deleteUser(deletingUser.id);
+      showToast(`${deletingUser.name} permanently deleted.`);
+      setDeletingUser(null);
+      setConfirmName('');
+      fetchData();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to delete user');
+    }
+  };
+
+  const handleRehire = async (u: User) => {
+    try {
+      await userService.updateUser(u.id, {
+        active: true,
+        leftJobDate: undefined
+      });
+      showToast(`${u.name} rehired successfully!`);
+      fetchData();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to rehire user');
+    }
+  };
 
   const handleOpenProfile = async (u: User) => {
     setViewingUser(u);
@@ -145,7 +192,7 @@ export const AdminUsersPage: React.FC = () => {
     all: companyUsers.length,
     active: companyUsers.filter((u) => u.active && !u.mustChangePassword).length,
     pending: companyUsers.filter((u) => u.active && u.mustChangePassword).length,
-    inactive: companyUsers.filter((u) => !u.active).length
+    left: companyUsers.filter((u) => !u.active).length
   };
 
   const filteredUsers = useMemo(() => {
@@ -155,7 +202,7 @@ export const AdminUsersPage: React.FC = () => {
         statusTab === 'all' ||
         (statusTab === 'active' && u.active && !u.mustChangePassword) ||
         (statusTab === 'pending' && u.active && u.mustChangePassword) ||
-        (statusTab === 'inactive' && !u.active);
+        (statusTab === 'left' && !u.active);
 
       const matchesQuery =
         !q ||
@@ -169,7 +216,7 @@ export const AdminUsersPage: React.FC = () => {
 
   const statusOf = (u: User) =>
     !u.active
-      ? { tone: 'bad' as const, label: 'Deactivated' }
+      ? { tone: 'bad' as const, label: u.leftJobDate ? `Left (${u.leftJobDate})` : 'Left job' }
       : u.mustChangePassword
         ? { tone: 'warn' as const, label: 'Password pending' }
         : { tone: 'ok' as const, label: 'Active' };
@@ -195,7 +242,7 @@ export const AdminUsersPage: React.FC = () => {
             { id: 'all', label: 'Everyone', count: counts.all },
             { id: 'active', label: 'Active', count: counts.active },
             { id: 'pending', label: 'Password pending', count: counts.pending },
-            { id: 'inactive', label: 'Deactivated', count: counts.inactive }
+            { id: 'left', label: 'Left job', count: counts.left }
           ]}
         />
 
@@ -262,7 +309,7 @@ export const AdminUsersPage: React.FC = () => {
                             className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white ${
                               u.active ? 'bg-[var(--tm-success)]' : 'bg-gray-300'
                             }`}
-                            title={u.active ? 'Online / Active' : 'Offline'}
+                            title={u.active ? 'Online / Active' : 'Offline / Left Job'}
                           />
                         </div>
 
@@ -301,7 +348,7 @@ export const AdminUsersPage: React.FC = () => {
                       <span>{completedCount} completed</span>
                     </div>
 
-                    {/* Workload Bar (turns amber above 80%) */}
+                    {/* Workload Bar */}
                     <div className="mt-2 space-y-1">
                       <div className="flex items-center justify-between text-[11px] font-semibold text-[var(--tm-ink-muted)]">
                         <span>Workload</span>
@@ -317,27 +364,66 @@ export const AdminUsersPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Actions: Message + Profile buttons */}
-                  <div className="mt-6 flex items-center gap-2 border-t border-[var(--tm-border)] pt-4">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="flex-1"
-                      leftIcon={<MessageSquare className="h-4 w-4" />}
-                      onClick={() => navigate('/admin/chat')}
-                    >
-                      Message
-                    </Button>
+                  {/* Actions Area */}
+                  <div className="mt-6 space-y-2 border-t border-[var(--tm-border)] pt-4">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="flex-1"
+                        leftIcon={<MessageSquare className="h-4 w-4" />}
+                        onClick={() => navigate('/admin/chat')}
+                      >
+                        Message
+                      </Button>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      leftIcon={<Eye className="h-4 w-4" />}
-                      onClick={() => handleOpenProfile(u)}
-                    >
-                      Profile
-                    </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        leftIcon={<Eye className="h-4 w-4" />}
+                        onClick={() => handleOpenProfile(u)}
+                      >
+                        Profile
+                      </Button>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {u.active ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="flex-1 text-amber-700 hover:bg-amber-50"
+                          onClick={() => {
+                            setLeavingUser(u);
+                            setLeavingDate(getTodayDateString());
+                          }}
+                        >
+                          Left the job
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                          onClick={() => handleRehire(u)}
+                        >
+                          Rehire
+                        </Button>
+                      )}
+
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        className="px-3"
+                        onClick={() => {
+                          setDeletingUser(u);
+                          setConfirmName('');
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   </div>
                 </motion.article>
               );
@@ -359,16 +445,28 @@ export const AdminUsersPage: React.FC = () => {
               Close
             </Button>
             {viewingUser && (
-              <Button
-                onClick={() => {
-                  setEditingUser(viewingUser);
-                  setNewJobTitle(viewingUser.jobTitle);
-                  setViewingUser(null);
-                }}
-                leftIcon={<Edit2 className="h-4 w-4" />}
-              >
-                Edit job title
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setResettingUser(viewingUser);
+                    setNewPassword('password123');
+                    setViewingUser(null);
+                  }}
+                >
+                  Reset password
+                </Button>
+                <Button
+                  onClick={() => {
+                    setEditingUser(viewingUser);
+                    setNewJobTitle(viewingUser.jobTitle);
+                    setViewingUser(null);
+                  }}
+                  leftIcon={<Edit2 className="h-4 w-4" />}
+                >
+                  Edit job title
+                </Button>
+              </>
             )}
           </div>
         }
@@ -561,6 +659,75 @@ export const AdminUsersPage: React.FC = () => {
               </Button>
               <Button variant="danger" type="submit">
                 Reset password
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* Left Job Modal */}
+      <Modal
+        isOpen={!!leavingUser}
+        onClose={() => setLeavingUser(null)}
+        title={leavingUser ? `Mark ${leavingUser.name} as Left the job` : 'Left the job'}
+        description="The employee will no longer be able to log in, but all past attendance and task records remain saved."
+      >
+        {leavingUser && (
+          <form onSubmit={handleConfirmLeftJob} className="space-y-4">
+            <Input
+              label="Leaving date"
+              type="date"
+              value={leavingDate}
+              onChange={(e) => setLeavingDate(e.target.value)}
+              required
+            />
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="outline" type="button" onClick={() => setLeavingUser(null)}>
+                Cancel
+              </Button>
+              <Button variant="primary" type="submit" className="bg-amber-600 hover:bg-amber-700">
+                Confirm Left Job
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* Delete User Permanent Confirmation Modal */}
+      <Modal
+        isOpen={!!deletingUser}
+        onClose={() => {
+          setDeletingUser(null);
+          setConfirmName('');
+        }}
+        title={deletingUser ? `Permanently Delete ${deletingUser.name}?` : 'Delete user'}
+        description="WARNING: All data associated with this user will be permanently removed. This action cannot be undone."
+      >
+        {deletingUser && (
+          <form onSubmit={handleConfirmDeleteUser} className="space-y-4">
+            <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700 font-semibold border border-red-200">
+              To confirm permanent deletion, please type the member's full name: <strong>{deletingUser.name}</strong>
+            </div>
+
+            <Input
+              label="Type member name to confirm"
+              placeholder={deletingUser.name}
+              value={confirmName}
+              onChange={(e) => setConfirmName(e.target.value)}
+              required
+            />
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="outline" type="button" onClick={() => setDeletingUser(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                type="submit"
+                disabled={confirmName.trim() !== deletingUser.name.trim()}
+              >
+                Permanently Delete User
               </Button>
             </div>
           </form>

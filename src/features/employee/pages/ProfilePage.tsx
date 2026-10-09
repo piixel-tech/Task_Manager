@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Lock, Copy, Key } from 'lucide-react';
+import { Lock, Copy, Edit2, User as UserIcon, Check, X, Camera } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { useAppStore } from '../../../store/useAppStore';
 import { attendanceService, userService } from '../../../services';
@@ -7,19 +7,26 @@ import type { AttendanceDay } from '../../../types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
-import { UserName } from '../../../components/ui/UserName';
-import { getTodayDateString, getMonthInfo } from '../../../utils/time';
+import { UserAvatar } from '../../../components/ui/UserAvatar';
+import { AvatarPickerModal } from '../../../components/ui/AvatarPickerModal';
+import { getTodayDateString, getMonthInfo, formatDate } from '../../../utils/time';
 import { formatHours } from '../../../utils/format';
 import { EmployeeTaskTabs } from '../../tasks/components/EmployeeTaskTabs';
+import { useUserStore } from '../../../store/useUserStore';
 
 export const ProfilePage: React.FC = () => {
-  const { user, changePassword, isLoading, setUser } = useAuthStore();
+  const { user, changePassword, setUser } = useAuthStore();
   const { showToast } = useAppStore();
 
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  const [isEditingCard, setIsEditingCard] = useState(false);
+
+  // Form states
   const [birthdateInput, setBirthdateInput] = useState(user?.birthday || '');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [savingInfo, setSavingInfo] = useState(false);
 
   const [monthAttendance, setMonthAttendance] = useState<AttendanceDay[]>([]);
 
@@ -36,41 +43,65 @@ export const ProfilePage: React.FC = () => {
     }
   }, [user]);
 
-  const handleUpdateBirthdate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAvatarSave = async (newAvatarUrl: string) => {
     if (!user) return;
     try {
-      const updated = await userService.updateUser(user.id, { birthday: birthdateInput });
-      if (updated) {
-        setUser(updated);
-        showToast('Birthdate saved successfully! 🎂');
-      }
+      const updated = await userService.updateUser(user.id, { avatarUrl: newAvatarUrl });
+      setUser(updated);
+      useUserStore.getState().setUser(updated);
+      showToast('Avatar updated successfully!');
     } catch (err: any) {
-      showToast(err.message || 'Failed to update birthdate');
+      showToast(err.message || 'Failed to update avatar');
     }
   };
 
-  const handleChangePassword = async (e: React.FormEvent) => {
+  const handleSavePersonalInfoCard = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     setPasswordError('');
 
-    if (newPassword.length < 6) {
-      setPasswordError('Password must be at least 6 characters long.');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordError('Passwords do not match.');
-      return;
+    if (newPassword || confirmPassword) {
+      if (newPassword.length < 6) {
+        setPasswordError('Password must be at least 6 characters long.');
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        setPasswordError('Passwords do not match.');
+        return;
+      }
     }
 
+    setSavingInfo(true);
     try {
-      await changePassword(newPassword);
-      showToast('Password updated successfully!');
-      setNewPassword('');
-      setConfirmPassword('');
+      // 1. Update personal info (birthday)
+      const updatedUser = await userService.updateUser(user.id, {
+        birthday: birthdateInput
+      });
+
+      // 2. If password supplied, update password
+      if (newPassword) {
+        await changePassword(newPassword);
+        setNewPassword('');
+        setConfirmPassword('');
+      }
+
+      setUser(updatedUser);
+      useUserStore.getState().setUser(updatedUser);
+      setIsEditingCard(false);
+      showToast('Profile information updated successfully!');
     } catch (err: any) {
-      setPasswordError(err.message || 'Failed to update password');
+      setPasswordError(err.message || 'Failed to update profile info');
+    } finally {
+      setSavingInfo(false);
     }
+  };
+
+  const handleCancelEdit = () => {
+    setBirthdateInput(user?.birthday || '');
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordError('');
+    setIsEditingCard(false);
   };
 
   const copyLoginId = () => {
@@ -80,7 +111,7 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
-  // Build daily hours array for current month (days 1 to totalDays)
+  // Build daily hours array for current month
   const monthPrefix = `${year}-${String(month).padStart(2, '0')}`;
   const dailyHoursData = Array.from({ length: totalDays }).map((_, idx) => {
     const dayNum = idx + 1;
@@ -99,17 +130,47 @@ export const ProfilePage: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-[27px] font-extrabold leading-tight tracking-[-0.03em] text-[var(--tm-ink)]">Employee Profile</h1>
+        <h1 className="text-[27px] font-extrabold leading-tight tracking-[-0.03em] text-[var(--tm-ink)]">
+          My Profile
+        </h1>
         <p className="text-[14px] leading-relaxed text-[var(--tm-ink-muted)] mt-1.5">
-          Personal credentials, company assignment, and monthly hours breakdown.
+          Personal details, avatar customization, and monthly hours summary.
         </p>
       </div>
 
-      {/* User Info Header Card */}
+      {/* User Header Card with Tap-to-Change Avatar */}
       <Card>
         <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            {user && <UserName user={user} size="lg" showBadge={false} />}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+            <div className="flex items-center gap-4">
+              {/* Tappable Avatar with camera edit overlay */}
+              <button
+                type="button"
+                onClick={() => setIsAvatarModalOpen(true)}
+                className="group relative rounded-full focus:outline-none focus:ring-2 focus:ring-[var(--tm-primary)]"
+                title="Tap to change avatar"
+              >
+                <UserAvatar userId={user?.id} name={user?.name || ''} src={user?.avatarUrl} size="2xl" ring />
+                <div className="absolute inset-0 rounded-full bg-black/40 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Camera className="w-5 h-5" />
+                  <span className="text-[9.5px] font-extrabold uppercase mt-0.5">Edit</span>
+                </div>
+              </button>
+
+              <div>
+                <h2 className="text-xl font-extrabold text-[var(--tm-ink)]">
+                  {user?.name}
+                </h2>
+                <p className="text-xs font-semibold text-[var(--tm-ink-muted)]">{user?.jobTitle}</p>
+                <button
+                  type="button"
+                  onClick={() => setIsAvatarModalOpen(true)}
+                  className="mt-2 text-xs font-bold text-[var(--tm-primary)] hover:underline inline-flex items-center gap-1"
+                >
+                  <Edit2 className="w-3 h-3" /> Tap avatar to change style
+                </button>
+              </div>
+            </div>
 
             <div className="flex items-center gap-2 bg-[var(--tm-card-muted)] p-2 px-3 rounded-xl border border-[var(--tm-border)]">
               <span className="text-xs text-[var(--tm-ink-muted)] font-semibold">Login ID:</span>
@@ -128,28 +189,117 @@ export const ProfilePage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Birthdate & Profile Settings Card */}
+      {/* Merged Personal Info & Change Password Card */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base font-extrabold flex items-center gap-2">
-            🎂 Birthdate &amp; Personal Info
-          </CardTitle>
-          <CardDescription>Enter your birthdate to receive birthday wishes and badges.</CardDescription>
-        </CardHeader>
-        <CardContent className="p-6">
-          <form onSubmit={handleUpdateBirthdate} className="flex flex-col sm:flex-row items-end gap-4 max-w-md">
-            <Input
-              label="Birthdate"
-              type="date"
-              value={birthdateInput}
-              onChange={(e) => setBirthdateInput(e.target.value)}
-              className="flex-1"
-              required
-            />
-            <Button type="submit" variant="primary">
-              Save Birthdate
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
+          <div>
+            <CardTitle className="text-base font-extrabold flex items-center gap-2">
+              <UserIcon className="w-4 h-4 text-[var(--tm-primary)]" />
+              Personal Info &amp; Security
+            </CardTitle>
+            <CardDescription>
+              Manage your birthdate and password in one place.
+            </CardDescription>
+          </div>
+
+          {!isEditingCard && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditingCard(true)}
+              leftIcon={<Edit2 className="w-3.5 h-3.5" />}
+            >
+              Edit
             </Button>
-          </form>
+          )}
+        </CardHeader>
+
+        <CardContent className="p-6">
+          {!isEditingCard ? (
+            /* READ-ONLY VIEW */
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="bg-[var(--tm-card-muted)] p-4 rounded-xl border border-[var(--tm-border)]">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--tm-ink-muted)]">
+                  Birthdate 🎂
+                </div>
+                <div className="mt-1 text-sm font-bold text-[var(--tm-ink)]">
+                  {user?.birthday ? formatDate(user.birthday) : 'Not set'}
+                </div>
+              </div>
+
+              <div className="bg-[var(--tm-card-muted)] p-4 rounded-xl border border-[var(--tm-border)]">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--tm-ink-muted)]">
+                  Password
+                </div>
+                <div className="mt-1 text-sm font-bold text-[var(--tm-ink)] font-mono">
+                  ••••••••
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* EDITABLE FORM */
+            <form onSubmit={handleSavePersonalInfoCard} className="space-y-5 max-w-2xl">
+              {passwordError && (
+                <div className="p-3 rounded-lg bg-[var(--tm-danger-bg)] border border-[var(--tm-danger-ring)] text-[var(--tm-danger)] text-xs font-medium">
+                  {passwordError}
+                </div>
+              )}
+
+              <div>
+                <Input
+                  label="Birthdate"
+                  type="date"
+                  value={birthdateInput}
+                  onChange={(e) => setBirthdateInput(e.target.value)}
+                />
+              </div>
+
+              <div className="pt-2 border-t border-[var(--tm-border)] space-y-4">
+                <p className="text-xs font-bold text-[var(--tm-ink-muted)] uppercase tracking-wider">
+                  Update Password (Leave blank to keep current password)
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Input
+                    label="New Password"
+                    type="password"
+                    placeholder="Enter new password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    leftIcon={<Lock className="w-4 h-4" />}
+                  />
+
+                  <Input
+                    label="Confirm New Password"
+                    type="password"
+                    placeholder="Re-enter new password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    leftIcon={<Lock className="w-4 h-4" />}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3">
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={handleCancelEdit}
+                  leftIcon={<X className="w-4 h-4" />}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  type="submit"
+                  isLoading={savingInfo}
+                  leftIcon={<Check className="w-4 h-4" />}
+                >
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          )}
         </CardContent>
       </Card>
 
@@ -183,7 +333,6 @@ export const ProfilePage: React.FC = () => {
 
               return (
                 <div key={d.dayNum} className="flex-1 min-w-[14px] flex flex-col items-center gap-1 group relative">
-                  {/* Hover tooltip */}
                   <div className="absolute -top-8 hidden group-hover:flex bg-[var(--tm-ink)] text-white text-[10px] px-2 py-0.5 rounded whitespace-nowrap shadow-md z-10">
                     Day {d.dayNum}: {formatHours(d.hours)}
                   </div>
@@ -211,54 +360,16 @@ export const ProfilePage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Security & Password Form */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Key className="w-5 h-5 text-[var(--tm-primary)]" />
-            <CardTitle>Change Password</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="p-6">
-          <form onSubmit={handleChangePassword} className="max-w-md space-y-4">
-            {passwordError && (
-              <div className="p-3 rounded-lg bg-[var(--tm-danger-bg)] border border-[var(--tm-danger-ring)] text-[var(--tm-danger)] text-xs font-medium">
-                {passwordError}
-              </div>
-            )}
-
-            <Input
-              label="New Password"
-              type="password"
-              placeholder="Enter new password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              leftIcon={<Lock className="w-4 h-4" />}
-              required
-            />
-
-            <Input
-              label="Confirm New Password"
-              type="password"
-              placeholder="Re-enter new password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              leftIcon={<Lock className="w-4 h-4" />}
-              required
-            />
-
-            <Button
-              type="submit"
-              variant="primary"
-              size="md"
-              isLoading={isLoading}
-            >
-              Update Password
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      {/* Avatar Picker Modal */}
+      {user && (
+        <AvatarPickerModal
+          isOpen={isAvatarModalOpen}
+          onClose={() => setIsAvatarModalOpen(false)}
+          userName={user.name}
+          currentAvatarUrl={user.avatarUrl}
+          onSave={handleAvatarSave}
+        />
+      )}
     </div>
   );
 };
-

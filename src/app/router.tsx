@@ -11,7 +11,6 @@ import { ChangePasswordPage } from '../features/auth/pages/ChangePasswordPage';
 import { LeavePage } from '../features/auth/pages/LeavePage';
 
 import { AdminDashboardPage } from '../features/admin/pages/AdminDashboardPage';
-import { LiveBoardPage } from '../features/admin/pages/LiveBoardPage';
 import { AdminUsersPage } from '../features/admin/pages/AdminUsersPage';
 import { AdminSettingsPage } from '../features/admin/pages/AdminSettingsPage';
 
@@ -25,7 +24,6 @@ import { TasksPage } from '../features/tasks/pages/TasksPage';
 import { TaskDetailPage } from '../features/tasks/pages/TaskDetailPage';
 import { ChatPage } from '../features/chat/pages/ChatPage';
 import { DailyUpdatesPage } from '../features/gamification/pages/DailyUpdatesPage';
-import { WorkloadPage } from '../features/gamification/pages/WorkloadPage';
 import { MonthlyWrappedPage } from '../features/gamification/pages/MonthlyWrappedPage';
 import { ProfilePage } from '../features/employee/pages/ProfilePage';
 
@@ -90,9 +88,9 @@ export const router = createBrowserRouter([
     ),
     children: [
       { path: 'dashboard', element: <AdminDashboardPage /> },
-      { path: 'liveboard', element: <LiveBoardPage /> },
+      { path: 'liveboard', element: <Navigate to="/admin/attendance" replace /> },
       { path: 'daily-updates', element: <DailyUpdatesPage /> },
-      { path: 'workload', element: <WorkloadPage /> },
+      { path: 'workload', element: <Navigate to="/admin/dashboard" replace /> },
       { path: 'users', element: <AdminUsersPage /> },
       { path: 'attendance', element: <AdminAttendancePage /> },
       { path: 'projects', element: <ProjectsPage /> },
@@ -102,7 +100,7 @@ export const router = createBrowserRouter([
       { path: 'submissions', element: <SubmissionsFeedPage /> },
       { path: 'calendar', element: <CalendarPage /> },
       { path: 'chat', element: <ChatPage /> },
-      { path: 'wrapped', element: <MonthlyWrappedPage /> },
+      { path: 'wrapped', element: <Navigate to="/admin/dashboard" replace /> },
       { path: 'settings', element: <AdminSettingsPage /> },
       { path: 'gamification', element: <Navigate to="/admin/dashboard" replace /> },
       { path: '*', element: <Navigate to="/admin/dashboard" replace /> }
