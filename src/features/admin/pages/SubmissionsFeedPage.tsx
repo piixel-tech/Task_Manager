@@ -3,6 +3,7 @@ import { FileCheck, Check, MessageSquareX, ExternalLink, Paperclip, Clock } from
 import { taskService } from '../../../services';
 import type { Task, Submission, User } from '../../../types';
 import { useAppStore } from '../../../store/useAppStore';
+import { useAuthStore } from '../../../store/authStore';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
@@ -10,9 +11,11 @@ import { UserName } from '../../../components/ui/UserName';
 import { Modal } from '../../../components/ui/Modal';
 import { formatDate } from '../../../utils/time';
 import { formatHours } from '../../../utils/format';
+import { ReviewBadge } from '../../tasks/components/TaskReview';
 
 export const SubmissionsFeedPage: React.FC = () => {
   const { showToast } = useAppStore();
+  const { user } = useAuthStore();
 
   const [feed, setFeed] = useState<{ submission: Submission; task: Task; user?: User }[]>([]);
   const [selectedSub, setSelectedSub] = useState<{ submission: Submission; task: Task } | null>(null);
@@ -33,12 +36,17 @@ export const SubmissionsFeedPage: React.FC = () => {
 
   const handleApprove = async (taskId: string, submissionId: string) => {
     try {
-      await taskService.reviewSubmission(taskId, submissionId, 'approved');
-      showToast('Submission approved! Task marked as completed.');
+      await taskService.reviewSubmission(taskId, submissionId, 'approved', undefined, user?.id);
+      showToast('Task approved!');
       fetchFeed();
     } catch (err: any) {
       showToast(err.message || 'Failed to approve submission');
     }
+  };
+
+  const closeChangesModal = () => {
+    setSelectedSub(null);
+    setNeedsChangesComment('');
   };
 
   const handleNeedsChangesSubmit = async (e: React.FormEvent) => {
@@ -49,9 +57,10 @@ export const SubmissionsFeedPage: React.FC = () => {
         selectedSub.task.id,
         selectedSub.submission.id,
         'needs_changes',
-        needsChangesComment
+        needsChangesComment,
+        user?.id
       );
-      showToast('Requested changes! Task moved back to employee Ongoing tab.');
+      showToast('Changes requested. The task is back with the employee to resubmit.');
       setSelectedSub(null);
       setNeedsChangesComment('');
       fetchFeed();
@@ -101,6 +110,7 @@ export const SubmissionsFeedPage: React.FC = () => {
                       >
                         {submission.status.replace('_', ' ').toUpperCase()}
                       </Badge>
+                      <ReviewBadge task={task} />
                       <span className="text-xs text-[var(--tm-ink-muted)]">
                         {formatDate(submission.submittedAt)}
                       </span>
@@ -194,10 +204,10 @@ export const SubmissionsFeedPage: React.FC = () => {
                       variant="outline"
                       size="sm"
                       onClick={() => setSelectedSub({ submission, task })}
-                      className="text-[var(--tm-danger)] border-[var(--tm-danger-ring)] hover:bg-[var(--tm-danger-bg)]"
+                      className="text-[var(--tm-warning)] border-[var(--tm-warning-ring)] hover:bg-[var(--tm-warning-bg)]"
                       leftIcon={<MessageSquareX className="w-4 h-4" />}
                     >
-                      Needs Changes
+                      Request Changes
                     </Button>
                     <Button
                       variant="primary"
@@ -206,7 +216,7 @@ export const SubmissionsFeedPage: React.FC = () => {
                       className="bg-[var(--tm-success)] hover:bg-[var(--tm-success)]"
                       leftIcon={<Check className="w-4 h-4" />}
                     >
-                      Approve Deliverable
+                      Approve
                     </Button>
                   </div>
                 )}
@@ -219,31 +229,38 @@ export const SubmissionsFeedPage: React.FC = () => {
       {/* Needs Changes Comment Modal */}
       <Modal
         isOpen={!!selectedSub}
-        onClose={() => setSelectedSub(null)}
-        title="Request Changes on Task"
+        onClose={closeChangesModal}
+        title="Request Changes"
         description={selectedSub?.task.title}
       >
         <form onSubmit={handleNeedsChangesSubmit} className="space-y-4">
           <div className="space-y-1">
-            <label className="block text-xs font-semibold text-[var(--tm-ink-soft)] uppercase tracking-wider">
-              Feedback / Required Changes <span className="text-[var(--tm-danger)]">*</span>
+            <label
+              htmlFor="what-needs-to-change"
+              className="block text-xs font-semibold text-[var(--tm-ink-soft)] uppercase tracking-wider"
+            >
+              What needs to change? <span className="text-[var(--tm-danger)]">*</span>
             </label>
             <textarea
-              className="w-full text-sm rounded-lg border border-[var(--tm-border-strong)] p-3 text-[var(--tm-ink)] focus:outline-none focus:ring-2 focus:ring-[var(--tm-danger-ring)] focus:border-[var(--tm-danger)]"
-              rows={3}
-              placeholder="Specify what needs to be fixed or updated..."
+              id="what-needs-to-change"
+              className="w-full text-sm rounded-lg border border-[var(--tm-border-strong)] p-3 text-[var(--tm-ink)] focus:outline-none focus:ring-2 focus:ring-[var(--tm-warning-ring)] focus:border-[var(--tm-warning)]"
+              rows={4}
+              placeholder="Describe exactly what needs to be fixed or redone..."
               value={needsChangesComment}
               onChange={(e) => setNeedsChangesComment(e.target.value)}
               required
             />
+            <p className="text-[11px] text-[var(--tm-ink-muted)]">
+              This message is shown on the task and saved to its review history.
+            </p>
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
-            <Button variant="outline" type="button" onClick={() => setSelectedSub(null)}>
+            <Button variant="outline" type="button" onClick={closeChangesModal}>
               Cancel
             </Button>
-            <Button variant="danger" type="submit">
-              Send Back to Employee
+            <Button variant="primary" type="submit" disabled={!needsChangesComment.trim()}>
+              Save &amp; Send Back
             </Button>
           </div>
         </form>

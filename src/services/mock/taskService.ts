@@ -1,9 +1,47 @@
 import type { ITaskService, StartTaskResult } from '../interfaces';
-import type { Task, TaskSession, Submission, AttachedFile, AttendanceDay, User } from '../../types';
+import type {
+  Task,
+  TaskSession,
+  Submission,
+  AttachedFile,
+  AttendanceDay,
+  User,
+  TaskReviewAction,
+  TaskReviewEvent
+} from '../../types';
 import { getStoredData, setStoredData, KEYS, delay } from './storage';
 import { generateId } from '../../utils/ids';
 import { getTodayDateString, getNowISO, calculateDurationMinutes } from '../../utils/time';
 import { gamificationService } from './gamificationService';
+import { mockNotificationService } from './notificationService';
+
+/** "[name] assigned you a task: [task]" — skipped when someone assigns a task to themselves. */
+function notifyTaskAssigned(task: Task): void {
+  const assignerId = task.assignedByUserId;
+  if (!task.assignedUserId || !assignerId || assignerId === task.assignedUserId) return;
+
+  const users = getStoredData<User[]>(KEYS.USERS);
+  const assignerName = users.find(u => u.id === assignerId)?.name || 'Someone';
+
+  mockNotificationService
+    .addNotification(task.assignedUserId, {
+      type: 'task_assigned',
+      title: 'New task assigned',
+      message: `${assignerName} assigned you a task: ${task.title}`,
+      link: `/app/tasks/${task.id}`
+    })
+    .catch(console.error);
+}
+
+/** Appends one entry to a task's review history, keeping it chronological. */
+function appendReviewEvent(
+  task: Task,
+  event: { action: TaskReviewAction; byUserId: string; at: string; message?: string; submissionId?: string }
+): TaskReviewEvent[] {
+  const history = task.reviewHistory ? [...task.reviewHistory] : [];
+  history.push({ id: generateId('rev'), ...event });
+  return history;
+}
 
 export class MockTaskService implements ITaskService {
   async getTasks(projectId?: string, userId?: string): Promise<Task[]> {
@@ -35,6 +73,7 @@ export class MockTaskService implements ITaskService {
     };
     list.push(newTask);
     setStoredData(KEYS.TASKS, list);
+    notifyTaskAssigned(newTask);
     return newTask;
   }
 
@@ -44,12 +83,19 @@ export class MockTaskService implements ITaskService {
     const index = list.findIndex(t => t.id === id);
     if (index === -1) throw new Error('Task not found');
 
+    const previousAssignee = list[index].assignedUserId;
     const updated: Task = {
       ...list[index],
       ...updates
     };
     list[index] = updated;
     setStoredData(KEYS.TASKS, list);
+
+    // Reassigning a task is also "someone assigned you a task".
+    if (updates.assignedUserId && updates.assignedUserId !== previousAssignee) {
+      notifyTaskAssigned(updated);
+    }
+
     return updated;
   }
 
@@ -158,19 +204,32 @@ export class MockTaskService implements ITaskService {
     if (index === -1) throw new Error('Task not found');
 
     const task = list[index];
+    const now = getNowISO();
     const submission: Submission = {
       id: generateId('sub'),
       taskId,
       userId,
       notes,
-      submittedAt: getNowISO(),
+      submittedAt: now,
       status: 'pending',
       files: files || [],
       fileUrls: fileUrls || []
     };
 
+    // A resubmission is any submit after the admin asked for changes.
+    const isResubmission = task.reviewStatus === 'changes_requested' || task.submissions.length > 0;
+
     task.submissions.push(submission);
     task.status = 'review';
+    task.reviewStatus = 'submitted';
+    // The open change request has been addressed.
+    task.changeRequest = undefined;
+    task.reviewHistory = appendReviewEvent(task, {
+      action: isResubmission ? 'resubmitted' : 'submitted',
+      byUserId: userId,
+      at: now,
+      submissionId: submission.id
+    });
 
     list[index] = task;
     setStoredData(KEYS.TASKS, list);
@@ -181,7 +240,8 @@ export class MockTaskService implements ITaskService {
     taskId: string,
     submissionId: string,
     status: 'approved' | 'needs_changes',
-    comment?: string
+    comment?: string,
+    reviewerId?: string
   ): Promise<Task> {
     await delay(100);
     const list = getStoredData<Task[]>(KEYS.TASKS);
@@ -192,11 +252,36 @@ export class MockTaskService implements ITaskService {
     const sub = task.submissions.find(s => s.id === submissionId);
     if (!sub) throw new Error('Submission not found');
 
+    if (status === 'needs_changes' && !comment?.trim()) {
+      throw new Error('Please describe what needs to change.');
+    }
+
+    const now = getNowISO();
     sub.status = status;
     sub.adminComment = comment;
 
     if (status === 'approved') {
       task.status = 'completed';
+      task.reviewStatus = 'approved';
+      task.approvedAt = now;
+      task.approvedByUserId = reviewerId;
+      task.changeRequest = undefined;
+      if (!task.completedAt) task.completedAt = now;
+      task.reviewHistory = appendReviewEvent(task, {
+        action: 'approved',
+        byUserId: reviewerId || '',
+        at: now,
+        submissionId: sub.id
+      });
+
+      mockNotificationService
+        .addNotification(task.assignedUserId, {
+          type: 'task_approved',
+          title: 'Task approved',
+          message: `Your task '${task.title}' was approved ✅`,
+          link: `/app/tasks/${task.id}`
+        })
+        .catch(console.error);
 
       // Gamification logic
       const today = getTodayDateString();
@@ -216,9 +301,31 @@ export class MockTaskService implements ITaskService {
         gamificationService.awardBadge(task.assignedUserId, 'fastest_delivery').catch(console.error);
       }
     } else {
-      // Needs changes: increment revision counter & move back to in_progress
+      // Changes requested: increment revision counter & hand the task back to the employee
       task.revisions = (task.revisions || 0) + 1;
       task.status = 'in_progress';
+      task.reviewStatus = 'changes_requested';
+      task.changeRequest = {
+        message: (comment || '').trim(),
+        requestedAt: now,
+        requestedByUserId: reviewerId || ''
+      };
+      task.reviewHistory = appendReviewEvent(task, {
+        action: 'changes_requested',
+        byUserId: reviewerId || '',
+        at: now,
+        message: (comment || '').trim(),
+        submissionId: sub.id
+      });
+
+      mockNotificationService
+        .addNotification(task.assignedUserId, {
+          type: 'changes_requested',
+          title: 'Changes requested',
+          message: `Changes requested on '${task.title}'`,
+          link: `/app/tasks/${task.id}`
+        })
+        .catch(console.error);
     }
 
     list[index] = task;

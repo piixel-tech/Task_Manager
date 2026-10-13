@@ -194,7 +194,7 @@ export const ProjectDetailPage: React.FC = () => {
   }
 
   // Members list & active running task check per member
-  const projectMembers = allUsers.filter(u => project.memberIds?.includes(u.id) || project.assignedUserIds?.includes(u.id));
+  const projectMembers = allUsers.filter(u => u.active && (project.memberIds?.includes(u.id) || project.assignedUserIds?.includes(u.id)));
   const availableActiveUsers = allUsers.filter(u => u.active && !project.memberIds?.includes(u.id) && !project.assignedUserIds?.includes(u.id));
 
   const isMemberRunningTask = (memberId: string) => {

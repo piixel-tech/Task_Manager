@@ -195,8 +195,10 @@ export const EmployeeTaskTabs: React.FC<EmployeeTaskTabsProps> = ({ userId }) =>
                 </div>
                 <div className="text-right shrink-0">
                   <div className="font-bold text-[var(--tm-primary)]">{formatHours(t.loggedHours || 0)}</div>
-                  {t.dueDate && (
+                  {t.dueDate ? (
                     <div className="text-[10px] text-[var(--tm-ink-muted)]">Due: {formatDate(t.dueDate)}</div>
+                  ) : (
+                    <div className="text-[10px] text-[var(--tm-ink-muted)]">No due date</div>
                   )}
                 </div>
               </div>

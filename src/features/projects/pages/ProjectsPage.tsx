@@ -438,28 +438,36 @@ export const ProjectsPage: React.FC = () => {
 
           {/* Member Picker Checkbox List with <UserName> */}
           <div className="space-y-2 pt-2 border-t border-[var(--tm-border)]">
-            <label className="block text-xs font-semibold text-[var(--tm-ink-soft)] uppercase tracking-wider">
-              Assign Team Members ({selectedUserIds.length} selected)
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold text-[var(--tm-ink-soft)] uppercase tracking-wider">
+                Assign Team Members
+              </label>
+              <span className="text-xs font-bold text-[var(--tm-primary)] bg-[var(--tm-primary-softer)] px-2.5 py-0.5 rounded-full border border-[var(--tm-primary-soft)]">
+                {selectedUserIds.length} selected
+              </span>
+            </div>
             <div className="max-h-48 overflow-y-auto space-y-2 p-3 bg-[var(--tm-card-muted)] rounded-xl border border-[var(--tm-border)]">
               {activeUsers.map((u) => {
                 const isSelected = selectedUserIds.includes(u.id);
                 return (
-                  <label
+                  <div
                     key={u.id}
                     onClick={() => toggleMemberSelection(u.id)}
                     className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${
-                      isSelected ? 'bg-[var(--tm-primary-softer)] border border-[var(--tm-primary-soft)]' : 'hover:bg-[var(--tm-bg-sunken)]'
+                      isSelected
+                        ? 'bg-[var(--tm-primary-softer)] border border-[var(--tm-primary-soft)]'
+                        : 'hover:bg-[var(--tm-bg-sunken)] border border-transparent'
                     }`}
                   >
                     <UserName user={u} size="sm" showBadge={true} />
                     <input
                       type="checkbox"
-                      checked={isSelected}
-                      onChange={() => {}} // handled by row click
-                      className="w-4 h-4 text-[var(--tm-primary)] rounded border-[var(--tm-border-strong)]"
+                      checked={selectedUserIds.includes(u.id)}
+                      onChange={() => toggleMemberSelection(u.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-4 h-4 text-[var(--tm-primary)] rounded border-[var(--tm-border-strong)] cursor-pointer"
                     />
-                  </label>
+                  </div>
                 );
               })}
             </div>

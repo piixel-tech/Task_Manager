@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Play, Pause, Square, Coffee } from 'lucide-react';
+import { Play, Pause, Square, Coffee, RotateCcw, MoonStar } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { useAppStore } from '../../../store/useAppStore';
 import { useAttendanceStore } from '../../../store/useAttendanceStore';
@@ -79,6 +79,7 @@ export const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({
     punchOut: storePunchOut,
     endBreak: storeEndBreak,
     endMyDay: storeEndMyDay,
+    resumeMyDay: storeResumeMyDay,
     fetchTodayAttendance
   } = useAttendanceStore();
 
@@ -102,6 +103,8 @@ export const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({
   const todayRecord = externalRecord !== undefined ? externalRecord : storeRecord;
 
   const activePunch = todayRecord?.punchSessions.find((s) => !s.punchOut);
+  const dayEndedAt = todayRecord?.dayEndedAt;
+  const isDayEnded = !!dayEndedAt;
   const activeBreak = activePunch?.breaks.find((b) => !b.breakEnd);
   const firstPunchInTime = todayRecord?.punchSessions[0]?.punchIn;
   const lastPunchOutSession = todayRecord?.punchSessions.slice().reverse().find((s) => s.punchOut);
@@ -199,12 +202,23 @@ export const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({
     if (!user) return;
     try {
       await storeEndMyDay(user.id);
-      showToast('Shift officially ended!');
+      showToast('Done for the day! Shift officially ended.');
       setIsEndDayModalOpen(false);
       setIsDailyUpdateModalOpen(true);
       onRefresh?.();
     } catch (err: any) {
       showToast(err.message || 'Failed to end day');
+    }
+  };
+
+  const handleResumeDay = async () => {
+    if (!user) return;
+    try {
+      await storeResumeMyDay(user.id);
+      showToast('Day resumed. Back to working — timer is running.');
+      onRefresh?.();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to resume day');
     }
   };
 
@@ -226,11 +240,18 @@ export const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({
               Time Tracker
             </h3>
 
-            {activeBreak && (
+            {isDayEnded ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-[11.5px] font-extrabold text-white backdrop-blur-md">
-                <Coffee className="h-3.5 w-3.5" />
-                On break · {breakTimerString}
+                <MoonStar className="h-3.5 w-3.5" />
+                Done for the day · {formatTime(dayEndedAt)}
               </span>
+            ) : (
+              activeBreak && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-[11.5px] font-extrabold text-white backdrop-blur-md">
+                  <Coffee className="h-3.5 w-3.5" />
+                  On break · {breakTimerString}
+                </span>
+              )
             )}
           </div>
 
@@ -250,10 +271,10 @@ export const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({
             )}
           </div>
 
-          {/* Action Buttons: Play/Pause circle + Stop circle */}
-          <div className="mt-7 flex items-center justify-center gap-5">
-            {/* Play/Pause Round White Button */}
-            {activeBreak ? (
+          {/* Action Buttons: Play/Pause circle + End Day / Resume Day */}
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-5">
+            {/* Play/Pause Round White Button — hidden once the day is closed */}
+            {isDayEnded ? null : activeBreak ? (
               <motion.button
                 type="button"
                 whileTap={reduced ? undefined : { scale: 0.95 }}
@@ -297,16 +318,30 @@ export const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({
               </motion.button>
             )}
 
-            {/* Red Circle Stop Button = End My Day */}
-            <motion.button
-              type="button"
-              whileTap={reduced ? undefined : { scale: 0.95 }}
-              onClick={() => setIsEndDayModalOpen(true)}
-              className="grid h-14 w-14 place-items-center rounded-full bg-[#a32a2a] text-white shadow-lg transition-all hover:scale-105"
-              title="End My Day"
-            >
-              <Square className="h-5 w-5 fill-current" />
-            </motion.button>
+            {/* End Day / Resume Day toggle */}
+            {isDayEnded ? (
+              <motion.button
+                type="button"
+                whileTap={reduced ? undefined : { scale: 0.95 }}
+                onClick={handleResumeDay}
+                className="inline-flex h-14 items-center gap-2.5 rounded-full bg-white px-6 text-[15px] font-extrabold text-[#0F3D27] shadow-lg transition-all hover:scale-105"
+                title="Resume Day"
+              >
+                <RotateCcw className="h-5 w-5" />
+                Resume Day
+              </motion.button>
+            ) : (
+              <motion.button
+                type="button"
+                whileTap={reduced ? undefined : { scale: 0.95 }}
+                onClick={() => setIsEndDayModalOpen(true)}
+                className="inline-flex h-14 items-center gap-2.5 rounded-full bg-[#a32a2a] px-6 text-[15px] font-extrabold text-white shadow-lg transition-all hover:scale-105"
+                title="End Day"
+              >
+                <Square className="h-5 w-5 fill-current" />
+                End Day
+              </motion.button>
+            )}
           </div>
         </div>
       </div>

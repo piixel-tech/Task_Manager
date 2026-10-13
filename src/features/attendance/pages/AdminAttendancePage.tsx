@@ -62,18 +62,27 @@ export const AdminAttendancePage: React.FC = () => {
     loadData();
     const interval = setInterval(() => {
       setNowISO(getNowISO());
+      // Re-read attendance so status changes (End Day / Resume Day) show up live
+      attendanceService.getAttendance().then(setAttendanceLogs).catch(() => {});
     }, 1000);
     return () => clearInterval(interval);
   }, []);
 
-  const filteredEmployees = useMemo(
-    () =>
-      users.filter((emp) => {
-        if (companyFilter === 'all') return true;
-        return emp.company === companyFilter;
-      }),
-    [users, companyFilter]
-  );
+  const filteredEmployees = useMemo(() => {
+    const seen = new Set<string>();
+    const result: User[] = [];
+
+    for (const emp of users) {
+      if (emp.role === 'admin') continue;
+      if (!emp.active) continue;
+      if (companyFilter !== 'all' && emp.company !== companyFilter) continue;
+      if (seen.has(emp.id)) continue;
+
+      seen.add(emp.id);
+      result.push(emp);
+    }
+    return result;
+  }, [users, companyFilter]);
 
   const logsForSelectedDate = useMemo(() => {
     return attendanceLogs.filter((l) => l.date === selectedDate);
@@ -320,8 +329,15 @@ export const AdminAttendancePage: React.FC = () => {
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredEmployees.map((emp) => {
+          {filteredEmployees.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center text-xs text-[var(--tm-ink-muted)]">
+                No employees registered yet. Add team members in Team Directory.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredEmployees.map((emp) => {
               const empAttendance = attendanceLogs.find(
                 (a) => a.userId === emp.id && a.date === todayStr
               );
@@ -344,6 +360,8 @@ export const AdminAttendancePage: React.FC = () => {
                     } else {
                       status = 'Working';
                     }
+                  } else if (empAttendance.dayEndedAt) {
+                    status = 'Done for the day';
                   } else {
                     status = 'Punched out';
                   }
@@ -375,6 +393,7 @@ export const AdminAttendancePage: React.FC = () => {
               > = {
                 Working: 'success',
                 'On break': 'warning',
+                'Done for the day': 'default',
                 'Punched out': 'primary',
                 'On leave': 'danger',
                 'Not marked': 'default'
@@ -387,7 +406,7 @@ export const AdminAttendancePage: React.FC = () => {
                       <div className="flex items-center gap-2.5 min-w-0">
                         <UserAvatar userId={emp.id} size="md" />
                         <div className="min-w-0">
-                          <UserName user={emp} size="sm" showBadge={false} />
+                          <UserName user={emp} size="sm" showAvatar={false} showTitle={false} showBadge={false} />
                           <p className="text-[11.5px] text-[var(--tm-ink-muted)] truncate">
                             {emp.jobTitle}
                           </p>
@@ -425,8 +444,9 @@ export const AdminAttendancePage: React.FC = () => {
               );
             })}
           </div>
-        </div>
-      )}
+        )}
+      </div>
+    )}
 
       {/* Logs Table for the Selected Date */}
       <Card>
@@ -450,7 +470,14 @@ export const AdminAttendancePage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--tm-border)]">
-                {filteredEmployees.map((emp) => {
+                {filteredEmployees.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-8 text-center text-xs text-[var(--tm-ink-muted)]">
+                      No employees registered yet. Add team members in Team Directory.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredEmployees.map((emp) => {
                   const log = logsForSelectedDate.find((l) => l.userId === emp.id);
 
                   if (!log) {
@@ -582,7 +609,7 @@ export const AdminAttendancePage: React.FC = () => {
                       </td>
                     </tr>
                   );
-                })}
+                }))}
               </tbody>
             </table>
           </div>

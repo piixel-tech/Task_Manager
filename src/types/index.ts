@@ -43,6 +43,8 @@ export interface AttendanceDay {
   status: AttendanceStatus;
   punchSessions: PunchSession[];
   totalHours: number;
+  /** Set when the employee marks "Done for the day"; cleared on Resume Day. */
+  dayEndedAt?: string;
   flagged?: boolean;
   autoClosed?: boolean;
   correctionReason?: string;
@@ -57,7 +59,13 @@ export interface Holiday {
   type: HolidayType;
 }
 
-export type LiveEmployeeStatus = 'Working' | 'On break' | 'Punched out' | 'On leave' | 'Not marked';
+export type LiveEmployeeStatus =
+  | 'Working'
+  | 'On break'
+  | 'Done for the day'
+  | 'Punched out'
+  | 'On leave'
+  | 'Not marked';
 
 export interface Project {
   id: string;
@@ -117,6 +125,28 @@ export interface Submission {
   files?: AttachedFile[];
 }
 
+/** Review flow: submitted -> (changes requested -> resubmitted)* -> approved */
+export type TaskReviewStatus = 'submitted' | 'changes_requested' | 'approved';
+
+export type TaskReviewAction = 'submitted' | 'changes_requested' | 'resubmitted' | 'approved';
+
+export interface TaskReviewEvent {
+  id: string;
+  action: TaskReviewAction;
+  /** Who performed it: the employee for submit/resubmit, the reviewer for changes/approval. */
+  byUserId: string;
+  at: string;
+  /** Only for changes_requested: what needs to change. */
+  message?: string;
+  submissionId?: string;
+}
+
+export interface ChangeRequest {
+  message: string;
+  requestedAt: string;
+  requestedByUserId: string;
+}
+
 export interface Task {
   id: string;
   projectId: string;
@@ -139,6 +169,50 @@ export interface Task {
   pauseReasons?: TaskPauseReason[];
   createdAt: string;
   completedAt?: string;
+
+  /** --- Review flow --- */
+  reviewStatus?: TaskReviewStatus;
+  /** Audit trail shown in the task detail view on both sides. */
+  reviewHistory?: TaskReviewEvent[];
+  /** Latest open change request. Cleared on resubmit. */
+  changeRequest?: ChangeRequest;
+  approvedAt?: string;
+  approvedByUserId?: string;
+}
+
+/** Employee notifications (bell menu). */
+export type NotificationType =
+  | 'holiday'
+  | 'task_assigned'
+  | 'project_added'
+  | 'group_added'
+  | 'task_approved'
+  | 'changes_requested'
+  | 'birthday'
+  | 'task_due'
+  | 'punch_reminder';
+
+export interface AppNotification {
+  id: string;
+  /** The employee this notification belongs to. */
+  userId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  /** In-app route opened when the notification is clicked. */
+  link: string;
+  createdAt: string;
+  read: boolean;
+}
+
+/** Payload accepted by notificationService.addNotification(). */
+export interface NotificationInput {
+  type: NotificationType;
+  title: string;
+  message: string;
+  link: string;
+  createdAt?: string;
+  read?: boolean;
 }
 
 export interface ChatRoom {

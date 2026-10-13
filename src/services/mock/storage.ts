@@ -23,13 +23,24 @@ const KEYS = {
   DAILY_UPDATES: 'tm_daily_updates',
   KUDOS: 'tm_kudos',
   PAUSE_REASONS: 'tm_pause_reasons',
-  TEAM_GOAL: 'tm_team_goal'
+  TEAM_GOAL: 'tm_team_goal',
+  NOTIFICATIONS: 'tm_notifications',
+  /** "sent today" keys that stop the date-based checks from duplicating. */
+  NOTIFICATION_KEYS: 'tm_notification_keys',
+  SHIFT_START: 'tm_shift_start'
 };
+
+const STORAGE_VERSION_KEY = 'tm_storage_version';
+const CURRENT_STORAGE_VERSION = 'v7_fresh_start';
 
 export const delay = (ms = 80) => new Promise((res) => setTimeout(res, ms));
 
 export function initializeStorage(forceReset = false) {
-  if (forceReset || !localStorage.getItem(KEYS.USERS)) {
+  if (typeof localStorage === 'undefined') return;
+
+  const version = localStorage.getItem(STORAGE_VERSION_KEY);
+  if (forceReset || version !== CURRENT_STORAGE_VERSION) {
+    localStorage.setItem(STORAGE_VERSION_KEY, CURRENT_STORAGE_VERSION);
     localStorage.setItem(KEYS.USERS, JSON.stringify(INITIAL_USERS));
     localStorage.setItem(KEYS.PROJECTS, JSON.stringify(INITIAL_PROJECTS));
     localStorage.setItem(KEYS.TASKS, JSON.stringify(INITIAL_TASKS));
@@ -38,9 +49,23 @@ export function initializeStorage(forceReset = false) {
     localStorage.setItem(KEYS.CHAT_ROOMS, JSON.stringify(INITIAL_CHAT_ROOMS));
     localStorage.setItem(KEYS.MESSAGES, JSON.stringify(INITIAL_MESSAGES));
     localStorage.setItem(KEYS.WEEK_OFFS, JSON.stringify([0, 6])); // Sun, Sat
-    if (forceReset) {
-      localStorage.removeItem(KEYS.CURRENT_USER);
-      localStorage.removeItem('tm_simulated_date');
+    localStorage.removeItem(KEYS.CURRENT_USER);
+    localStorage.removeItem('tm_simulated_date');
+    localStorage.removeItem(KEYS.GAMIFICATION);
+    localStorage.removeItem(KEYS.DAILY_UPDATES);
+    localStorage.removeItem(KEYS.KUDOS);
+    localStorage.removeItem(KEYS.PAUSE_REASONS);
+    localStorage.removeItem(KEYS.TEAM_GOAL);
+    localStorage.removeItem(KEYS.CLIENT_INVITES);
+    localStorage.removeItem(KEYS.NOTIFICATIONS);
+    localStorage.removeItem(KEYS.NOTIFICATION_KEYS);
+  } else {
+    // Safety check: ensure admin user is present if user list was emptied
+    const currentUsersRaw = localStorage.getItem(KEYS.USERS);
+    let currentUsers: any[] = currentUsersRaw ? JSON.parse(currentUsersRaw) : [];
+    if (!currentUsers.some((u) => u.role === 'admin')) {
+      currentUsers.unshift(...INITIAL_USERS);
+      localStorage.setItem(KEYS.USERS, JSON.stringify(currentUsers));
     }
   }
 }
@@ -50,12 +75,14 @@ initializeStorage();
 
 export function getStoredData<T>(key: string): T {
   initializeStorage();
-  const raw = localStorage.getItem(key);
+  const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
   return raw ? JSON.parse(raw) : ([] as unknown as T);
 }
 
 export function setStoredData<T>(key: string, data: T): void {
-  localStorage.setItem(key, JSON.stringify(data));
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(key, JSON.stringify(data));
+  }
 }
 
 export { KEYS };

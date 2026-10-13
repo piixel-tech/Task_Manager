@@ -26,7 +26,7 @@ export class SupabaseTaskService implements ITaskService {
   async submitTaskWork(_taskId: string, _userId: string, _notes: string, _files?: AttachedFile[], _fileUrls?: string[]): Promise<Task> {
     throw new Error('Supabase integration not configured.');
   }
-  async reviewSubmission(_taskId: string, _submissionId: string, _status: 'approved' | 'needs_changes', _comment?: string): Promise<Task> {
+  async reviewSubmission(_taskId: string, _submissionId: string, _status: 'approved' | 'needs_changes', _comment?: string, _reviewerId?: string): Promise<Task> {
     throw new Error('Supabase integration not configured.');
   }
   async respondToAssignment(_taskId: string, _action: 'accept' | 'reject', _reason?: string): Promise<Task> {

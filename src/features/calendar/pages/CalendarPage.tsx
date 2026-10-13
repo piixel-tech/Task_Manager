@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Plus, ChevronLeft, ChevronRight, Settings, Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Settings, Calendar as CalendarIcon, Clock, X } from 'lucide-react';
 import { holidayService } from '../../../services';
 import type { Holiday } from '../../../types';
 import { useAuthStore } from '../../../store/authStore';
@@ -33,22 +33,27 @@ export const CalendarPage: React.FC = () => {
 
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [weekOffs, setWeekOffs] = useState<number[]>([0, 6]);
+  const [shiftStart, setShiftStart] = useState('10:00');
 
   const [isHolidayModalOpen, setIsHolidayModalOpen] = useState(false);
   const [isWeekOffModalOpen, setIsWeekOffModalOpen] = useState(false);
   const [selectedDayDetail, setSelectedDayDetail] = useState<{ date: string; dayNum: number } | null>(null);
 
   const [title, setTitle] = useState('');
-  const [date, setDate] = useState('');
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
+  const [pickerYear, setPickerYear] = useState(todayDateObj.getFullYear());
+  const [pickerMonth, setPickerMonth] = useState(todayDateObj.getMonth());
   const [type, setType] = useState<'national' | 'company' | 'optional'>('company');
 
   const fetchData = async () => {
-    const [hList, wOffs] = await Promise.all([
+    const [hList, wOffs, shift] = await Promise.all([
       holidayService.getHolidays(),
-      holidayService.getWeekOffs()
+      holidayService.getWeekOffs(),
+      holidayService.getShiftStart()
     ]);
     setHolidays(hList);
     setWeekOffs(wOffs);
+    setShiftStart(shift);
 
     if (user) {
       fetchAttendanceHistory(isAdmin ? undefined : user.id);
@@ -87,19 +92,44 @@ export const CalendarPage: React.FC = () => {
     }
   }
 
+  const toggleHolidayDate = (dateStr: string) => {
+    setSelectedDates((prev) =>
+      prev.includes(dateStr)
+        ? prev.filter((d) => d !== dateStr)
+        : [...prev, dateStr].sort()
+    );
+  };
+
+  const removeHolidayDate = (dateStr: string) => {
+    setSelectedDates((prev) => prev.filter((d) => d !== dateStr));
+  };
+
   const handleAddHoliday = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !date) return;
+    if (!title.trim() || selectedDates.length === 0) {
+      showToast('Please enter a holiday title and select at least one date.');
+      return;
+    }
     try {
-      await holidayService.addHoliday({ title, date, type });
-      showToast('Holiday added!');
+      await Promise.all(
+        selectedDates.map((d) =>
+          holidayService.addHoliday({ title: title.trim(), date: d, type })
+        )
+      );
+      showToast(`${selectedDates.length} ${selectedDates.length === 1 ? 'holiday' : 'holidays'} added!`);
       setIsHolidayModalOpen(false);
       setTitle('');
-      setDate('');
+      setSelectedDates([]);
       fetchData();
     } catch (err: any) {
       showToast(err.message || 'Failed to add holiday');
     }
+  };
+
+  const handleSaveShiftStart = async (time: string) => {
+    setShiftStart(time);
+    await holidayService.setShiftStart(time);
+    showToast('Shift start time updated!');
   };
 
   const handleToggleWeekOff = async (dayNum: number) => {
@@ -142,7 +172,13 @@ export const CalendarPage: React.FC = () => {
               </Button>
               <Button
                 size="sm"
-                onClick={() => setIsHolidayModalOpen(true)}
+                onClick={() => {
+                  setPickerYear(currentYear);
+                  setPickerMonth(currentMonth);
+                  setSelectedDates([]);
+                  setTitle('');
+                  setIsHolidayModalOpen(true);
+                }}
                 leftIcon={<Plus className="h-4 w-4" />}
               >
                 Add Holiday
@@ -486,6 +522,25 @@ export const CalendarPage: React.FC = () => {
             })}
           </div>
 
+          <div className="space-y-1 border-t border-[var(--tm-border)] pt-4">
+            <label
+              htmlFor="shift-start-time"
+              className="block text-xs font-semibold uppercase tracking-wider text-[var(--tm-ink-soft)]"
+            >
+              Shift start time
+            </label>
+            <input
+              id="shift-start-time"
+              type="time"
+              value={shiftStart}
+              onChange={(e) => handleSaveShiftStart(e.target.value)}
+              className="w-40 rounded-lg border border-[var(--tm-border-strong)] p-2.5 text-sm text-[var(--tm-ink)] focus:border-[var(--tm-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--tm-primary-soft)]"
+            />
+            <p className="text-[11px] text-[var(--tm-ink-muted)]">
+              Employees who have not punched in an hour after this time get a reminder.
+            </p>
+          </div>
+
           <div className="flex justify-end pt-4 border-t border-[var(--tm-border)]">
             <Button variant="primary" onClick={() => setIsWeekOffModalOpen(false)}>
               Done
@@ -497,24 +552,23 @@ export const CalendarPage: React.FC = () => {
       {/* Add Holiday Modal */}
       <Modal
         isOpen={isHolidayModalOpen}
-        onClose={() => setIsHolidayModalOpen(false)}
+        onClose={() => {
+          setIsHolidayModalOpen(false);
+          setTitle('');
+          setSelectedDates([]);
+        }}
         title="Add Holiday"
+        description="Select one or more dates for this holiday"
       >
         <form onSubmit={handleAddHoliday} className="space-y-4">
           <Input
             label="Holiday Title"
-            placeholder="e.g. Festival of Lights"
+            placeholder="e.g. Festival of Lights / Diwali"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             required
           />
-          <Input
-            label="Date"
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            required
-          />
+
           <Select
             label="Type"
             value={type}
@@ -525,12 +579,150 @@ export const CalendarPage: React.FC = () => {
               { value: 'optional', label: 'Optional Leave' }
             ]}
           />
+
+          {/* Multiple Date Picker Section */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold text-[var(--tm-ink-soft)] uppercase tracking-wider">
+                Select Dates ({selectedDates.length} selected)
+              </label>
+              {selectedDates.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedDates([])}
+                  className="text-xs text-[var(--tm-ink-soft)] hover:text-red-500 font-medium"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+
+            {/* Selected dates chips */}
+            {selectedDates.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-2 bg-[var(--tm-card-muted)] rounded-lg border border-[var(--tm-border)]">
+                {selectedDates.map((d) => (
+                  <span
+                    key={d}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--tm-primary-softer)] text-[var(--tm-primary)] border border-[var(--tm-primary-soft)]"
+                  >
+                    <span>{d}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeHolidayDate(d)}
+                      className="text-[var(--tm-ink-soft)] hover:text-red-500 rounded-full focus:outline-none"
+                      title="Remove date"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-[var(--tm-ink-subtle)] italic">
+                Click dates in the calendar below to toggle holiday dates.
+              </p>
+            )}
+
+            {/* Interactive Mini Calendar Date Picker */}
+            <div className="rounded-xl border border-[var(--tm-border)] bg-[var(--tm-card-muted)] p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-bold text-[var(--tm-ink)]">
+                  {monthNames[pickerMonth]} {pickerYear}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (pickerMonth === 0) {
+                        setPickerMonth(11);
+                        setPickerYear(pickerYear - 1);
+                      } else {
+                        setPickerMonth(pickerMonth - 1);
+                      }
+                    }}
+                    className="p-1 rounded-md text-[var(--tm-ink-soft)] hover:bg-[var(--tm-bg-sunken)] hover:text-[var(--tm-ink)]"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (pickerMonth === 11) {
+                        setPickerMonth(0);
+                        setPickerYear(pickerYear + 1);
+                      } else {
+                        setPickerMonth(pickerMonth + 1);
+                      }
+                    }}
+                    className="p-1 rounded-md text-[var(--tm-ink-soft)] hover:bg-[var(--tm-bg-sunken)] hover:text-[var(--tm-ink)]"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Days header */}
+              <div className="grid grid-cols-7 gap-1 text-center mb-1">
+                {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
+                  <span key={d} className="text-[11px] font-semibold text-[var(--tm-ink-subtle)]">
+                    {d}
+                  </span>
+                ))}
+              </div>
+
+              {/* Day grid */}
+              <div className="grid grid-cols-7 gap-1">
+                {(() => {
+                  const { totalDays: pTotalDays, startDayOfWeek: pStartDay } = getMonthInfo(pickerYear, pickerMonth);
+                  const blanks = Array.from({ length: pStartDay }, (_, i) => i);
+                  const dayNums = Array.from({ length: pTotalDays }, (_, i) => i + 1);
+
+                  return (
+                    <>
+                      {blanks.map((b) => (
+                        <div key={`blank-${b}`} className="h-7" />
+                      ))}
+                      {dayNums.map((dayNum) => {
+                        const dateStr = `${pickerYear}-${String(pickerMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+                        const isSelected = selectedDates.includes(dateStr);
+                        return (
+                          <button
+                            key={dateStr}
+                            type="button"
+                            onClick={() => toggleHolidayDate(dateStr)}
+                            className={`h-7 text-xs rounded-md font-medium transition-all flex items-center justify-center ${
+                              isSelected
+                                ? 'bg-[var(--tm-primary)] text-white font-bold shadow-xs'
+                                : 'text-[var(--tm-ink)] hover:bg-[var(--tm-bg-sunken)]'
+                            }`}
+                          >
+                            {dayNum}
+                          </button>
+                        );
+                      })}
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+
           <div className="flex justify-end gap-2 pt-4 border-t border-[var(--tm-border)]">
-            <Button variant="outline" type="button" onClick={() => setIsHolidayModalOpen(false)}>
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => {
+                setIsHolidayModalOpen(false);
+                setTitle('');
+                setSelectedDates([]);
+              }}
+            >
               Cancel
             </Button>
-            <Button variant="primary" type="submit">
-              Save Holiday
+            <Button variant="primary" type="submit" disabled={selectedDates.length === 0}>
+              {selectedDates.length > 1
+                ? `Save ${selectedDates.length} Holidays`
+                : 'Save Holiday'}
             </Button>
           </div>
         </form>

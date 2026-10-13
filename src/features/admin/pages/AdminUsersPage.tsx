@@ -12,6 +12,8 @@ import {
 import { attendanceService, userService, taskService } from '../../../services';
 import type { AttendanceDay, Company, User, UserRole, Task } from '../../../types';
 import { useAppStore } from '../../../store/useAppStore';
+import { useUserStore } from '../../../store/useUserStore';
+import { useAuthStore } from '../../../store/authStore';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
 import { StatusChip } from '../../../components/ui/StatusChip';
@@ -55,13 +57,16 @@ export const AdminUsersPage: React.FC = () => {
   const [query, setQuery] = useState('');
   const [statusTab, setStatusTab] = useState<'all' | 'active' | 'pending' | 'left'>('all');
 
-  // Form states
   const [name, setName] = useState('');
   const [jobTitle, setJobTitle] = useState('');
   const [company, setCompany] = useState<Company>('piixel');
   const [role, setRole] = useState<UserRole>('employee');
   const [password, setPassword] = useState('password123');
-  const [newJobTitle, setNewJobTitle] = useState('');
+  const [editName, setEditName] = useState('');
+  const [editLoginId, setEditLoginId] = useState('');
+  const [editJobTitle, setEditJobTitle] = useState('');
+  const [editBirthday, setEditBirthday] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('password123');
 
   const fetchData = async () => {
@@ -105,17 +110,52 @@ export const AdminUsersPage: React.FC = () => {
     }
   };
 
-  const handleEditJobTitle = async (e: React.FormEvent) => {
+  const handleEditUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingUser || !newJobTitle) return;
+    if (!editingUser) return;
+
+    const trimmedName = editName.trim();
+    const trimmedLoginId = editLoginId.trim();
+    const trimmedJobTitle = editJobTitle.trim();
+
+    if (!trimmedName || !trimmedLoginId || !trimmedJobTitle) {
+      setEditError('Name, Current Login ID, and Job Title are all required.');
+      return;
+    }
+
+    const isLoginIdTaken = users.some(
+      (u) => u.id !== editingUser.id && u.loginId.toLowerCase() === trimmedLoginId.toLowerCase()
+    );
+
+    if (isLoginIdTaken) {
+      setEditError(`Login ID "${trimmedLoginId}" is already taken by another user. Please choose a unique Login ID.`);
+      return;
+    }
 
     try {
-      await userService.updateUser(editingUser.id, { jobTitle: newJobTitle });
-      showToast(`Updated job title for ${editingUser.name}.`);
+      setEditError(null);
+      const updated = await userService.updateUser(editingUser.id, {
+        name: trimmedName,
+        loginId: trimmedLoginId,
+        jobTitle: trimmedJobTitle,
+        birthday: editBirthday || undefined
+      });
+
+      // Update in Zustand user store so all components reference the updated employee
+      useUserStore.getState().setUser(updated);
+
+      // If current logged-in user was updated, update auth store
+      const { user: currentUser, setUser: setAuthUser } = useAuthStore.getState();
+      if (currentUser?.id === updated.id) {
+        setAuthUser(updated);
+      }
+
+      showToast(`Updated details for ${updated.name}.`);
       setEditingUser(null);
       fetchData();
     } catch (err: any) {
-      showToast(err.message || 'Failed to update job title');
+      setEditError(err.message || 'Failed to update user');
+      showToast(err.message || 'Failed to update user');
     }
   };
 
@@ -137,11 +177,12 @@ export const AdminUsersPage: React.FC = () => {
     e.preventDefault();
     if (!leavingUser) return;
     try {
-      await userService.updateUser(leavingUser.id, {
+      const updated = await userService.updateUser(leavingUser.id, {
         active: false,
         leftJobDate: leavingDate || getTodayDateString()
       });
-      showToast(`${leavingUser.name} marked as Left the job.`);
+      useUserStore.getState().setUser(updated);
+      showToast(`${leavingUser.name} marked as Left Job.`);
       setLeavingUser(null);
       fetchData();
     } catch (err: any) {
@@ -165,10 +206,11 @@ export const AdminUsersPage: React.FC = () => {
 
   const handleRehire = async (u: User) => {
     try {
-      await userService.updateUser(u.id, {
+      const updated = await userService.updateUser(u.id, {
         active: true,
         leftJobDate: undefined
       });
+      useUserStore.getState().setUser(updated);
       showToast(`${u.name} rehired successfully!`);
       fetchData();
     } catch (err: any) {
@@ -189,7 +231,7 @@ export const AdminUsersPage: React.FC = () => {
   );
 
   const counts = {
-    all: companyUsers.length,
+    all: companyUsers.filter((u) => u.active).length,
     active: companyUsers.filter((u) => u.active && !u.mustChangePassword).length,
     pending: companyUsers.filter((u) => u.active && u.mustChangePassword).length,
     left: companyUsers.filter((u) => !u.active).length
@@ -199,7 +241,7 @@ export const AdminUsersPage: React.FC = () => {
     const q = query.trim().toLowerCase();
     return companyUsers.filter((u) => {
       const matchesStatus =
-        statusTab === 'all' ||
+        (statusTab === 'all' && u.active) ||
         (statusTab === 'active' && u.active && !u.mustChangePassword) ||
         (statusTab === 'pending' && u.active && u.mustChangePassword) ||
         (statusTab === 'left' && !u.active);
@@ -306,9 +348,8 @@ export const AdminUsersPage: React.FC = () => {
                         <div className="relative shrink-0">
                           <Avatar name={u.name} src={u.avatarUrl} size="lg" />
                           <span
-                            className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white ${
-                              u.active ? 'bg-[var(--tm-success)]' : 'bg-gray-300'
-                            }`}
+                            className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white ${u.active ? 'bg-[var(--tm-success)]' : 'bg-gray-300'
+                              }`}
                             title={u.active ? 'Online / Active' : 'Offline / Left Job'}
                           />
                         </div>
@@ -399,7 +440,7 @@ export const AdminUsersPage: React.FC = () => {
                             setLeavingDate(getTodayDateString());
                           }}
                         >
-                          Left the job
+                          Left Job
                         </Button>
                       ) : (
                         <Button
@@ -459,12 +500,16 @@ export const AdminUsersPage: React.FC = () => {
                 <Button
                   onClick={() => {
                     setEditingUser(viewingUser);
-                    setNewJobTitle(viewingUser.jobTitle);
+                    setEditName(viewingUser.name);
+                    setEditLoginId(viewingUser.loginId);
+                    setEditJobTitle(viewingUser.jobTitle);
+                    setEditBirthday(viewingUser.birthday || '');
+                    setEditError(null);
                     setViewingUser(null);
                   }}
                   leftIcon={<Edit2 className="h-4 w-4" />}
                 >
-                  Edit job title
+                  Edit
                 </Button>
               </>
             )}
@@ -608,29 +653,81 @@ export const AdminUsersPage: React.FC = () => {
         </form>
       </Modal>
 
-      {/* Edit Job Title Modal */}
+      {/* Edit Member Modal */}
       <Modal
         isOpen={!!editingUser}
-        onClose={() => setEditingUser(null)}
-        title={editingUser ? `Edit job title — ${editingUser.name}` : 'Edit job title'}
-        description="The login ID stays unchanged."
+        onClose={() => {
+          setEditingUser(null);
+          setEditError(null);
+        }}
+        title={editingUser ? `Edit ${editingUser.name}` : 'Edit member'}
+        description="Update member details. Login ID must be unique across all accounts."
       >
         {editingUser && (
-          <form onSubmit={handleEditJobTitle} className="space-y-4">
-            <Input label="Current login ID" value={editingUser.loginId} disabled />
+          <form onSubmit={handleEditUser} className="space-y-4">
+            {editError && (
+              <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700 font-semibold border border-red-200">
+                {editError}
+              </div>
+            )}
 
             <Input
-              label="New job title"
-              value={newJobTitle}
-              onChange={(e) => setNewJobTitle(e.target.value)}
+              label="Name"
+              placeholder="e.g. Rahul Verma"
+              value={editName}
+              onChange={(e) => {
+                setEditName(e.target.value);
+                setEditError(null);
+              }}
               required
             />
 
+            <Input
+              label="Current Login ID"
+              placeholder="e.g. rahul-piixel@seo-executive"
+              value={editLoginId}
+              onChange={(e) => {
+                setEditLoginId(e.target.value);
+                setEditError(null);
+              }}
+              required
+            />
+
+            <Input
+              label="Job Title"
+              placeholder="e.g. SEO Executive"
+              value={editJobTitle}
+              onChange={(e) => {
+                setEditJobTitle(e.target.value);
+                setEditError(null);
+              }}
+              required
+            />
+
+            <div>
+              <Input
+                label="Date of birth (optional)"
+                type="date"
+                value={editBirthday}
+                onChange={(e) => setEditBirthday(e.target.value)}
+              />
+              <span className="mt-1 block text-[11px] text-[var(--tm-ink-muted)]">
+                Used for the team birthday notification.
+              </span>
+            </div>
+
             <div className="flex justify-end gap-3 pt-2">
-              <Button variant="outline" type="button" onClick={() => setEditingUser(null)}>
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => {
+                  setEditingUser(null);
+                  setEditError(null);
+                }}
+              >
                 Cancel
               </Button>
-              <Button type="submit">Save job title</Button>
+              <Button type="submit">Save</Button>
             </div>
           </form>
         )}

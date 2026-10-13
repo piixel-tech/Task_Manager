@@ -85,6 +85,7 @@ export class MockAttendanceService implements IAttendanceService {
     } else {
       day.status = 'present';
       day.punchSessions.push(newSession);
+      delete day.dayEndedAt;
     }
 
     setStoredData(KEYS.ATTENDANCE, list);
@@ -181,6 +182,35 @@ export class MockAttendanceService implements IAttendanceService {
         }
       }
       activeSession.punchOut = getNowISO();
+    }
+
+    day.dayEndedAt = activeSession.punchOut;
+    day.totalHours = this.calculateTotalWorkedHours(day);
+
+    setStoredData(KEYS.ATTENDANCE, list);
+    return day;
+  }
+
+  /** Reverses "Done for the day" on the same day and re-opens tracking. */
+  async resumeMyDay(userId: string): Promise<AttendanceDay> {
+    await delay(100);
+    const today = getTodayDateString();
+    const list = getStoredData<AttendanceDay[]>(KEYS.ATTENDANCE);
+    const day = list.find(a => a.userId === userId && a.date === today);
+    if (!day) throw new Error('No attendance record found for today');
+    if (!day.dayEndedAt) throw new Error('Day has not been ended yet');
+
+    delete day.dayEndedAt;
+    day.status = 'present';
+
+    // Re-open tracking with a fresh punch session if the last one is closed
+    const lastSession = day.punchSessions[day.punchSessions.length - 1];
+    if (!lastSession || lastSession.punchOut) {
+      day.punchSessions.push({
+        id: generateId('ps'),
+        punchIn: getNowISO(),
+        breaks: []
+      });
     }
 
     day.totalHours = this.calculateTotalWorkedHours(day);

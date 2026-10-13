@@ -22,7 +22,8 @@ export class SupabaseChatService implements IChatService {
     _name: string,
     _type: 'direct' | 'group' | 'project' | 'client',
     _participantIds: string[],
-    _projectId?: string
+    _projectId?: string,
+    _createdByUserId?: string
   ): Promise<ChatRoom> {
     throw new Error('Supabase integration not configured.');
   }

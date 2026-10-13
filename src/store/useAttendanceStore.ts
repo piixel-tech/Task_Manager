@@ -15,6 +15,7 @@ interface AttendanceState {
   startBreak: (userId: string, type: 'lunch' | 'tea' | 'personal') => Promise<AttendanceDay>;
   endBreak: (userId: string) => Promise<AttendanceDay>;
   endMyDay: (userId: string) => Promise<AttendanceDay>;
+  resumeMyDay: (userId: string) => Promise<AttendanceDay>;
   setTodayAttendance: (day: AttendanceDay | null) => void;
 }
 
@@ -138,6 +139,23 @@ export const useAttendanceStore = create<AttendanceState>((set) => ({
       set({ error: err.message || 'Failed to end day', isLoading: false });
       throw err;
     }
+  },
+
+  resumeMyDay: async (userId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const updated = await attendanceService.resumeMyDay(userId);
+      const newObj = { ...updated, punchSessions: [...updated.punchSessions] };
+      set((state) => ({
+        todayAttendance: newObj,
+        history: state.history.map((h) => (h.id === newObj.id ? newObj : h)),
+        isLoading: false
+      }));
+      return newObj;
+    } catch (err: any) {
+      set({ error: err.message || 'Failed to resume day', isLoading: false });
+      throw err;
+    }
   }
 }));
 
@@ -170,7 +188,11 @@ export const calculateBreakMinutes = (
         if (next.punchIn) {
           totalMinutes += calculateDurationMinutes(current.punchOut, next.punchIn);
         }
-      } else if (day.date === getTodayDateString() && day.status !== 'absent') {
+      } else if (
+        day.date === getTodayDateString() &&
+        day.status !== 'absent' &&
+        !day.dayEndedAt
+      ) {
         totalMinutes += calculateDurationMinutes(current.punchOut, now);
       }
     }

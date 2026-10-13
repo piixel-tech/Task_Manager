@@ -23,6 +23,7 @@ export const ProfilePage: React.FC = () => {
 
   // Form states
   const [birthdateInput, setBirthdateInput] = useState(user?.birthday || '');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -60,13 +61,23 @@ export const ProfilePage: React.FC = () => {
     if (!user) return;
     setPasswordError('');
 
-    if (newPassword || confirmPassword) {
+    if (newPassword || confirmPassword || currentPassword) {
+      if (!currentPassword) {
+        setPasswordError('Please enter your current password.');
+        return;
+      }
+      const freshUser = await userService.getUserById(user.id);
+      const actualPassword = freshUser?.password || user.password || 'password123';
+      if (currentPassword !== actualPassword) {
+        setPasswordError('Current password does not match.');
+        return;
+      }
       if (newPassword.length < 6) {
-        setPasswordError('Password must be at least 6 characters long.');
+        setPasswordError('New password must be at least 6 characters long.');
         return;
       }
       if (newPassword !== confirmPassword) {
-        setPasswordError('Passwords do not match.');
+        setPasswordError('New password and confirm new password do not match.');
         return;
       }
     }
@@ -81,6 +92,7 @@ export const ProfilePage: React.FC = () => {
       // 2. If password supplied, update password
       if (newPassword) {
         await changePassword(newPassword);
+        setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
       }
@@ -98,6 +110,7 @@ export const ProfilePage: React.FC = () => {
 
   const handleCancelEdit = () => {
     setBirthdateInput(user?.birthday || '');
+    setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
     setPasswordError('');
@@ -259,7 +272,16 @@ export const ProfilePage: React.FC = () => {
                   Update Password (Leave blank to keep current password)
                 </p>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <Input
+                    label="Current Password"
+                    type="password"
+                    placeholder="Current password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    leftIcon={<Lock className="w-4 h-4" />}
+                  />
+
                   <Input
                     label="New Password"
                     type="password"

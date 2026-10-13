@@ -17,6 +17,12 @@ export class SupabaseHolidayService implements IHolidayService {
   async setWeekOffs(_days: number[]): Promise<number[]> {
     throw new Error('Supabase integration not configured.');
   }
+  async getShiftStart(): Promise<string> {
+    throw new Error('Supabase integration not configured.');
+  }
+  async setShiftStart(_time: string): Promise<string> {
+    throw new Error('Supabase integration not configured.');
+  }
 }
 
 export const supabaseHolidayService = new SupabaseHolidayService();

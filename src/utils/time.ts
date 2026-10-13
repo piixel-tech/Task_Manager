@@ -52,6 +52,26 @@ export function formatTime(dateString?: string): string {
   }
 }
 
+/** Compact relative time for notification rows: "now", "5m", "3h", "2d". */
+export function formatTimeAgo(dateString?: string): string {
+  if (!dateString) return '';
+  try {
+    const date = parseISO(dateString);
+    if (!isValid(date)) return '';
+    const seconds = Math.max(0, differenceInSeconds(new Date(), date));
+    if (seconds < 60) return 'now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days}d`;
+    return format(date, 'MMM dd');
+  } catch {
+    return '';
+  }
+}
+
 export function calculateDurationMinutes(startTimeISO: string, endTimeISO?: string): number {
   try {
     const start = parseISO(startTimeISO);

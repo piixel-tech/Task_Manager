@@ -19,7 +19,7 @@ export class MockUserService implements IUserService {
   async createUser(userData: Omit<User, 'id'>): Promise<User> {
     await delay(150);
     const users = getStoredData<User[]>(KEYS.USERS);
-    
+
     let baseLoginId = userData.loginId || formatLoginId(userData.name, userData.company, userData.jobTitle);
     let finalLoginId = baseLoginId;
     let counter = 2;
@@ -51,15 +51,73 @@ export class MockUserService implements IUserService {
 
     const currentUser = users[index];
 
-    // If jobTitle is updated, loginId STAYS unchanged as required!
+    if (updates.loginId && updates.loginId.trim().toLowerCase() !== currentUser.loginId.toLowerCase()) {
+      const isTaken = users.some(
+        u => u.id !== id && u.loginId.toLowerCase() === updates.loginId!.trim().toLowerCase()
+      );
+      if (isTaken) {
+        throw new Error(`Login ID "${updates.loginId}" is already taken.`);
+      }
+    }
+
     const updated: User = {
       ...currentUser,
       ...updates,
-      loginId: currentUser.loginId // Preserve existing loginId
+      name: updates.name !== undefined ? updates.name.trim() : currentUser.name,
+      jobTitle: updates.jobTitle !== undefined ? updates.jobTitle.trim() : currentUser.jobTitle,
+      loginId: updates.loginId !== undefined ? updates.loginId.trim() : currentUser.loginId
     };
 
     users[index] = updated;
     setStoredData(KEYS.USERS, users);
+
+    // Sync Everyone group chat participants on status change
+    if (updates.active === false) {
+      const rooms = getStoredData<any[]>(KEYS.CHAT_ROOMS);
+      let roomsChanged = false;
+      rooms.forEach((r) => {
+        if (r.id === 'room_everyone' || (r.name && r.name.toLowerCase() === 'everyone')) {
+          if (r.participantIds && r.participantIds.includes(id)) {
+            r.participantIds = r.participantIds.filter((pid: string) => pid !== id);
+            roomsChanged = true;
+          }
+        }
+      });
+      if (roomsChanged) {
+        setStoredData(KEYS.CHAT_ROOMS, rooms);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('tm_chat_update'));
+        }
+      }
+    } else if (updates.active === true) {
+      const rooms = getStoredData<any[]>(KEYS.CHAT_ROOMS);
+      let roomsChanged = false;
+      rooms.forEach((r) => {
+        if (r.id === 'room_everyone' || (r.name && r.name.toLowerCase() === 'everyone')) {
+          if (r.participantIds && !r.participantIds.includes(id)) {
+            r.participantIds.push(id);
+            roomsChanged = true;
+          }
+        }
+      });
+      if (roomsChanged) {
+        setStoredData(KEYS.CHAT_ROOMS, rooms);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('tm_chat_update'));
+        }
+      }
+    }
+
+    // Sync CURRENT_USER if this was the logged in user
+    const currentStoredUser = getStoredData<User | null>(KEYS.CURRENT_USER);
+    if (currentStoredUser && currentStoredUser.id === id) {
+      setStoredData(KEYS.CURRENT_USER, updated);
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('tm_users_update'));
+    }
+
     return updated;
   }
 

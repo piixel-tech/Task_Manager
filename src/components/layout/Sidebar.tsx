@@ -32,7 +32,7 @@ interface NavItem {
 
 export const Sidebar: React.FC = () => {
   const { user } = useAuthStore();
-  const { sidebarOpen, closeSidebar, companyFilter, setCompanyFilter } = useAppStore();
+  const { sidebarOpen, closeSidebar } = useAppStore();
   const counts = useNavCounts();
   const { reduced } = useMotionPrefs();
 
@@ -203,35 +203,6 @@ export const Sidebar: React.FC = () => {
             <X className="h-4 w-4" />
           </button>
         </div>
-
-        {/* Company filter - Admin only */}
-        {isAdmin && (
-          <div className="px-6 pb-5">
-            <div className="flex items-center gap-1 rounded-full bg-[#162e22] p-1 border border-[#1a382a]">
-              {(['all', 'piixel', 'unwork'] as const).map((comp) => {
-                const active = companyFilter === comp;
-                return (
-                  <button
-                    key={comp}
-                    onClick={() => setCompanyFilter(comp)}
-                    className={`relative flex-1 rounded-full py-1.5 text-[11.5px] font-bold capitalize
-                      transition-colors duration-[var(--tm-dur-fast)]
-                      ${active ? 'text-white' : 'text-slate-400 hover:text-white'}`}
-                  >
-                    {active && (
-                      <motion.span
-                        layoutId={reduced ? undefined : 'company-filter-pill'}
-                        transition={reduced ? { duration: 0 } : spring}
-                        className="absolute inset-0 rounded-full bg-[var(--tm-primary)]"
-                      />
-                    )}
-                    <span className="relative z-10">{comp}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* Nav groups */}
         <nav className="flex-1 overflow-y-auto px-6 pb-4">

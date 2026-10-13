@@ -46,7 +46,6 @@ export const TaskProgressBar: React.FC<TaskProgressBarProps> = ({
           <span className="font-extrabold text-[var(--tm-ink)] tabular-nums">
             {formatHours(liveHours)}
           </span>
-          <span>{est}h est</span>
         </div>
       )}
       <ProgressBar value={pct} tone={tone || (task.status === 'completed' ? 'ok' : 'primary')} height={6} />

@@ -3,6 +3,7 @@ import type { ChatRoom, Message, AttachedFile, Project, User, ClientInvite } fro
 import { getStoredData, setStoredData, KEYS, delay } from './storage';
 import { generateId } from '../../utils/ids';
 import { getNowISO } from '../../utils/time';
+import { mockNotificationService } from './notificationService';
 
 type ChatCallback = () => void;
 
@@ -84,10 +85,48 @@ export class MockChatService implements IChatService {
     }
   }
 
+  async syncEveryoneRoom(): Promise<void> {
+    const rooms = getStoredData<ChatRoom[]>(KEYS.CHAT_ROOMS);
+    const users = getStoredData<User[]>(KEYS.USERS);
+    const activeEmployeeIds = users.filter((u) => u.role !== 'client' && u.active).map((u) => u.id);
+
+    let everyoneRoom = rooms.find((r) => r.id === 'room_everyone' || (r.name && r.name.toLowerCase() === 'everyone'));
+    let updated = false;
+
+    if (!everyoneRoom) {
+      everyoneRoom = {
+        id: 'room_everyone',
+        name: 'Everyone',
+        type: 'group',
+        participantIds: activeEmployeeIds,
+        updatedAt: getNowISO(),
+        lastMessage: 'Welcome to the Everyone team chat!'
+      };
+      rooms.unshift(everyoneRoom);
+      updated = true;
+    } else {
+      if (
+        everyoneRoom.participantIds.length !== activeEmployeeIds.length ||
+        !everyoneRoom.participantIds.every((id) => activeEmployeeIds.includes(id))
+      ) {
+        everyoneRoom.participantIds = activeEmployeeIds;
+        updated = true;
+      }
+    }
+
+    if (updated) {
+      setStoredData(KEYS.CHAT_ROOMS, rooms);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('tm_chat_update'));
+      }
+    }
+  }
+
   async getChatRooms(userId: string): Promise<ChatRoom[]> {
     await delay(50);
     const projects = getStoredData<Project[]>(KEYS.PROJECTS);
     await this.syncProjectRooms(projects);
+    await this.syncEveryoneRoom();
 
     const rooms = getStoredData<ChatRoom[]>(KEYS.CHAT_ROOMS);
     return rooms.filter((r) => {
@@ -152,7 +191,8 @@ export class MockChatService implements IChatService {
     name: string,
     type: 'direct' | 'group' | 'project' | 'client',
     participantIds: string[],
-    projectId?: string
+    projectId?: string,
+    createdByUserId?: string
   ): Promise<ChatRoom> {
     await delay(100);
     const rooms = getStoredData<ChatRoom[]>(KEYS.CHAT_ROOMS);
@@ -179,6 +219,21 @@ export class MockChatService implements IChatService {
 
     rooms.push(newRoom);
     setStoredData(KEYS.CHAT_ROOMS, rooms);
+
+    // Notify everyone who was added to a new group chat (except its creator).
+    if (type === 'group') {
+      for (const participantId of participantIds) {
+        if (participantId === createdByUserId) continue;
+        mockNotificationService
+          .addNotification(participantId, {
+            type: 'group_added',
+            title: 'Added to a group chat',
+            message: `You were added to ${name}`,
+            link: '/app/chat'
+          })
+          .catch(console.error);
+      }
+    }
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('tm_chat_update'));

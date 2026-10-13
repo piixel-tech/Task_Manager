@@ -1,7 +1,8 @@
 import type { IProjectService } from '../interfaces';
-import type { Project } from '../../types';
+import type { Project, User } from '../../types';
 import { getStoredData, setStoredData, KEYS, delay } from './storage';
 import { generateId } from '../../utils/ids';
+import { mockNotificationService } from './notificationService';
 
 export class MockProjectService implements IProjectService {
   async getProjects(company?: string, userId?: string): Promise<Project[]> {
@@ -32,6 +33,25 @@ export class MockProjectService implements IProjectService {
     };
     list.push(newProject);
     setStoredData(KEYS.PROJECTS, list);
+
+    // Notify the employees who were added as members.
+    const memberIds = Array.from(
+      new Set([...(newProject.memberIds || []), ...(newProject.assignedUserIds || [])])
+    );
+    const users = getStoredData<User[]>(KEYS.USERS);
+    for (const memberId of memberIds) {
+      const member = users.find((u) => u.id === memberId);
+      if (!member || member.role !== 'employee' || !member.active) continue;
+      mockNotificationService
+        .addNotification(memberId, {
+          type: 'project_added',
+          title: 'Added to a project',
+          message: `You were added to project: ${newProject.name}`,
+          link: `/app/projects/${newProject.id}`
+        })
+        .catch(console.error);
+    }
+
     return newProject;
   }
 

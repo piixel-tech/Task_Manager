@@ -19,7 +19,7 @@ interface TaskState {
   startTaskSession: (taskId: string, userId: string, force?: boolean) => Promise<StartTaskResult>;
   stopTaskSession: (taskId: string, userId: string) => Promise<Task>;
   submitTaskWork: (taskId: string, userId: string, notes: string, files?: AttachedFile[], fileUrls?: string[]) => Promise<Task>;
-  reviewSubmission: (taskId: string, submissionId: string, status: 'approved' | 'needs_changes', comment?: string) => Promise<Task>;
+  reviewSubmission: (taskId: string, submissionId: string, status: 'approved' | 'needs_changes', comment?: string, reviewerId?: string) => Promise<Task>;
 }
 
 export const useTaskStore = create<TaskState>((set, get) => ({
@@ -130,10 +130,10 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     }
   },
 
-  reviewSubmission: async (taskId, submissionId, status, comment) => {
+  reviewSubmission: async (taskId, submissionId, status, comment, reviewerId) => {
     set({ isLoading: true });
     try {
-      const updated = await taskService.reviewSubmission(taskId, submissionId, status, comment);
+      const updated = await taskService.reviewSubmission(taskId, submissionId, status, comment, reviewerId);
       get().updateTaskInStore(updated);
       set({ isLoading: false });
       return updated;

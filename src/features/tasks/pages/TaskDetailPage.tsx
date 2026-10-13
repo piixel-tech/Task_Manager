@@ -11,7 +11,9 @@ import {
   Sparkles,
   Paperclip,
   Trash2,
-  Edit2
+  Edit2,
+  History,
+  RefreshCw
 } from 'lucide-react';
 import { taskService, gamificationService } from '../../../services';
 import type { Task, Kudos, TaskSession, Submission, TaskPauseReason } from '../../../types';
@@ -28,6 +30,7 @@ import { Select } from '../../../components/ui/Select';
 import { formatDate, formatTime } from '../../../utils/time';
 import { formatHours } from '../../../utils/format';
 import { TaskSubmitModal } from '../components/TaskSubmitModal';
+import { ChangeRequestBox, ReviewBadge, ReviewHistoryTimeline } from '../components/TaskReview';
 
 export const TaskDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -44,6 +47,8 @@ export const TaskDetailPage: React.FC = () => {
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [changesForSubmissionId, setChangesForSubmissionId] = useState<string | null>(null);
+  const [changesMessage, setChangesMessage] = useState('');
 
   // Edit form states
   const [editTitle, setEditTitle] = useState('');
@@ -150,17 +155,38 @@ export const TaskDetailPage: React.FC = () => {
     }
   };
 
-  const handleReview = async (submissionId: string, status: 'approved' | 'needs_changes') => {
+  const handleApprove = async (submissionId: string) => {
     if (!id) return;
     try {
-      await taskService.reviewSubmission(id, submissionId, status);
-      if (status === 'needs_changes') {
-        await taskService.updateTask(id, { status: 'in_progress' });
-      }
-      showToast(`Submission marked as ${status}.`);
+      await taskService.reviewSubmission(id, submissionId, 'approved', undefined, user?.id);
+      showToast('Task approved!');
       fetchTask();
     } catch (err: any) {
       showToast(err.message || 'Error reviewing submission');
+    }
+  };
+
+  const closeChangesModal = () => {
+    setChangesForSubmissionId(null);
+    setChangesMessage('');
+  };
+
+  const handleRequestChanges = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id || !changesForSubmissionId || !changesMessage.trim()) return;
+    try {
+      await taskService.reviewSubmission(
+        id,
+        changesForSubmissionId,
+        'needs_changes',
+        changesMessage,
+        user?.id
+      );
+      showToast('Changes requested. The task is back with the employee to resubmit.');
+      closeChangesModal();
+      fetchTask();
+    } catch (err: any) {
+      showToast(err.message || 'Error requesting changes');
     }
   };
 
@@ -184,6 +210,7 @@ export const TaskDetailPage: React.FC = () => {
                   {task.priority} Priority
                 </Badge>
                 <Badge variant="primary">{task.status.replace('_', ' ')}</Badge>
+                <ReviewBadge task={task} size="md" />
                 {(task.revisions || 0) > 0 && (
                   <Badge variant="danger">
                     {task.revisions} {task.revisions === 1 ? 'Revision' : 'Revisions'}
@@ -206,6 +233,11 @@ export const TaskDetailPage: React.FC = () => {
                 <p className="text-sm font-semibold text-[var(--tm-ink-soft)]">{task.subHeading}</p>
               )}
               <p className="text-xs text-[var(--tm-ink-muted)] max-w-2xl">{task.description}</p>
+
+              {/* Changes requested by the reviewer */}
+              <div className="max-w-2xl pt-1">
+                <ChangeRequestBox task={task} />
+              </div>
 
               <div className="pt-2 flex flex-wrap items-center gap-4 text-xs text-[var(--tm-ink-soft)]">
                 <div className="flex items-center gap-2">
@@ -255,9 +287,15 @@ export const TaskDetailPage: React.FC = () => {
                     variant="primary"
                     size="sm"
                     onClick={handleEndTask}
-                    leftIcon={<Send className="w-3.5 h-3.5" />}
+                    leftIcon={
+                      task.reviewStatus === 'changes_requested' ? (
+                        <RefreshCw className="w-3.5 h-3.5" />
+                      ) : (
+                        <Send className="w-3.5 h-3.5" />
+                      )
+                    }
                   >
-                    End your task
+                    {task.reviewStatus === 'changes_requested' ? 'Resubmit' : 'End your task'}
                   </Button>
                 )}
                 {canEdit && (
@@ -347,18 +385,18 @@ export const TaskDetailPage: React.FC = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleReview(sub.id, 'needs_changes')}
-                          className="text-[var(--tm-danger)] border-[var(--tm-danger-ring)] hover:bg-[var(--tm-danger-bg)]"
+                          onClick={() => setChangesForSubmissionId(sub.id)}
+                          className="text-[var(--tm-warning)] border-[var(--tm-warning-ring)] hover:bg-[var(--tm-warning-bg)]"
                         >
-                          Needs Changes
+                          Request Changes
                         </Button>
                         <Button
                           variant="primary"
                           size="sm"
-                          onClick={() => handleReview(sub.id, 'approved')}
+                          onClick={() => handleApprove(sub.id)}
                           className="bg-[var(--tm-success)] hover:bg-[var(--tm-success)]"
                         >
-                          Approve Deliverable
+                          Approve
                         </Button>
                       </div>
                     )}
@@ -400,6 +438,18 @@ export const TaskDetailPage: React.FC = () => {
         </Card>
       </div>
 
+      {/* Review History: submitted -> changes requested -> resubmitted -> approved */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <History className="w-4 h-4 text-[var(--tm-primary)]" /> Review History
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <ReviewHistoryTimeline task={task} />
+        </CardContent>
+      </Card>
+
       {/* Interruption Logs */}
       {((task.pauseReasons?.length || 0) > 0) && (
         <Card>
@@ -429,6 +479,46 @@ export const TaskDetailPage: React.FC = () => {
         task={task}
         onSubmitSuccess={fetchTask}
       />
+
+      {/* Request Changes Modal */}
+      <Modal
+        isOpen={!!changesForSubmissionId}
+        onClose={closeChangesModal}
+        title="Request Changes"
+        description={task.title}
+      >
+        <form onSubmit={handleRequestChanges} className="space-y-4">
+          <div className="space-y-1">
+            <label
+              htmlFor="detail-what-needs-to-change"
+              className="block text-xs font-semibold text-[var(--tm-ink-soft)] uppercase tracking-wider"
+            >
+              What needs to change? <span className="text-[var(--tm-danger)]">*</span>
+            </label>
+            <textarea
+              id="detail-what-needs-to-change"
+              className="w-full text-sm rounded-lg border border-[var(--tm-border-strong)] p-3 text-[var(--tm-ink)] focus:outline-none focus:ring-2 focus:ring-[var(--tm-warning-ring)] focus:border-[var(--tm-warning)]"
+              rows={4}
+              placeholder="Describe exactly what needs to be fixed or redone..."
+              value={changesMessage}
+              onChange={(e) => setChangesMessage(e.target.value)}
+              required
+            />
+            <p className="text-[11px] text-[var(--tm-ink-muted)]">
+              This message is shown on the task and saved to its review history.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" type="button" onClick={closeChangesModal}>
+              Cancel
+            </Button>
+            <Button variant="primary" type="submit" disabled={!changesMessage.trim()}>
+              Save &amp; Send Back
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Delete Confirmation Modal */}
       <Modal

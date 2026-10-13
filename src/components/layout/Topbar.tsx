@@ -16,7 +16,8 @@ import { useAppStore } from '../../store/useAppStore';
 import { useNotificationStore } from '../../store/useNotificationStore';
 import { attendanceService } from '../../services';
 import type { AttendanceDay } from '../../types';
-import { getTodayDateString } from '../../utils/time';
+import { formatTimeAgo, getTodayDateString } from '../../utils/time';
+import { useNotificationSync } from '../../features/notifications/useNotificationSync';
 import { UserAvatar } from '../ui/UserAvatar';
 import { Badge } from '../ui/Badge';
 import { CommandPalette } from './CommandPalette';
@@ -70,8 +71,19 @@ export const Topbar: React.FC = () => {
   const isAdmin = user?.role === 'admin';
   const prefix = isAdmin ? '/admin' : '/app';
 
+  // Loads the employee's notifications and runs the date-based checks.
+  useNotificationSync();
+
   const { notifications, markAsRead, markAllAsRead } = useNotificationStore();
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  /** Red for things that need action, amber for reminders, accent otherwise. */
+  const dotClass = (type: string) => {
+    if (type === 'changes_requested' || type === 'punch_reminder') return 'bg-[var(--tm-danger)]';
+    if (type === 'task_due') return 'bg-[var(--tm-warning)]';
+    if (type === 'task_approved') return 'bg-[var(--tm-success)]';
+    return 'bg-[var(--tm-primary)]';
+  };
 
   const popTransition = { duration: reduced ? 0 : 0.2, ease: EASE_OUT };
 
@@ -176,7 +188,7 @@ export const Topbar: React.FC = () => {
                     </div>
                     {unreadCount > 0 && (
                       <button
-                        onClick={markAllAsRead}
+                        onClick={() => user && markAllAsRead(user.id)}
                         className="text-[11.5px] font-bold text-[var(--tm-primary)] hover:underline"
                       >
                         Mark all as read
@@ -193,7 +205,7 @@ export const Topbar: React.FC = () => {
                       {notifications.map((n) => (
                         <li key={n.id}>
                           <Link
-                            to={n.to}
+                            to={n.link}
                             onClick={() => {
                               markAsRead(n.id);
                               setBellOpen(false);
@@ -203,26 +215,18 @@ export const Topbar: React.FC = () => {
                                 !n.read ? 'bg-[var(--tm-primary-softer)]/60 border-l-2 border-[var(--tm-primary)]' : ''
                               }`}
                           >
-                            <span
-                              className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-                                n.tone === 'bad'
-                                  ? 'bg-[var(--tm-danger)]'
-                                  : n.tone === 'warn'
-                                  ? 'bg-[var(--tm-warning)]'
-                                  : 'bg-[var(--tm-primary)]'
-                              }`}
-                            />
+                            <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dotClass(n.type)}`} />
                             <span className="min-w-0 flex-1">
                               <span className="flex items-center justify-between gap-2">
                                 <span className={`text-[13px] font-bold ${!n.read ? 'text-[var(--tm-ink)]' : 'text-[var(--tm-ink-soft)]'}`}>
                                   {n.title}
                                 </span>
                                 <span className="text-[10.5px] text-[var(--tm-ink-muted)] shrink-0 font-medium">
-                                  {n.timeAgo}
+                                  {formatTimeAgo(n.createdAt)}
                                 </span>
                               </span>
                               <span className="block text-[12px] text-[var(--tm-ink-muted)] mt-0.5 leading-snug">
-                                {n.body}
+                                {n.message}
                               </span>
                             </span>
                           </Link>

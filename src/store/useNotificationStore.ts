@@ -1,66 +1,52 @@
 import { create } from 'zustand';
-
-export interface NotificationItem {
-  id: string;
-  title: string;
-  body: string;
-  timeAgo: string;
-  read: boolean;
-  to: string;
-  tone: 'bad' | 'warn' | 'info' | 'ok';
-}
+import type { AppNotification } from '../types';
+import { notificationService } from '../services';
 
 interface NotificationState {
-  notifications: NotificationItem[];
-  setNotifications: (items: NotificationItem[]) => void;
-  markAsRead: (id: string) => void;
-  markAllAsRead: () => void;
+  notifications: AppNotification[];
+  isLoading: boolean;
+
+  /** Loads the signed-in employee's notifications, newest first. */
+  fetchNotifications: (userId: string) => Promise<void>;
+  markAsRead: (id: string) => Promise<void>;
+  markAllAsRead: (userId: string) => Promise<void>;
+  clear: () => void;
 }
 
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: 'n-1',
-    title: 'Overdue task reminder',
-    body: 'Project setup task is past due date',
-    timeAgo: '10m ago',
-    read: false,
-    to: '/app/tasks',
-    tone: 'bad'
+export const useNotificationStore = create<NotificationState>((set, get) => ({
+  notifications: [],
+  isLoading: false,
+
+  fetchNotifications: async (userId: string) => {
+    if (!userId) return;
+    set({ isLoading: true });
+    try {
+      const list = await notificationService.getNotifications(userId);
+      set({ notifications: list, isLoading: false });
+    } catch (err) {
+      console.error('Failed to load notifications', err);
+      set({ isLoading: false });
+    }
   },
-  {
-    id: 'n-2',
-    title: 'Shift active',
-    body: 'Time tracker is running for today shift',
-    timeAgo: '1h ago',
-    read: false,
-    to: '/app/attendance',
-    tone: 'info'
+
+  markAsRead: async (id: string) => {
+    // Optimistic: the bell should not flash back to unread.
+    set((state) => ({
+      notifications: state.notifications.map((n) => (n.id === id ? { ...n, read: true } : n))
+    }));
+    await notificationService.markAsRead(id).catch(console.error);
   },
-  {
-    id: 'n-3',
-    title: 'Team announcement',
-    body: 'Weekly sprint planning at 4:00 PM',
-    timeAgo: '2h ago',
-    read: true,
-    to: '/app/calendar',
-    tone: 'warn'
-  }
-];
 
-export const useNotificationStore = create<NotificationState>((set) => ({
-  notifications: INITIAL_NOTIFICATIONS,
-
-  setNotifications: (items) => set({ notifications: items }),
-
-  markAsRead: (id) =>
+  markAllAsRead: async (userId: string) => {
     set((state) => ({
       notifications: state.notifications.map((n) =>
-        n.id === id ? { ...n, read: true } : n
+        n.userId === userId ? { ...n, read: true } : n
       )
-    })),
+    }));
+    await notificationService.markAllAsRead(userId).catch(console.error);
+  },
 
-  markAllAsRead: () =>
-    set((state) => ({
-      notifications: state.notifications.map((n) => ({ ...n, read: true }))
-    }))
+  clear: () => {
+    if (get().notifications.length > 0) set({ notifications: [] });
+  }
 }));

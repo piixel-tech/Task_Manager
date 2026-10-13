@@ -1,4 +1,6 @@
 import type {
+  AppNotification,
+  NotificationInput,
   User,
   AttendanceDay,
   Holiday,
@@ -43,6 +45,7 @@ export interface IAttendanceService {
   startBreak(userId: string, type: 'lunch' | 'tea' | 'personal'): Promise<AttendanceDay>;
   endBreak(userId: string): Promise<AttendanceDay>;
   endMyDay(userId: string): Promise<AttendanceDay>;
+  resumeMyDay(userId: string): Promise<AttendanceDay>;
   correctPunchOutTime(attendanceId: string, correctedTimeISO: string, reason: string): Promise<AttendanceDay>;
 }
 
@@ -52,6 +55,32 @@ export interface IHolidayService {
   deleteHoliday(id: string): Promise<void>;
   getWeekOffs(): Promise<number[]>;
   setWeekOffs(days: number[]): Promise<number[]>;
+  /** Shift start as "HH:mm"; drives the "not punched in" reminder. */
+  getShiftStart(): Promise<string>;
+  setShiftStart(time: string): Promise<string>;
+}
+
+/**
+ * Employee notifications. Everything the app knows about notifications goes
+ * through this interface, so the mock can be swapped for backend push later.
+ */
+export interface INotificationService {
+  addNotification(employeeId: string, input: NotificationInput): Promise<AppNotification | null>;
+  /**
+   * Same as addNotification but skipped when `dedupeKey` was already used today —
+   * used by the date-based checks so nothing is sent twice.
+   */
+  addNotificationOnceToday(
+    employeeId: string,
+    dedupeKey: string,
+    input: NotificationInput
+  ): Promise<AppNotification | null>;
+  getNotifications(userId: string): Promise<AppNotification[]>;
+  getUnreadCount(userId: string): Promise<number>;
+  markAsRead(id: string): Promise<void>;
+  markAllAsRead(userId: string): Promise<void>;
+  /** Fires whenever the list changes, so the bell can refresh. */
+  subscribe(callback: () => void): () => void;
 }
 
 export interface IProjectService {
@@ -78,7 +107,13 @@ export interface ITaskService {
   startTaskSession(taskId: string, userId: string, force?: boolean): Promise<StartTaskResult>;
   stopTaskSession(taskId: string, userId: string): Promise<Task>;
   submitTaskWork(taskId: string, userId: string, notes: string, files?: AttachedFile[], fileUrls?: string[]): Promise<Task>;
-  reviewSubmission(taskId: string, submissionId: string, status: 'approved' | 'needs_changes', comment?: string): Promise<Task>;
+  reviewSubmission(
+    taskId: string,
+    submissionId: string,
+    status: 'approved' | 'needs_changes',
+    comment?: string,
+    reviewerId?: string
+  ): Promise<Task>;
   respondToAssignment(taskId: string, action: 'accept' | 'reject', reason?: string): Promise<Task>;
   getSubmissionsFeed(): Promise<{ submission: Submission; task: Task; user?: User }[]>;
 }
@@ -98,7 +133,8 @@ export interface IChatService {
     name: string,
     type: 'direct' | 'group' | 'project' | 'client',
     participantIds: string[],
-    projectId?: string
+    projectId?: string,
+    createdByUserId?: string
   ): Promise<ChatRoom>;
   subscribe(roomId: string, callback: () => void): () => void;
   markMessagesSeen(roomId: string, userId: string): Promise<void>;

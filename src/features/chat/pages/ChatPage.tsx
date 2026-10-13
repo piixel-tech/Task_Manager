@@ -244,7 +244,9 @@ export const ChatPage: React.FC = () => {
       const room = await chatService.createChatRoom(
         newGroupName,
         'group',
-        memberIds
+        memberIds,
+        undefined,
+        user.id
       );
       setIsNewGroupModalOpen(false);
       setNewGroupName('');
@@ -297,9 +299,9 @@ export const ChatPage: React.FC = () => {
   };
 
   const activeProject = projects.find((p) => p.id === taskProjectId);
-  const activeProjectMembers = allUsers.filter((u) => activeProject?.memberIds.includes(u.id));
+  const activeProjectMembers = allUsers.filter((u) => u.active && activeProject?.memberIds.includes(u.id));
   const mentionCandidates = mentionQuery !== null
-    ? allUsers.filter((u) => u.name.toLowerCase().includes(mentionQuery))
+    ? allUsers.filter((u) => u.active && u.name.toLowerCase().includes(mentionQuery))
     : [];
 
   return (
@@ -464,7 +466,10 @@ export const ChatPage: React.FC = () => {
                     </Badge>
                   </div>
                   <div className="text-[10.5px] font-semibold text-[var(--tm-ink-muted)] mt-0.5">
-                    {activeRoom.participantIds.length} Participants
+                    {activeRoom.participantIds.filter((pid) => {
+                      const usr = allUsers.find((u) => u.id === pid);
+                      return usr ? usr.active : true;
+                    }).length} Active Participants
                   </div>
                 </div>
               </div>
@@ -674,7 +679,7 @@ export const ChatPage: React.FC = () => {
         <div className="space-y-3">
           <p className="text-xs text-[var(--tm-ink-muted)]">Select an active team member to chat 1-on-1:</p>
           <div className="divide-y divide-[var(--tm-border)] max-h-60 overflow-y-auto">
-            {allUsers.filter((u) => u.id !== user?.id).map((u) => (
+            {allUsers.filter((u) => u.id !== user?.id && u.active).map((u) => (
               <div
                 key={u.id}
                 onClick={() => handleStartDirectChat(u)}
@@ -708,7 +713,7 @@ export const ChatPage: React.FC = () => {
               Select Group Members
             </label>
             <div className="max-h-48 overflow-y-auto border border-[var(--tm-border)] rounded-xl p-3 space-y-2 bg-[var(--tm-card-muted)]">
-              {allUsers.filter((u) => u.id !== user?.id).map((u) => {
+              {allUsers.filter((u) => u.id !== user?.id && u.active).map((u) => {
                 const isSelected = selectedGroupMemberIds.includes(u.id);
                 return (
                   <label

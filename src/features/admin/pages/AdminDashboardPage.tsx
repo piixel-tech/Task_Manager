@@ -65,7 +65,7 @@ export const AdminDashboardPage: React.FC = () => {
   const greeting = currentHour < 12 ? 'Good morning' : currentHour < 17 ? 'Good afternoon' : 'Good evening';
 
   const filteredUsers = useMemo(
-    () => users.filter((u) => companyFilter === 'all' || u.company === companyFilter),
+    () => users.filter((u) => u.active && (companyFilter === 'all' || u.company === companyFilter)),
     [users, companyFilter]
   );
 
@@ -422,6 +422,12 @@ export const AdminDashboardPage: React.FC = () => {
             <SkeletonCard />
             <SkeletonCard />
           </div>
+        ) : filteredProjects.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center text-xs text-[var(--tm-ink-muted)]">
+              No active projects yet. Click &quot;New project&quot; to get started.
+            </CardContent>
+          </Card>
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {filteredProjects.slice(0, 6).map((p) => {

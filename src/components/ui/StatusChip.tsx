@@ -35,6 +35,10 @@ const statusMap: Record<string, { tone: ChipTone; label: string }> = {
   rejected: { tone: 'bad', label: 'Rejected' },
   needs_changes: { tone: 'warn', label: 'Needs changes' },
 
+  // Task review flow
+  submitted: { tone: 'info', label: 'Submitted' },
+  changes_requested: { tone: 'warn', label: 'Changes Requested' },
+
   // Assignment
   accepted: { tone: 'ok', label: 'Accepted' },
 
@@ -47,6 +51,7 @@ const statusMap: Record<string, { tone: ChipTone; label: string }> = {
   // Live board
   Working: { tone: 'ok', label: 'Working' },
   'On break': { tone: 'warn', label: 'On break' },
+  'Done for the day': { tone: 'neutral', label: 'Done for the day' },
   'Punched out': { tone: 'neutral', label: 'Punched out' },
   'On leave': { tone: 'info', label: 'On leave' },
   'Not marked': { tone: 'bad', label: 'Not marked' },

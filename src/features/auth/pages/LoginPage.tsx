@@ -24,31 +24,10 @@ const demoLogins: DemoLogin[] = [
   {
     id: 'aarav-piixel@ceo',
     name: 'Aarav Sharma',
-    role: 'CEO',
+    role: 'CEO & Admin',
     tag: 'Admin',
     variant: 'both',
     icon: <ShieldCheck className="h-4 w-4" />
-  },
-  {
-    id: 'rahul-piixel@seo-executive',
-    name: 'Rahul Verma',
-    role: 'SEO Executive',
-    tag: 'First login',
-    variant: 'warning'
-  },
-  {
-    id: 'priya-piixel@ui-ux-designer',
-    name: 'Priya Patel',
-    role: 'UI UX Designer',
-    tag: 'Piixel',
-    variant: 'piixel'
-  },
-  {
-    id: 'vikram-unwork@fullstack-developer',
-    name: 'Vikram Singh',
-    role: 'Fullstack Developer',
-    tag: 'Unwork',
-    variant: 'unwork'
   }
 ];
 
@@ -240,10 +219,9 @@ export const LoginPage: React.FC = () => {
                     transition={fastT}
                     className={`flex w-full items-center justify-between gap-3 rounded-[var(--tm-radius-md)]
                       border px-4 py-3 text-left transition-colors
-                      ${
-                        selected
-                          ? 'border-[var(--tm-primary)] bg-[var(--tm-primary-softer)]'
-                          : 'border-[var(--tm-border)] bg-[var(--tm-card)] hover:border-[var(--tm-border-strong)]'
+                      ${selected
+                        ? 'border-[var(--tm-primary)] bg-[var(--tm-primary-softer)]'
+                        : 'border-[var(--tm-border)] bg-[var(--tm-card)] hover:border-[var(--tm-border-strong)]'
                       }`}
                   >
                     <span className="flex min-w-0 items-center gap-3">

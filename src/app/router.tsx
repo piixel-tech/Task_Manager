@@ -26,6 +26,7 @@ import { ChatPage } from '../features/chat/pages/ChatPage';
 import { DailyUpdatesPage } from '../features/gamification/pages/DailyUpdatesPage';
 import { MonthlyWrappedPage } from '../features/gamification/pages/MonthlyWrappedPage';
 import { ProfilePage } from '../features/employee/pages/ProfilePage';
+import { EmployeeSettingsPage } from '../features/employee/pages/EmployeeSettingsPage';
 
 import { SubmissionsFeedPage } from '../features/admin/pages/SubmissionsFeedPage';
 import { ClientJoinPage } from '../features/client/pages/ClientJoinPage';
@@ -123,6 +124,7 @@ export const router = createBrowserRouter([
       { path: 'chat', element: <ChatPage /> },
       { path: 'wrapped', element: <MonthlyWrappedPage /> },
       { path: 'profile', element: <ProfilePage /> },
+      { path: 'settings', element: <EmployeeSettingsPage /> },
       { path: 'gamification', element: <Navigate to="/app/attendance" replace /> },
       { path: '*', element: <Navigate to="/app/attendance" replace /> }
     ]

@@ -57,6 +57,7 @@ export const AttendancePage: React.FC = () => {
     punchIn: storePunchIn,
     punchOut: storePunchOut,
     endMyDay: storeEndMyDay,
+    resumeMyDay: storeResumeMyDay,
     fetchTodayAttendance
   } = useAttendanceStore();
 
@@ -136,6 +137,8 @@ export const AttendancePage: React.FC = () => {
 
   const todayRecord = storeRecord;
   const activePunch = todayRecord?.punchSessions.find((s) => !s.punchOut);
+  const dayEndedAt = todayRecord?.dayEndedAt;
+  const isDayEnded = !!dayEndedAt;
   const firstPunchInTime = todayRecord?.punchSessions[0]?.punchIn;
   const lastPunchOutSession = todayRecord?.punchSessions.slice().reverse().find((s) => s.punchOut);
   const lastPunchOutTime = lastPunchOutSession?.punchOut;
@@ -229,12 +232,23 @@ export const AttendancePage: React.FC = () => {
     if (!user) return;
     try {
       await storeEndMyDay(user.id);
-      showToast('Shift officially ended! Great job today.');
+      showToast('Done for the day! Great job today.');
       setIsEndDayModalOpen(false);
       setIsDailyUpdateModalOpen(true);
       fetchAttendance();
     } catch (err: any) {
       showToast(err.message || 'Failed to end day');
+    }
+  };
+
+  const handleResumeDay = async () => {
+    if (!user) return;
+    try {
+      await storeResumeMyDay(user.id);
+      showToast('Day resumed. Back to working — timer is running.');
+      fetchAttendance();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to resume day');
     }
   };
 
@@ -251,8 +265,16 @@ export const AttendancePage: React.FC = () => {
         description={formattedTodayDate}
         actions={
           <div className="flex items-center gap-2">
-            <StatusChip tone={activePunch ? 'ok' : 'neutral'} size="md" dot>
-              {activePunch ? 'Punched In' : 'Punched Out'}
+            <StatusChip
+              tone={isDayEnded ? 'neutral' : activePunch ? 'ok' : 'neutral'}
+              size="md"
+              dot
+            >
+              {isDayEnded
+                ? `Done for the day · ${formatTime(dayEndedAt)}`
+                : activePunch
+                ? 'Punched In'
+                : 'Punched Out'}
             </StatusChip>
           </div>
         }
@@ -306,28 +328,38 @@ export const AttendancePage: React.FC = () => {
           <CardDescription>Slide to confirm punch actions safely</CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {!activePunch ? (
+          {isDayEnded ? (
             <SlideToConfirm
-              label="Slide to Punch In"
-              confirmedLabel="Punched In!"
-              onConfirm={handlePunchIn}
+              label="Slide to Resume Day"
+              confirmedLabel="Day Resumed!"
+              onConfirm={handleResumeDay}
             />
           ) : (
-            <SlideToConfirm
-              label="Slide to Punch Out"
-              confirmedLabel="Punched Out!"
-              onConfirm={handlePunchOut}
-              tone="danger"
-            />
-          )}
+            <>
+              {!activePunch ? (
+                <SlideToConfirm
+                  label="Slide to Punch In"
+                  confirmedLabel="Punched In!"
+                  onConfirm={handlePunchIn}
+                />
+              ) : (
+                <SlideToConfirm
+                  label="Slide to Punch Out"
+                  confirmedLabel="Punched Out!"
+                  onConfirm={handlePunchOut}
+                  tone="danger"
+                />
+              )}
 
-          {todayRecord && todayRecord.punchSessions.length > 0 && (
-            <SlideToConfirm
-              label="Slide to End My Day"
-              confirmedLabel="Day Ended!"
-              onConfirm={() => setIsEndDayModalOpen(true)}
-              tone="danger"
-            />
+              {todayRecord && todayRecord.punchSessions.length > 0 && (
+                <SlideToConfirm
+                  label="Slide to End My Day"
+                  confirmedLabel="Day Ended!"
+                  onConfirm={() => setIsEndDayModalOpen(true)}
+                  tone="danger"
+                />
+              )}
+            </>
           )}
         </CardContent>
       </Card>

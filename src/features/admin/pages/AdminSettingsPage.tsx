@@ -20,6 +20,7 @@ import { PageHeader } from '../../../components/ui/PageHeader';
 import { SlideToConfirm } from '../../../components/ui/SlideToConfirm';
 import { useMotionPrefs } from '../../../components/ui/useMotionPrefs';
 import { spring } from '../../../components/ui/motion';
+import { ChangePasswordCard } from '../../../components/settings/ChangePasswordCard';
 
 export const AdminSettingsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -85,6 +86,9 @@ export const AdminSettingsPage: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Change Password */}
+      <ChangePasswordCard />
+
       {/* Accent theme */}
       <Card>
         <CardHeader>
@@ -116,10 +120,9 @@ export const AdminSettingsPage: React.FC = () => {
                   aria-pressed={isActive}
                   className={`relative overflow-hidden rounded-[var(--tm-radius-lg)] border p-4 text-left
                     transition-colors
-                    ${
-                      isActive
-                        ? 'border-[var(--tm-primary)] bg-[var(--tm-primary-softer)]'
-                        : 'border-[var(--tm-border)] bg-[var(--tm-card)] hover:border-[var(--tm-border-strong)]'
+                    ${isActive
+                      ? 'border-[var(--tm-primary)] bg-[var(--tm-primary-softer)]'
+                      : 'border-[var(--tm-border)] bg-[var(--tm-card)] hover:border-[var(--tm-border-strong)]'
                     }`}
                 >
                   <span className="flex items-center justify-between">

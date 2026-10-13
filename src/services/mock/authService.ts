@@ -7,12 +7,12 @@ export class MockAuthService implements IAuthService {
     await delay(150);
     const users = getStoredData<User[]>(KEYS.USERS);
     const cleanId = loginId.trim().toLowerCase();
-    
+
     const user = users.find(u => u.loginId.toLowerCase() === cleanId);
     if (!user) {
       throw new Error('Invalid Login ID. Please check format (e.g. rahul-piixel@seo-executive)');
     }
-    
+
     if (password && user.password && user.password !== password) {
       throw new Error('Incorrect password');
     }

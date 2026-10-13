@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Upload, X, Link as LinkIcon, Paperclip } from 'lucide-react';
 import type { Task, AttachedFile } from '../../../types';
 import { useAuthStore } from '../../../store/authStore';
@@ -7,8 +7,9 @@ import { useTaskStore } from '../../../store/useTaskStore';
 import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
-import { formatDate, getTodayDateString, getNowISO } from '../../../utils/time';
+import { formatDate, getTodayDateString } from '../../../utils/time';
 import { formatHours } from '../../../utils/format';
+import { ChangeRequestBox } from './TaskReview';
 
 interface TaskSubmitModalProps {
   isOpen: boolean;
@@ -16,6 +17,12 @@ interface TaskSubmitModalProps {
   task: Task | null;
   onSubmitSuccess: () => void;
 }
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
 
 export const TaskSubmitModal: React.FC<TaskSubmitModalProps> = ({
   isOpen,
@@ -31,39 +38,23 @@ export const TaskSubmitModal: React.FC<TaskSubmitModalProps> = ({
   const [urlInput, setUrlInput] = useState('');
   const [urls, setUrls] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!task) return null;
 
   const handleFiles = (selectedFiles: File[]) => {
-    selectedFiles.forEach((file) => {
-      const isImage = file.type.startsWith('image/');
-      if (isImage) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          setFiles((prev) => [
-            ...prev,
-            {
-              id: Math.random().toString(36).substring(7),
-              name: file.name,
-              size: file.size,
-              type: file.type || 'image',
-              dataUrl: event.target?.result as string
-            }
-          ]);
-        };
-        reader.readAsDataURL(file);
-      } else {
-        setFiles((prev) => [
-          ...prev,
-          {
-            id: Math.random().toString(36).substring(7),
-            name: file.name,
-            size: file.size,
-            type: file.type || 'file'
-          }
-        ]);
-      }
+    const newFiles: AttachedFile[] = selectedFiles.map((file) => {
+      const objUrl = URL.createObjectURL(file);
+      return {
+        id: Math.random().toString(36).substring(7),
+        name: file.name,
+        size: file.size,
+        type: file.type || 'application/octet-stream',
+        url: objUrl,
+        dataUrl: file.type.startsWith('image/') ? objUrl : undefined
+      };
     });
+    setFiles((prev) => [...prev, ...newFiles]);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,6 +65,7 @@ export const TaskSubmitModal: React.FC<TaskSubmitModalProps> = ({
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    e.stopPropagation();
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       handleFiles(Array.from(e.dataTransfer.files));
     }
@@ -81,6 +73,7 @@ export const TaskSubmitModal: React.FC<TaskSubmitModalProps> = ({
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    e.stopPropagation();
   };
 
   const removeFile = (id: string) => {
@@ -101,6 +94,8 @@ export const TaskSubmitModal: React.FC<TaskSubmitModalProps> = ({
     setUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const isResubmission = task.reviewStatus === 'changes_requested';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !task) return;
@@ -113,12 +108,10 @@ export const TaskSubmitModal: React.FC<TaskSubmitModalProps> = ({
       setIsSubmitting(true);
       // Stop timer if running
       await useTaskStore.getState().stopTaskSession(task.id, user.id).catch(() => {});
-      // Submit work
+      // Submit work: this sets the task to Submitted and waits for admin review.
       await useTaskStore.getState().submitTaskWork(task.id, user.id, notes, files, urls);
-      // Update task status directly to completed (Done) with completedAt timestamp
-      await useTaskStore.getState().updateTask(task.id, { status: 'completed', completedAt: getNowISO() });
 
-      showToast('Task completed and deliverable submitted!');
+      showToast('Task submitted successfully');
       setNotes('');
       setFiles([]);
       setUrls([]);
@@ -137,10 +130,13 @@ export const TaskSubmitModal: React.FC<TaskSubmitModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="End Task & Submit Deliverable"
+      title={isResubmission ? 'Resubmit Task' : 'End Task & Submit Deliverable'}
       description={`Task: ${task.title}`}
     >
       <form onSubmit={handleSubmit} className="space-y-5">
+        {/* The change request being addressed, so it can be re-read while writing the note */}
+        <ChangeRequestBox task={task} compact />
+
         {/* Time and Date Overview */}
         <div className="grid grid-cols-3 gap-3 bg-[var(--tm-card-muted)] p-4 rounded-xl border border-[var(--tm-border)] text-center">
           <div>
@@ -166,12 +162,17 @@ export const TaskSubmitModal: React.FC<TaskSubmitModalProps> = ({
         {/* Note: What I Did */}
         <div className="space-y-1">
           <label className="block text-xs font-semibold text-[var(--tm-ink-soft)] uppercase tracking-wider">
-            What I Did <span className="text-[var(--tm-danger)]">*</span>
+            {isResubmission ? 'What I Changed' : 'What I Did'}{' '}
+            <span className="text-[var(--tm-danger)]">*</span>
           </label>
           <textarea
             className="w-full text-sm rounded-lg border border-[var(--tm-border-strong)] p-3 text-[var(--tm-ink)] focus:outline-none focus:ring-2 focus:ring-[var(--tm-primary-soft)] focus:border-[var(--tm-primary)]"
             rows={3}
-            placeholder="Summarize the work done, achievements, or deliverables..."
+            placeholder={
+              isResubmission
+                ? 'Explain how you addressed the requested changes...'
+                : 'Summarize the work done, achievements, or deliverables...'
+            }
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             required
@@ -184,22 +185,24 @@ export const TaskSubmitModal: React.FC<TaskSubmitModalProps> = ({
             Attach Files (Any type: doc, xls, pdf, images, zip, etc.)
           </label>
           <div
+            onClick={() => fileInputRef.current?.click()}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
-            className="flex flex-col items-center justify-center p-5 rounded-xl border-2 border-dashed border-[var(--tm-border-strong)] bg-[var(--tm-card-muted)] hover:bg-[var(--tm-bg-sunken)] transition-colors text-center cursor-pointer"
+            className="flex flex-col items-center justify-center p-5 rounded-xl border-2 border-dashed border-[var(--tm-border-strong)] bg-[var(--tm-card-muted)] hover:bg-[var(--tm-bg-sunken)] transition-colors text-center cursor-pointer select-none"
           >
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              onChange={handleFileChange}
+              className="hidden"
+            />
             <Upload className="w-6 h-6 text-[var(--tm-primary)] mb-1.5" />
             <p className="text-xs font-bold text-[var(--tm-ink)]">
               Drag &amp; drop files here, or{' '}
-              <label className="text-[var(--tm-primary)] hover:underline cursor-pointer">
+              <span className="text-[var(--tm-primary)] hover:underline">
                 browse
-                <input
-                  type="file"
-                  multiple
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-              </label>
+              </span>
             </p>
             <p className="text-[11px] text-[var(--tm-ink-muted)] mt-1">
               Supports documents, spreadsheets, PDFs, images, archives &amp; more.
@@ -207,21 +210,36 @@ export const TaskSubmitModal: React.FC<TaskSubmitModalProps> = ({
           </div>
 
           {files.length > 0 && (
-            <div className="grid grid-cols-2 gap-2 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
               {files.map((f, i) => (
-                <div key={f.id || i} className="flex items-center justify-between gap-2 p-2 bg-[var(--tm-card-muted)] border border-[var(--tm-border)] rounded-lg text-xs">
-                  <div className="flex items-center gap-2 overflow-hidden">
-                    {f.dataUrl ? (
-                      <img src={f.dataUrl} alt={f.name} className="w-8 h-8 object-cover rounded border border-[var(--tm-border)] shrink-0" />
+                <div
+                  key={f.id || i}
+                  className="flex items-center justify-between gap-2 p-2 bg-[var(--tm-card-muted)] border border-[var(--tm-border)] rounded-lg text-xs"
+                >
+                  <div className="flex items-center gap-2 overflow-hidden min-w-0">
+                    {f.dataUrl || (f.url && f.type?.startsWith('image/')) ? (
+                      <img
+                        src={f.dataUrl || f.url}
+                        alt={f.name}
+                        className="w-8 h-8 object-cover rounded border border-[var(--tm-border)] shrink-0"
+                      />
                     ) : (
                       <Paperclip className="w-4 h-4 text-[var(--tm-ink-muted)] shrink-0" />
                     )}
                     <div className="truncate">
                       <div className="font-semibold text-[var(--tm-ink)] truncate">{f.name}</div>
-                      <div className="text-[10px] text-[var(--tm-ink-muted)]">{(f.size / 1024).toFixed(1)} KB</div>
+                      <div className="text-[10px] text-[var(--tm-ink-muted)]">{formatFileSize(f.size)}</div>
                     </div>
                   </div>
-                  <button type="button" onClick={() => removeFile(f.id || '')} className="text-[var(--tm-ink-muted)] hover:text-[var(--tm-danger)] p-1">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeFile(f.id || '');
+                    }}
+                    className="text-[var(--tm-ink-muted)] hover:text-[var(--tm-danger)] p-1 shrink-0 rounded transition-colors"
+                    title="Remove file"
+                  >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -268,7 +286,11 @@ export const TaskSubmitModal: React.FC<TaskSubmitModalProps> = ({
             Cancel
           </Button>
           <Button variant="primary" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Submitting...' : 'Submit & Complete Task'}
+            {isSubmitting
+              ? 'Submitting...'
+              : isResubmission
+              ? 'Resubmit for Review'
+              : 'Submit for Review'}
           </Button>
         </div>
       </form>

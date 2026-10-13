@@ -7,6 +7,7 @@ import {
   Plus,
   Square,
   FileCheck,
+  RefreshCw,
   Trash2,
   ChevronDown,
   ChevronRight,
@@ -42,6 +43,7 @@ import {
   isDueThisWeek
 } from '../../../utils/time';
 import { TaskSubmitModal } from '../components/TaskSubmitModal';
+import { ChangeRequestBox, ReviewBadge } from '../components/TaskReview';
 
 /** Task Card component */
 const TaskCard: React.FC<{
@@ -113,6 +115,34 @@ const TaskCard: React.FC<{
         {task.title}
       </h4>
 
+      {/* Review state: green Approved / orange Changes Requested / Submitted */}
+      {task.reviewStatus && (
+        <div className="mt-2">
+          <ReviewBadge task={task} />
+        </div>
+      )}
+
+      {/* Reviewer's message + Resubmit, when changes were requested */}
+      {task.reviewStatus === 'changes_requested' && (
+        <div className="mt-3 space-y-2" onClick={(e) => e.stopPropagation()}>
+          <ChangeRequestBox task={task} compact />
+          {isAssignedToMe && onSubmitForm && (
+            <Button
+              variant="primary"
+              size="sm"
+              className="w-full"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSubmitForm();
+              }}
+              leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
+            >
+              Resubmit
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Live Task Progress Bar */}
       <div className="mt-3.5">
         <TaskProgressBar task={task} userId={currentUser?.id} />
@@ -124,12 +154,23 @@ const TaskCard: React.FC<{
           {task.startDate && (
             <span>Start: <strong className="text-[var(--tm-ink)]">{formatDate(task.startDate, 'MMM d')}</strong></span>
           )}
-          <span>
-            {task.status === 'completed' ? 'Done' : 'Due'}:{' '}
-            <strong className={isOverdue && task.status !== 'completed' ? 'text-[var(--tm-danger)]' : 'text-[var(--tm-ink)]'}>
-              {formatDate(task.status === 'completed' ? task.completedAt || task.dueDate : task.dueDate, 'MMM d')}
-            </strong>
-          </span>
+          {task.status === 'completed' ? (
+            <span>
+              Done:{' '}
+              <strong className="text-[var(--tm-ink)]">
+                {formatDate(task.completedAt || task.dueDate, 'MMM d')}
+              </strong>
+            </span>
+          ) : task.dueDate ? (
+            <span>
+              Due:{' '}
+              <strong className={isOverdue ? 'text-[var(--tm-danger)]' : 'text-[var(--tm-ink)]'}>
+                {formatDate(task.dueDate, 'MMM d')}
+              </strong>
+            </span>
+          ) : (
+            <span>No due date</span>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -286,8 +327,10 @@ const AssignedToOthersCard: React.FC<{
           {task.startDate && (
             <span>Start: <strong className="text-[var(--tm-ink)]">{formatDate(task.startDate)}</strong></span>
           )}
-          {task.dueDate && (
+          {task.dueDate ? (
             <span>Due: <strong className="text-[var(--tm-ink)]">{formatDate(task.dueDate)}</strong></span>
+          ) : (
+            <span>No due date</span>
           )}
         </div>
 
@@ -495,7 +538,7 @@ export const TasksPage: React.FC = () => {
     }
   };
 
-  const userProjects = projects.filter((p) => p.memberIds.includes(user?.id || ''));
+  const userProjects = isAdmin ? projects : projects.filter((p) => p.memberIds.includes(user?.id || ''));
 
   // Form validation check
   const isFormValid = Boolean(
@@ -503,7 +546,6 @@ export const TasksPage: React.FC = () => {
     taskName.trim() &&
     priority &&
     startDate &&
-    dueDate &&
     assignedUserId
   );
 
@@ -520,11 +562,10 @@ export const TasksPage: React.FC = () => {
         status: 'todo',
         priority,
         startDate,
-        dueDate,
+        dueDate: dueDate || undefined,
         assignedUserId,
         assignedByUserId: user?.id,
         assignmentStatus: assignedUserId === user?.id ? 'accepted' : 'pending',
-        estimatedHours: 8
       });
       showToast('Task created successfully!');
       setIsNewTaskModalOpen(false);
@@ -713,6 +754,7 @@ export const TasksPage: React.FC = () => {
                                 assignedUser={usersMap.get(task.assignedUserId)}
                                 currentUser={user}
                                 onNavigate={() => navigate(`${prefix}/tasks/${task.id}`)}
+                                onSubmitForm={() => setTaskToSubmit(task)}
                                 onDeleteTask={(t) => setTaskToDelete(t)}
                               />
                             ))}
@@ -866,17 +908,11 @@ export const TasksPage: React.FC = () => {
 
             <div>
               <Input
-                label="Due Date *"
+                label="Due Date"
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                required
               />
-              {formSubmitted && !dueDate && (
-                <span className="text-[11px] font-semibold text-[var(--tm-danger)] mt-1 block">
-                  Due date is required.
-                </span>
-              )}
             </div>
           </div>
 
@@ -885,7 +921,7 @@ export const TasksPage: React.FC = () => {
               label="Assign To *"
               value={assignedUserId}
               onChange={(e) => setAssignedUserId(e.target.value)}
-              options={usersList.map((m: User) => ({
+              options={usersList.filter((m: User) => m.active).map((m: User) => ({
                 value: m.id,
                 label: m.id === user?.id ? `${m.name} (you)` : m.name
               }))}
