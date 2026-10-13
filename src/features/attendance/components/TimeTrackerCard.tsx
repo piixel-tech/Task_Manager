@@ -77,6 +77,7 @@ export const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({
     todayAttendance: storeRecord,
     punchIn: storePunchIn,
     punchOut: storePunchOut,
+    startBreak: storeStartBreak,
     endBreak: storeEndBreak,
     endMyDay: storeEndMyDay,
     resumeMyDay: storeResumeMyDay,
@@ -184,6 +185,16 @@ export const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({
       onRefresh?.();
     } catch (err: any) {
       showToast(err.message || 'Failed to toggle punch');
+    }
+  };
+
+  const handleStartBreak = async () => {
+    if (!user) return;
+    try {
+      await storeStartBreak(user.id, 'tea');
+      onRefresh?.();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to start break');
     }
   };
 
@@ -315,6 +326,20 @@ export const TimeTrackerCard: React.FC<TimeTrackerCardProps> = ({
                     </motion.div>
                   )}
                 </AnimatePresence>
+              </motion.button>
+            )}
+
+            {/* Start break button */}
+            {!isDayEnded && activePunch && !activeBreak && (
+              <motion.button
+                type="button"
+                whileTap={reduced ? undefined : { scale: 0.95 }}
+                onClick={handleStartBreak}
+                className="inline-flex h-14 items-center gap-2.5 rounded-full bg-white/20 px-6 text-[15px] font-extrabold text-white shadow-lg transition-all hover:bg-white/30 hover:scale-105 cursor-pointer"
+                title="Start break"
+              >
+                <Coffee className="h-5 w-5" />
+                Start break
               </motion.button>
             )}
 

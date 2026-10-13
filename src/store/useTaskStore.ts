@@ -3,6 +3,7 @@ import type { Task, AttachedFile } from '../types';
 import { taskService } from '../services';
 import type { StartTaskResult } from '../services/interfaces';
 import { parseISO, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
+import { triggerTaskCelebration } from '../features/tasks/components/TaskCompletionCelebration';
 
 interface TaskState {
   tasks: Task[];
@@ -15,6 +16,7 @@ interface TaskState {
 
   createTask: (data: Omit<Task, 'id' | 'createdAt' | 'sessions' | 'submissions'>) => Promise<Task>;
   updateTask: (id: string, updates: Partial<Task>) => Promise<Task>;
+  completeTask: (id: string) => Promise<Task>;
   deleteTask: (id: string) => Promise<void>;
   startTaskSession: (taskId: string, userId: string, force?: boolean) => Promise<StartTaskResult>;
   stopTaskSession: (taskId: string, userId: string) => Promise<Task>;
@@ -72,11 +74,21 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       const updated = await taskService.updateTask(id, updates);
       get().updateTaskInStore(updated);
       set({ isLoading: false });
+
+      if (updates.status === 'completed') {
+        const allProjectTasks = get().tasks.filter((t) => t.projectId === updated.projectId);
+        triggerTaskCelebration(updated, { allProjectTasks });
+      }
+
       return updated;
     } catch (err: any) {
       set({ error: err.message || 'Failed to update task', isLoading: false });
       throw err;
     }
+  },
+
+  completeTask: async (id: string) => {
+    return get().updateTask(id, { status: 'completed' });
   },
 
   deleteTask: async (id) => {
@@ -136,6 +148,12 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       const updated = await taskService.reviewSubmission(taskId, submissionId, status, comment, reviewerId);
       get().updateTaskInStore(updated);
       set({ isLoading: false });
+
+      if (status === 'approved') {
+        const allProjectTasks = get().tasks.filter((t) => t.projectId === updated.projectId);
+        triggerTaskCelebration(updated, { allProjectTasks });
+      }
+
       return updated;
     } catch (err: any) {
       set({ error: err.message || 'Failed to review submission', isLoading: false });

@@ -7,6 +7,8 @@ import { DayStartModal } from '../ui/DayStartModal';
 import { IdleActivityMonitor } from '../ui/IdleActivityMonitor';
 import { MidnightAutoCloseNotice } from '../ui/MidnightAutoCloseNotice';
 import { NudgeBanner, CelebrationBanners } from '../../features/gamification/components/NudgeBanner';
+import { BreakScreen } from '../../features/attendance/components/BreakScreen';
+import { TaskCompletionCelebration } from '../../features/tasks/components/TaskCompletionCelebration';
 import { attendanceService } from '../../services';
 import { useAuthStore } from '../../store/authStore';
 import { getTodayDateString } from '../../utils/time';
@@ -32,6 +34,8 @@ export const EmployeeLayout: React.FC = () => {
       <DayStartModal />
       <IdleActivityMonitor />
       <MidnightAutoCloseNotice />
+      <BreakScreen />
+      <TaskCompletionCelebration />
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col lg:pl-[268px]">
         <Topbar />

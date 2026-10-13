@@ -13,6 +13,7 @@ import { PageHeader } from '../../../components/ui/PageHeader';
 import { useMotionPrefs } from '../../../components/ui/useMotionPrefs';
 import { spring } from '../../../components/ui/motion';
 import { ChangePasswordCard } from '../../../components/settings/ChangePasswordCard';
+import { SoundSettingsCard } from '../../../components/settings/SoundSettingsCard';
 
 export const EmployeeSettingsPage: React.FC = () => {
   const { accent, setAccent } = useThemeStore();
@@ -27,6 +28,9 @@ export const EmployeeSettingsPage: React.FC = () => {
 
       {/* Change Password */}
       <ChangePasswordCard />
+
+      {/* Sound Settings */}
+      <SoundSettingsCard />
 
       {/* Accent theme */}
       <Card>

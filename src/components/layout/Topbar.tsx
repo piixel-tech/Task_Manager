@@ -14,6 +14,7 @@ import {
 import { useAuthStore } from '../../store/authStore';
 import { useAppStore } from '../../store/useAppStore';
 import { useNotificationStore } from '../../store/useNotificationStore';
+import { useAttendanceStore } from '../../store/useAttendanceStore';
 import { attendanceService } from '../../services';
 import type { AttendanceDay } from '../../types';
 import { formatTimeAgo, getTodayDateString } from '../../utils/time';
@@ -67,7 +68,10 @@ export const Topbar: React.FC = () => {
     return () => document.removeEventListener('mousedown', onDown);
   }, []);
 
-  const activePunch = todayAttendance?.punchSessions.find((s) => !s.punchOut);
+  const storeTodayAttendance = useAttendanceStore((state) => state.todayAttendance);
+  const currentAttendance = storeTodayAttendance || todayAttendance;
+  const activePunch = currentAttendance?.punchSessions.find((s) => !s.punchOut);
+  const activeBreak = activePunch?.breaks.find((b) => !b.breakEnd);
   const isAdmin = user?.role === 'admin';
   const prefix = isAdmin ? '/admin' : '/app';
 
@@ -113,7 +117,7 @@ export const Topbar: React.FC = () => {
           )}
 
           <AnimatePresence>
-            {toastMessage && (
+            {!activeBreak && toastMessage && (
               <motion.div
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}

@@ -47,6 +47,7 @@ import { parseISO, format, subDays } from 'date-fns';
 
 import { useTaskStore, getTasksDoneThisWeekCount } from '../../../store/useTaskStore';
 import { calculateBreakMinutes } from '../../../store/useAttendanceStore';
+import { DailyProgressRing } from '../../employee/components/DailyProgressRing';
 
 export const AttendancePage: React.FC = () => {
   const navigate = useNavigate();
@@ -282,7 +283,7 @@ export const AttendancePage: React.FC = () => {
 
 
       {/* Row of StatCards */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {/* First card as green HeroCard */}
         <div className="rounded-[var(--tm-radius-xl)] bg-[var(--tm-primary)] text-white p-6 shadow-hero relative overflow-hidden flex flex-col justify-between">
           <div>
@@ -299,6 +300,9 @@ export const AttendancePage: React.FC = () => {
             </span>
           </div>
         </div>
+
+        {/* Daily Progress Ring */}
+        <DailyProgressRing />
 
         <StatCard
           label="Tasks Done This Week"
