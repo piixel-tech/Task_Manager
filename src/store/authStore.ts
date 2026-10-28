@@ -1,10 +1,13 @@
 import { create } from 'zustand';
 import type { User } from '../types';
 import { authService } from '../services';
+import { setAuthFailureHandler } from '../services/api';
 
 interface AuthState {
   user: User | null;
   isLoading: boolean;
+  /** True once the initial session restore has finished (success or not). */
+  initialized: boolean;
   error: string | null;
   setUser: (user: User | null) => void;
   login: (loginId: string, password?: string) => Promise<User>;
@@ -17,6 +20,7 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isLoading: false,
+  initialized: false,
   error: null,
 
   setUser: (user: User | null) => set({ user }),
@@ -25,7 +29,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const user = await authService.login(loginId, password);
-      set({ user, isLoading: false });
+      set({ user, isLoading: false, initialized: true });
       return user;
     } catch (err: any) {
       set({ error: err.message || 'Login failed', isLoading: false });
@@ -48,13 +52,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   loadCurrentUser: async () => {
-    set({ isLoading: true });
+    if (!get().initialized) set({ isLoading: true });
     try {
       const user = await authService.getCurrentUser();
-      set({ user, isLoading: false });
+      set({ user, isLoading: false, initialized: true });
       return user;
     } catch {
-      set({ user: null, isLoading: false });
+      set({ user: null, isLoading: false, initialized: true });
       return null;
     }
   },
@@ -62,8 +66,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: async () => {
     set({ isLoading: true });
     await authService.logout();
-    set({ user: null, isLoading: false, error: null });
+    set({ user: null, isLoading: false, initialized: true, error: null });
   },
 
   clearError: () => set({ error: null })
 }));
+
+// A failed token refresh means the session is gone: drop the user so guards redirect to /login.
+setAuthFailureHandler(() => useAuthStore.setState({ user: null, initialized: true }));

@@ -1,50 +1,32 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import {
-  Bell,
-  ChevronDown,
-  Clock,
-  LogOut,
-  Menu,
-  Settings,
-  Shield,
-  User as UserIcon
-} from 'lucide-react';
+import { Bell, Clock, Menu, Shield } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useAppStore } from '../../store/useAppStore';
 import { useNotificationStore } from '../../store/useNotificationStore';
-import { useAttendanceStore } from '../../store/useAttendanceStore';
-import { attendanceService } from '../../services';
-import type { AttendanceDay } from '../../types';
-import { formatTimeAgo, getTodayDateString } from '../../utils/time';
+import { useDailyStatusStore } from '../../store/useDailyStatusStore';
+import { statusMeta } from '../../features/status/statusMeta';
+import { formatTimeAgo } from '../../utils/time';
 import { useNotificationSync } from '../../features/notifications/useNotificationSync';
-import { UserAvatar } from '../ui/UserAvatar';
-import { Badge } from '../ui/Badge';
+import { useChatRealtime } from '../../features/chat/useChatRealtime';
+import { AccountMenu } from './AccountMenu';
 import { CommandPalette } from './CommandPalette';
+import { FocusMenu } from '../../features/focus/FocusMenu';
+import { ShortcutsModal } from '../../features/shortcuts/ShortcutList';
+import { useShortcuts } from '../../features/shortcuts/shortcuts';
 import { useMotionPrefs } from '../ui/useMotionPrefs';
 import { EASE_OUT } from '../ui/motion';
 
 export const Topbar: React.FC = () => {
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
   const { toggleSidebar, toastMessage } = useAppStore();
   const navigate = useNavigate();
   const { reduced } = useMotionPrefs();
 
-  const [todayAttendance, setTodayAttendance] = useState<AttendanceDay | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const bellRef = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (user?.id) {
-      attendanceService.getAttendance(user.id, getTodayDateString()).then((records) => {
-        if (records.length > 0) setTodayAttendance(records[0]);
-      });
-    }
-  }, [user]);
 
   // ⌘K / Ctrl+K opens search.
   useEffect(() => {
@@ -62,30 +44,31 @@ export const Topbar: React.FC = () => {
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
       if (bellRef.current && !bellRef.current.contains(e.target as Node)) setBellOpen(false);
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
   }, []);
 
-  const storeTodayAttendance = useAttendanceStore((state) => state.todayAttendance);
-  const currentAttendance = storeTodayAttendance || todayAttendance;
-  const activePunch = currentAttendance?.punchSessions.find((s) => !s.punchOut);
-  const activeBreak = activePunch?.breaks.find((b) => !b.breakEnd);
+  useShortcuts();
+  const todayStatus = useDailyStatusStore((state) => state.today?.status);
+  const openStatusEditor = useDailyStatusStore((state) => state.openEditor);
+  const statusInfo = statusMeta(todayStatus);
   const isAdmin = user?.role === 'admin';
-  const prefix = isAdmin ? '/admin' : '/app';
 
-  // Loads the employee's notifications and runs the date-based checks.
+  // Loads notifications and keeps them live over the WebSocket.
   useNotificationSync();
+  // Chat stays live (unread badges, ticks) wherever you are in the app.
+  useChatRealtime();
 
-  const { notifications, markAsRead, markAllAsRead } = useNotificationStore();
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotificationStore();
 
   /** Red for things that need action, amber for reminders, accent otherwise. */
   const dotClass = (type: string) => {
-    if (type === 'changes_requested' || type === 'punch_reminder') return 'bg-[var(--tm-danger)]';
-    if (type === 'task_due') return 'bg-[var(--tm-warning)]';
-    if (type === 'task_approved') return 'bg-[var(--tm-success)]';
+    if (type === 'changes_requested' || type === 'review_changes_requested' || type === 'booking_cancelled') return 'bg-[var(--tm-danger)]';
+    if (type === 'checklist_updated' || type === 'deliverables_updated') return 'bg-[var(--tm-info)]';
+    if (type === 'task_due' || type === 'task_reminder') return 'bg-[var(--tm-warning)]';
+    if (type === 'task_approved' || type === 'review_approved' || type === 'office_resolved') return 'bg-[var(--tm-success)]';
+    if (type === 'office_post' || type === 'office_reopened') return 'bg-[var(--tm-info)]';
     return 'bg-[var(--tm-primary)]';
   };
 
@@ -117,7 +100,7 @@ export const Topbar: React.FC = () => {
           )}
 
           <AnimatePresence>
-            {!activeBreak && toastMessage && (
+            {toastMessage && (
               <motion.div
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -135,19 +118,23 @@ export const Topbar: React.FC = () => {
 
         {/* Right: status, bell (immediately left of profile avatar), user */}
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-          {user?.role === 'employee' && (
-            <div
-              className={`hidden items-center gap-2 rounded-full px-3.5 py-2 text-[12px] font-semibold lg:flex
-                ${
-                  activePunch
-                    ? 'bg-[var(--tm-success-bg)] text-[var(--tm-success)]'
-                    : 'bg-[var(--tm-neutral-bg)] text-[var(--tm-neutral)]'
-                }`}
+          {user && user.role !== 'client' && (
+            <button
+              type="button"
+              onClick={openStatusEditor}
+              title="Change today's status"
+              className={`hidden items-center gap-2 rounded-full px-3.5 py-2 text-[12px] font-semibold lg:flex ${
+                statusInfo
+                  ? 'bg-[var(--tm-success-bg)] text-[var(--tm-success)]'
+                  : 'bg-[var(--tm-neutral-bg)] text-[var(--tm-neutral)]'
+              }`}
             >
               <Clock className="h-3.5 w-3.5" />
-              {activePunch ? 'Punched in' : 'Not punched in'}
-            </div>
+              {statusInfo ? statusInfo.label : 'Set status'}
+            </button>
           )}
+
+          {user && user.role !== 'client' && <FocusMenu />}
 
           {/* Notifications bell placed immediately left of profile avatar */}
           <div className="relative flex items-center" ref={bellRef}>
@@ -165,7 +152,7 @@ export const Topbar: React.FC = () => {
                     rounded-full bg-red-600 px-1 text-[10px] font-extrabold text-white
                     ring-2 ring-[var(--tm-card)] shadow-xs"
                 >
-                  {unreadCount}
+                  {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
               )}
             </button>
@@ -192,7 +179,7 @@ export const Topbar: React.FC = () => {
                     </div>
                     {unreadCount > 0 && (
                       <button
-                        onClick={() => user && markAllAsRead(user.id)}
+                        onClick={() => markAllAsRead()}
                         className="text-[11.5px] font-bold text-[var(--tm-primary)] hover:underline"
                       >
                         Mark all as read
@@ -208,13 +195,14 @@ export const Topbar: React.FC = () => {
                     <ul className="max-h-80 overflow-y-auto p-2 divide-y divide-[var(--tm-border)]">
                       {notifications.map((n) => (
                         <li key={n.id}>
-                          <Link
-                            to={n.link}
+                          <button
+                            type="button"
                             onClick={() => {
                               markAsRead(n.id);
                               setBellOpen(false);
+                              if (n.link) navigate(n.link);
                             }}
-                            className={`flex gap-3 rounded-[var(--tm-radius-md)] px-3 py-3
+                            className={`flex w-full gap-3 text-left rounded-[var(--tm-radius-md)] px-3 py-3
                               transition-colors hover:bg-[var(--tm-bg-sunken)] ${
                                 !n.read ? 'bg-[var(--tm-primary-softer)]/60 border-l-2 border-[var(--tm-primary)]' : ''
                               }`}
@@ -233,7 +221,7 @@ export const Topbar: React.FC = () => {
                                 {n.message}
                               </span>
                             </span>
-                          </Link>
+                          </button>
                         </li>
                       ))}
                     </ul>
@@ -243,111 +231,12 @@ export const Topbar: React.FC = () => {
             </AnimatePresence>
           </div>
 
-          {/* User Profile Avatar */}
-          {user && (
-            <div className="relative" ref={menuRef}>
-              <button
-                onClick={() => setMenuOpen((o) => !o)}
-                className="flex items-center gap-2.5 rounded-full border border-[var(--tm-border)]
-                  bg-[var(--tm-card)] py-1.5 pl-1.5 pr-3 transition-colors
-                  hover:border-[var(--tm-border-strong)]"
-              >
-                <UserAvatar userId={user.id} size="md" />
-                <span className="hidden text-left leading-tight sm:block">
-                  <span className="block text-[13px] font-bold text-[var(--tm-ink)]">
-                    {user.nickname || user.name}
-                  </span>
-                  <span className="block text-[11.5px] text-[var(--tm-ink-muted)]">
-                    {user.jobTitle}
-                  </span>
-                </span>
-                <ChevronDown className="hidden h-4 w-4 text-[var(--tm-ink-muted)] sm:block" />
-              </button>
-
-              <AnimatePresence>
-                {menuOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -8, scale: 0.97 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                    transition={popTransition}
-                    className="absolute right-0 top-[calc(100%+8px)] w-64 overflow-hidden
-                      rounded-[var(--tm-radius-lg)] border border-[var(--tm-border)]
-                      bg-[var(--tm-card)] shadow-soft-lg"
-                  >
-                    <div className="flex items-center gap-3 border-b border-[var(--tm-border)] px-5 py-4">
-                      <UserAvatar userId={user.id} size="lg" />
-                      <div className="min-w-0 leading-tight">
-                        <div className="truncate text-[14px] font-bold text-[var(--tm-ink)]">
-                          {user.name}
-                        </div>
-                        <div className="truncate text-[12px] text-[var(--tm-ink-muted)]">
-                          {user.jobTitle}
-                        </div>
-                        <div className="mt-1.5 flex items-center gap-1.5">
-                          {isAdmin && (
-                            <Badge
-                              variant={user.company === 'piixel' ? 'piixel' : 'unwork'}
-                              size="sm"
-                              className="capitalize"
-                            >
-                              {user.company}
-                            </Badge>
-                          )}
-                          {isAdmin && (
-                            <Badge variant="both" size="sm">
-                              <Shield className="h-2.5 w-2.5" /> Admin
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-2">
-                      {user.role === 'employee' && (
-                        <Link
-                          to={`${prefix}/profile`}
-                          onClick={() => setMenuOpen(false)}
-                          className="flex items-center gap-3 rounded-[var(--tm-radius-md)] px-3 py-2.5
-                            text-[13px] font-semibold text-[var(--tm-ink-soft)]
-                            transition-colors hover:bg-[var(--tm-bg-sunken)] hover:text-[var(--tm-ink)]"
-                        >
-                          <UserIcon className="h-4 w-4" /> My profile
-                        </Link>
-                      )}
-                      {isAdmin && (
-                        <Link
-                          to={`${prefix}/settings`}
-                          onClick={() => setMenuOpen(false)}
-                          className="flex items-center gap-3 rounded-[var(--tm-radius-md)] px-3 py-2.5
-                            text-[13px] font-semibold text-[var(--tm-ink-soft)]
-                            transition-colors hover:bg-[var(--tm-bg-sunken)] hover:text-[var(--tm-ink)]"
-                        >
-                          <Settings className="h-4 w-4" /> Settings
-                        </Link>
-                      )}
-                      <button
-                        onClick={async () => {
-                          setMenuOpen(false);
-                          await logout();
-                          navigate('/login');
-                        }}
-                        className="flex w-full items-center gap-3 rounded-[var(--tm-radius-md)] px-3 py-2.5
-                          text-[13px] font-semibold text-[var(--tm-danger)]
-                          transition-colors hover:bg-[var(--tm-danger-bg)]"
-                      >
-                        <LogOut className="h-4 w-4" /> Sign out
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          )}
+          <AccountMenu />
         </div>
       </header>
 
       <CommandPalette isOpen={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      <ShortcutsModal />
     </>
   );
 };

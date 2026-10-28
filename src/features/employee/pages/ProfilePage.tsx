@@ -2,20 +2,21 @@ import React, { useEffect, useState } from 'react';
 import { Lock, Copy, Edit2, User as UserIcon, Check, X, Camera } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { useAppStore } from '../../../store/useAppStore';
-import { attendanceService, userService } from '../../../services';
-import type { AttendanceDay } from '../../../types';
+import { useNavigate } from 'react-router-dom';
+import { userService } from '../../../services';
+import { accountApi } from '../../../services/http/accountApi';
+import { saveAvatar } from '../../settings/saveProfile';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { UserAvatar } from '../../../components/ui/UserAvatar';
 import { AvatarPickerModal } from '../../../components/ui/AvatarPickerModal';
-import { getTodayDateString, getMonthInfo, formatDate } from '../../../utils/time';
-import { formatHours } from '../../../utils/format';
+import { formatDate } from '../../../utils/time';
 import { EmployeeTaskTabs } from '../../tasks/components/EmployeeTaskTabs';
 import { useUserStore } from '../../../store/useUserStore';
 
 export const ProfilePage: React.FC = () => {
-  const { user, changePassword, setUser } = useAuthStore();
+  const { user, setUser } = useAuthStore();
   const { showToast } = useAppStore();
 
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
@@ -29,31 +30,18 @@ export const ProfilePage: React.FC = () => {
   const [passwordError, setPasswordError] = useState('');
   const [savingInfo, setSavingInfo] = useState(false);
 
-  const [monthAttendance, setMonthAttendance] = useState<AttendanceDay[]>([]);
-
-  const todayStr = getTodayDateString();
-  const [year, month] = todayStr.split('-').map(Number);
-  const { totalDays } = getMonthInfo(year, month - 1);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (user?.id) {
-      attendanceService.getAttendance(user.id).then((records) => {
-        setMonthAttendance(records);
-      });
       if (user.birthday) setBirthdateInput(user.birthday);
     }
   }, [user]);
 
-  const handleAvatarSave = async (newAvatarUrl: string) => {
+  const handleAvatarSave = async (preset: string, photo?: File) => {
     if (!user) return;
-    try {
-      const updated = await userService.updateUser(user.id, { avatarUrl: newAvatarUrl });
-      setUser(updated);
-      useUserStore.getState().setUser(updated);
-      showToast('Avatar updated successfully!');
-    } catch (err: any) {
-      showToast(err.message || 'Failed to update avatar');
-    }
+    await saveAvatar(user, preset, photo);
+    showToast('Avatar updated successfully!');
   };
 
   const handleSavePersonalInfoCard = async (e: React.FormEvent) => {
@@ -66,14 +54,8 @@ export const ProfilePage: React.FC = () => {
         setPasswordError('Please enter your current password.');
         return;
       }
-      const freshUser = await userService.getUserById(user.id);
-      const actualPassword = freshUser?.password || user.password || 'password123';
-      if (currentPassword !== actualPassword) {
-        setPasswordError('Current password does not match.');
-        return;
-      }
-      if (newPassword.length < 6) {
-        setPasswordError('New password must be at least 6 characters long.');
+      if (newPassword.length < 8) {
+        setPasswordError('New password must be at least 8 characters long.');
         return;
       }
       if (newPassword !== confirmPassword) {
@@ -91,7 +73,7 @@ export const ProfilePage: React.FC = () => {
 
       // 2. If password supplied, update password
       if (newPassword) {
-        await changePassword(newPassword);
+        await accountApi.changePassword(currentPassword, newPassword);
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
@@ -124,22 +106,6 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
-  // Build daily hours array for current month
-  const monthPrefix = `${year}-${String(month).padStart(2, '0')}`;
-  const dailyHoursData = Array.from({ length: totalDays }).map((_, idx) => {
-    const dayNum = idx + 1;
-    const dateStr = `${monthPrefix}-${String(dayNum).padStart(2, '0')}`;
-    const att = monthAttendance.find((a) => a.date === dateStr);
-    return {
-      dayNum,
-      dateStr,
-      hours: att ? att.totalHours : 0,
-      status: att ? att.status : 'not_marked'
-    };
-  });
-
-  const maxHours = Math.max(...dailyHoursData.map((d) => d.hours), 10);
-
   return (
     <div className="space-y-6">
       <div>
@@ -147,7 +113,7 @@ export const ProfilePage: React.FC = () => {
           My Profile
         </h1>
         <p className="text-[14px] leading-relaxed text-[var(--tm-ink-muted)] mt-1.5">
-          Personal details, avatar customization, and monthly hours summary.
+          Personal details, avatar customization and your calendar.
         </p>
       </div>
 
@@ -334,51 +300,16 @@ export const ProfilePage: React.FC = () => {
         </Card>
       )}
 
-      {/* Monthly Worked Hours Bar Chart */}
+      {/* Calendar */}
       <Card>
         <CardHeader>
-          <CardTitle>Daily Hours Worked This Month</CardTitle>
-          <CardDescription>Daily shift hours breakdown for current month</CardDescription>
+          <CardTitle>My Calendar</CardTitle>
+          <CardDescription>Your daily status and bookings. Teammates book your free slots here.</CardDescription>
         </CardHeader>
-        <CardContent className="p-6 space-y-4">
-          <div className="h-44 flex items-end gap-1 sm:gap-1.5 pt-6 pb-2 px-2 overflow-x-auto border-b border-[var(--tm-border)]">
-            {dailyHoursData.map((d) => {
-              const heightPercent = Math.round((d.hours / maxHours) * 100);
-              const barColor =
-                d.hours >= 8
-                  ? 'bg-[var(--tm-success)]'
-                  : d.hours > 0
-                  ? 'bg-[var(--tm-primary)]'
-                  : d.status === 'on_leave'
-                  ? 'bg-[var(--tm-danger)]'
-                  : 'bg-[var(--tm-bg-sunken)]';
-
-              return (
-                <div key={d.dayNum} className="flex-1 min-w-[14px] flex flex-col items-center gap-1 group relative">
-                  <div className="absolute -top-8 hidden group-hover:flex bg-[var(--tm-ink)] text-white text-[10px] px-2 py-0.5 rounded whitespace-nowrap shadow-md z-10">
-                    Day {d.dayNum}: {formatHours(d.hours)}
-                  </div>
-                  <div
-                    className={`w-full ${barColor} rounded-t transition-all duration-300 group-hover:opacity-80`}
-                    style={{ height: `${Math.max(4, heightPercent)}%` }}
-                  />
-                  <span className="text-[9px] font-semibold text-[var(--tm-ink-muted)]">{d.dayNum}</span>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center justify-center gap-6 text-xs text-[var(--tm-ink-muted)] pt-2">
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-[var(--tm-success)]" /> Target Reached (8h+)
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-[var(--tm-primary)]" /> Partial Shift
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-[var(--tm-danger)]" /> On Leave
-            </span>
-          </div>
+        <CardContent className="p-6 pt-0">
+          <Button variant="outline" onClick={() => navigate('/app/calendar')}>
+            Open my calendar
+          </Button>
         </CardContent>
       </Card>
 

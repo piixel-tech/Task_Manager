@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { AuthImage } from './AuthImage';
 import {
   Award,
   Briefcase,
@@ -23,6 +24,8 @@ export interface AvatarProps {
   className?: string;
   /** Draw a white ring — used when avatars overlap in a stack. */
   ring?: boolean;
+  /** Show a 🌙: this person is in Focus mode. */
+  focus?: boolean;
 }
 
 export const avatarSizeClasses = {
@@ -76,7 +79,7 @@ export const getInitials = (n: string) => {
   return parts[0].substring(0, 2).toUpperCase();
 };
 
-export const Avatar: React.FC<AvatarProps> = ({
+const AvatarBase: React.FC<AvatarProps> = ({
   name,
   src,
   size = 'md',
@@ -130,6 +133,11 @@ export const Avatar: React.FC<AvatarProps> = ({
       );
     }
 
+    if (src.startsWith('/api/')) {
+      // An uploaded photo: served only to signed-in people, so it is fetched with the login token.
+      return <AuthImage url={src} alt={name} className={`shrink-0 rounded-full object-cover ${avatarSizeClasses[size]} ${ringClass} ${className}`} />;
+    }
+
     return (
       <img
         src={src}
@@ -155,4 +163,20 @@ export const Avatar: React.FC<AvatarProps> = ({
     </div>
   );
 };
+
+/** A person's avatar; with `focus`, a small moon marks them as in Focus mode. */
+export const Avatar: React.FC<AvatarProps> = ({ focus, ...rest }) =>
+  focus ? (
+    <span className="relative inline-flex shrink-0" title={`${rest.name} is in focus`}>
+      <AvatarBase {...rest} />
+      <span
+        aria-label="In focus"
+        className="absolute -bottom-1 -right-1 grid h-4 w-4 place-items-center rounded-full bg-[var(--tm-card)] text-[10px] leading-none shadow-soft-xs ring-1 ring-[var(--tm-border)]"
+      >
+        🌙
+      </span>
+    </span>
+  ) : (
+    <AvatarBase {...rest} />
+  );
 

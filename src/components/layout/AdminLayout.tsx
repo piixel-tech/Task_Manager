@@ -3,13 +3,13 @@ import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { BottomTabBar } from './BottomTabBar';
 import { RouteTransition } from './RouteTransition';
-import { BreakScreen } from '../../features/attendance/components/BreakScreen';
+import { DailyStatusGate } from '../../features/status/components/DailyStatusGate';
 import { TaskCompletionCelebration } from '../../features/tasks/components/TaskCompletionCelebration';
 
 export const AdminLayout: React.FC = () => {
   return (
     <div className="flex min-h-screen bg-[var(--tm-bg)] pb-16 lg:pb-0">
-      <BreakScreen />
+      <DailyStatusGate />
       <TaskCompletionCelebration />
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col lg:pl-[268px]">

@@ -42,3 +42,13 @@ export function formatCompanyBadge(company: 'piixel' | 'unwork' | 'both'): { tex
     border: 'border-emerald-200'
   };
 }
+
+/** 3725 -> "1h 02m", 95 -> "1m 35s", 40 -> "40s". */
+export function formatDuration(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m`;
+  if (m > 0) return `${m}m ${String(s % 60).padStart(2, '0')}s`;
+  return `${s}s`;
+}

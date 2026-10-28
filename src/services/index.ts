@@ -1,24 +1,21 @@
-import { mockAuthService } from './mock/authService';
-import { mockUserService } from './mock/userService';
-import { mockAttendanceService } from './mock/attendanceService';
+import { httpAuthService } from './http/authService';
+import { httpUserService } from './http/userService';
 import { mockHolidayService } from './mock/holidayService';
-import { mockProjectService } from './mock/projectService';
-import { mockTaskService } from './mock/taskService';
-import { mockChatService } from './mock/chatService';
+import { httpProjectService } from './http/projectService';
+import { httpTaskService } from './http/taskService';
 import { mockNotificationService } from './mock/notificationService';
 import { gamificationService as mockGamificationService } from './mock/gamificationService';
 import { initializeStorage } from './mock/storage';
 
+import type { ITaskService } from './interfaces';
 export * from './interfaces';
 
-// Export mock services as active services
-export const authService = mockAuthService;
-export const userService = mockUserService;
-export const attendanceService = mockAttendanceService;
+// Auth is real (FastAPI); the remaining services are still mocks
+export const authService = httpAuthService;
+export const userService = httpUserService;
 export const holidayService = mockHolidayService;
-export const projectService = mockProjectService;
-export const taskService = mockTaskService;
-export const chatService = mockChatService;
+export const projectService = httpProjectService;
+export const taskService: ITaskService = httpTaskService;
 export const notificationService = mockNotificationService;
 export const gamificationService = mockGamificationService;
 

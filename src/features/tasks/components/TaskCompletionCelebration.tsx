@@ -5,7 +5,7 @@ import { create } from 'zustand';
 import type { Task } from '../../../types';
 import { useMotionPrefs } from '../../../components/ui/useMotionPrefs';
 import { projectService } from '../../../services';
-import { useAttendanceStore } from '../../../store/useAttendanceStore';
+import { amFocused } from '../../../store/useFocusStore';
 
 const SOUND_STORAGE_KEY = 'tm_sound_enabled';
 
@@ -73,17 +73,7 @@ export const useSoundPreference = () => {
  * Uses a gentle two-tone harmonic bell decay (zero external audio file dependencies).
  */
 export const playDingSound = (): void => {
-  if (!getSoundPreference()) return;
-
-  // Mute audio while user is on break (Feature 3 requirement)
-  try {
-    const todayAtt = useAttendanceStore.getState().todayAttendance;
-    const activePunch = todayAtt?.punchSessions.find((s) => !s.punchOut);
-    const activeBreak = activePunch?.breaks.find((b) => !b.breakEnd);
-    if (activeBreak) return;
-  } catch {
-    // Fail silently if store is not yet initialized
-  }
+  if (!getSoundPreference() || amFocused()) return; // no sounds in Focus mode
 
   try {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;

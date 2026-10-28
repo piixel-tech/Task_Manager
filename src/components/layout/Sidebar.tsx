@@ -1,14 +1,14 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
-  Briefcase,
   Calendar,
   CheckSquare,
-  Clock,
+  ClipboardCheck,
   FileText,
   Inbox,
   LayoutDashboard,
+  Megaphone,
   MessageSquare,
   Settings,
   Shield,
@@ -18,6 +18,11 @@ import {
   X
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
+import { useNotificationStore } from '../../store/useNotificationStore';
+import { useSidebarStore } from '../../store/useSidebarStore';
+import { useWorkspaceStore } from '../../store/useWorkspaceStore';
+import { AuthImage } from '../ui/AuthImage';
+import { SidebarTree } from '../../features/sidebar/SidebarTree';
 import { useAppStore } from '../../store/useAppStore';
 import { useNavCounts } from '../../hooks/useNavCounts';
 import { useMotionPrefs } from '../ui/useMotionPrefs';
@@ -34,41 +39,58 @@ export const Sidebar: React.FC = () => {
   const { user } = useAuthStore();
   const { sidebarOpen, closeSidebar } = useAppStore();
   const counts = useNavCounts();
+  const unreadNotifications = useNotificationStore((s) => s.unreadCount);
+  const workspace = useWorkspaceStore((s) => s.workspace);
+  useEffect(() => {
+    void useWorkspaceStore.getState().load();
+  }, []);
   const { reduced } = useMotionPrefs();
+
+  // This person's own layout (open nodes, their order) follows them to any device.
+  const userId = user?.id;
+  useEffect(() => {
+    if (!userId) return;
+    useSidebarStore.getState().init(useAuthStore.getState().user?.sidebarState);
+    return () => useSidebarStore.getState().reset();
+  }, [userId]);
+
+  // On a phone the sidebar is a drawer: Escape closes it, and the page behind it doesn't scroll.
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeSidebar();
+    document.addEventListener('keydown', onKey);
+    const narrow = window.matchMedia('(max-width: 1023px)').matches;
+    const before = document.body.style.overflow;
+    if (narrow) document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = before;
+    };
+  }, [sidebarOpen, closeSidebar]);
 
   const isAdmin = user?.role === 'admin';
   const prefix = isAdmin ? '/admin' : '/app';
 
-  const menu: NavItem[] = isAdmin
+  // The top of the tree: the places you go every day. Everything else lives under "More".
+  const top: NavItem[] = [
+    { label: 'Home', icon: LayoutDashboard, path: `${prefix}/dashboard` },
+    { label: 'Inbox', icon: Inbox, path: `${prefix}/inbox`, count: unreadNotifications },
+    { label: 'Chats', icon: MessageSquare, path: `${prefix}/chat`, count: counts.unreadChats },
+    { label: 'Calendar', icon: Calendar, path: `${prefix}/calendar` },
+    { label: 'Office board', icon: Megaphone, path: `${prefix}/office`, count: counts.officeUnseen }
+  ];
+
+  const more: NavItem[] = isAdmin
     ? [
-        { label: 'Dashboard', icon: LayoutDashboard, path: `${prefix}/dashboard` },
-        { label: 'Attendance', icon: Clock, path: `${prefix}/attendance` },
+        { label: 'Task Hub', icon: CheckSquare, path: `${prefix}/tasks`, count: counts.tasks },
+        { label: 'Reviews', icon: ClipboardCheck, path: `${prefix}/reviews`, count: counts.pendingSubmissions },
         { label: 'Daily Updates', icon: FileText, path: `${prefix}/daily-updates` },
         { label: 'Team Members', icon: Users, path: `${prefix}/users` },
-        { label: 'Projects', icon: Briefcase, path: `${prefix}/projects`, count: counts.projects },
-        { label: 'Task Hub', icon: CheckSquare, path: `${prefix}/tasks`, count: counts.tasks },
-        {
-          label: 'Submissions',
-          icon: Inbox,
-          path: `${prefix}/submissions`,
-          count: counts.pendingSubmissions
-        }
-      ]
-    : [
-        { label: 'Attendance', icon: Clock, path: `${prefix}/attendance` },
-        { label: 'My Tasks', icon: CheckSquare, path: `${prefix}/tasks`, count: counts.tasks },
-        { label: 'Projects', icon: Briefcase, path: `${prefix}/projects`, count: counts.projects }
-      ];
-
-  const general: NavItem[] = isAdmin
-    ? [
-        { label: 'Calendar', icon: Calendar, path: `${prefix}/calendar` },
-        { label: 'Team Chat', icon: MessageSquare, path: `${prefix}/chat` },
         { label: 'Settings', icon: Settings, path: `${prefix}/settings` }
       ]
     : [
-        { label: 'Calendar', icon: Calendar, path: `${prefix}/calendar` },
-        { label: 'Team Chat', icon: MessageSquare, path: `${prefix}/chat` },
+        { label: 'My Tasks', icon: CheckSquare, path: `${prefix}/tasks`, count: counts.tasks },
+        { label: 'Reviews', icon: ClipboardCheck, path: `${prefix}/reviews`, count: counts.pendingSubmissions },
         { label: 'Monthly Wrapped', icon: Sparkles, path: '/wrapped' },
         { label: 'My Profile', icon: User, path: `${prefix}/profile` }
       ];
@@ -164,16 +186,20 @@ export const Sidebar: React.FC = () => {
         {/* Logo */}
         <div className="flex items-center justify-between px-6 pb-5 pt-7">
           <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-[14px] bg-[var(--tm-primary)] text-[17px] font-extrabold text-white shadow-soft-sm">
-              P
-            </div>
+            {workspace?.logo_url ? (
+              <AuthImage url={workspace.logo_url} alt="" className="h-10 w-10 rounded-[14px] object-cover shadow-soft-sm" />
+            ) : (
+              <div className="grid h-10 w-10 place-items-center rounded-[14px] bg-[var(--tm-primary)] text-[17px] font-extrabold text-white shadow-soft-sm">
+                {(workspace?.name ?? 'Task Manager')[0].toUpperCase()}
+              </div>
+            )}
             <div className="leading-tight">
               <div
                 className={`text-[15.5px] font-extrabold tracking-[-0.02em] ${
                   isAdmin ? 'text-white' : 'text-[var(--tm-ink)]'
                 }`}
               >
-                Task Manager
+                {workspace?.name ?? 'Task Manager'}
               </div>
               <div
                 className={`flex items-center gap-1 text-[11.5px] font-bold ${
@@ -204,25 +230,20 @@ export const Sidebar: React.FC = () => {
           </button>
         </div>
 
-        {/* Nav groups */}
-        <nav className="flex-1 overflow-y-auto px-6 pb-4">
-          <div
-            className={`mb-2.5 text-[10.5px] font-bold uppercase tracking-[0.14em] ${
-              isAdmin ? 'text-emerald-500/80' : 'text-[var(--tm-ink-muted)]'
-            }`}
-          >
-            Menu
-          </div>
-          <div className="space-y-1">{menu.map(renderItem)}</div>
+        {/* The tree: top places, Projects (project > subfolders), then More */}
+        <nav aria-label="Main" className="flex-1 overflow-y-auto px-4 pb-4">
+          <div className="space-y-1">{top.map(renderItem)}</div>
+
+          <SidebarTree isAdmin={isAdmin} prefix={prefix} onNavigate={closeSidebar} />
 
           <div
             className={`mb-2.5 mt-7 text-[10.5px] font-bold uppercase tracking-[0.14em] ${
               isAdmin ? 'text-emerald-500/80' : 'text-[var(--tm-ink-muted)]'
             }`}
           >
-            General
+            More
           </div>
-          <div className="space-y-1">{general.map(renderItem)}</div>
+          <div className="space-y-1">{more.map(renderItem)}</div>
         </nav>
 
         {/* Footer */}

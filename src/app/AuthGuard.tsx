@@ -1,18 +1,23 @@
 import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import type { UserRole } from '../types';
+import { homeForRole } from './roleHome';
 
-export const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isLoading, loadCurrentUser } = useAuthStore();
+export const AuthGuard: React.FC<{ children: React.ReactNode; roles?: UserRole[] }> = ({
+  children,
+  roles
+}) => {
+  const { user, isLoading, initialized, loadCurrentUser } = useAuthStore();
   const location = useLocation();
 
   useEffect(() => {
-    if (!user) {
+    if (!initialized) {
       loadCurrentUser();
     }
-  }, [user, loadCurrentUser]);
+  }, [initialized, loadCurrentUser]);
 
-  if (isLoading) {
+  if (!initialized || isLoading) {
     return (
       <div className="min-h-screen bg-[var(--tm-card-muted)] flex items-center justify-center">
         <div className="text-center space-y-3">
@@ -29,6 +34,10 @@ export const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children })
 
   if (user.mustChangePassword && location.pathname !== '/change-password') {
     return <Navigate to="/change-password" replace />;
+  }
+
+  if (roles && !roles.includes(user.role)) {
+    return <Navigate to={homeForRole(user.role)} replace />;
   }
 
   return <>{children}</>;

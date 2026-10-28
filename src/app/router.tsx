@@ -12,35 +12,45 @@ import { LeavePage } from '../features/auth/pages/LeavePage';
 
 import { AdminDashboardPage } from '../features/admin/pages/AdminDashboardPage';
 import { AdminUsersPage } from '../features/admin/pages/AdminUsersPage';
-import { AdminSettingsPage } from '../features/admin/pages/AdminSettingsPage';
+import { SettingsPage } from '../features/settings/SettingsPage';
+import { PersonProfilePage } from '../features/people/PersonProfilePage';
 
-import { AttendancePage } from '../features/attendance/pages/AttendancePage';
-import { AdminAttendancePage } from '../features/attendance/pages/AdminAttendancePage';
+import { DashboardPage } from '../features/dashboard/pages/DashboardPage';
 
 import { CalendarPage } from '../features/calendar/pages/CalendarPage';
+import { InboxPage } from '../features/notifications/pages/InboxPage';
+import { OfficePage } from '../features/office/pages/OfficePage';
 import { ProjectsPage } from '../features/projects/pages/ProjectsPage';
 import { ProjectDetailPage } from '../features/projects/pages/ProjectDetailPage';
+import { SubfolderPage } from '../features/projects/pages/SubfolderPage';
 import { TasksPage } from '../features/tasks/pages/TasksPage';
 import { TaskDetailPage } from '../features/tasks/pages/TaskDetailPage';
 import { ChatPage } from '../features/chat/pages/ChatPage';
 import { DailyUpdatesPage } from '../features/gamification/pages/DailyUpdatesPage';
 import { MonthlyWrappedPage } from '../features/gamification/pages/MonthlyWrappedPage';
 import { ProfilePage } from '../features/employee/pages/ProfilePage';
-import { EmployeeSettingsPage } from '../features/employee/pages/EmployeeSettingsPage';
 
-import { SubmissionsFeedPage } from '../features/admin/pages/SubmissionsFeedPage';
+import { ReviewsPage } from '../features/reviews/pages/ReviewsPage';
 import { ClientJoinPage } from '../features/client/pages/ClientJoinPage';
-import { ClientPortalPage } from '../features/client/pages/ClientPortalPage';
+import { ClientHomePage } from '../features/client/pages/ClientHomePage';
+import { ClientChatsPage, PortalEntry } from '../features/client/pages/ClientChatsPage';
+import { ClientApprovalsPage } from '../features/client/pages/ClientApprovalsPage';
+import { ClientDeliverablesPage } from '../features/client/pages/ClientDeliverablesPage';
+import { ClientRequirementsPage } from '../features/client/pages/ClientRequirementsPage';
+import { ClientMeetingsPage } from '../features/client/pages/ClientMeetingsPage';
 
 import { useAuthStore } from '../store/authStore';
+import { homeForRole } from './roleHome';
 
 const RootRedirect: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, initialized, loadCurrentUser } = useAuthStore();
+  React.useEffect(() => {
+    if (!initialized) loadCurrentUser();
+  }, [initialized, loadCurrentUser]);
+  if (!initialized) return null;
   if (!user) return <Navigate to="/login" replace />;
   if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
-  if (user.role === 'admin') return <Navigate to="/admin/dashboard" replace />;
-  if (user.role === 'client') return <Navigate to="/client/portal" replace />;
-  return <Navigate to="/app/attendance" replace />;
+  return <Navigate to={homeForRole(user.role)} replace />;
 };
 
 const WrappedRedirect: React.FC = () => {
@@ -89,20 +99,27 @@ export const router = createBrowserRouter([
     ),
     children: [
       { path: 'dashboard', element: <AdminDashboardPage /> },
-      { path: 'liveboard', element: <Navigate to="/admin/attendance" replace /> },
+      { path: 'liveboard', element: <Navigate to="/admin/dashboard" replace /> },
+      { path: 'attendance', element: <Navigate to="/admin/dashboard" replace /> },
       { path: 'daily-updates', element: <DailyUpdatesPage /> },
       { path: 'workload', element: <Navigate to="/admin/dashboard" replace /> },
       { path: 'users', element: <AdminUsersPage /> },
-      { path: 'attendance', element: <AdminAttendancePage /> },
       { path: 'projects', element: <ProjectsPage /> },
       { path: 'projects/:id', element: <ProjectDetailPage /> },
+      { path: 'projects/:projectId/subfolders/:id', element: <SubfolderPage /> },
       { path: 'tasks', element: <TasksPage /> },
       { path: 'tasks/:id', element: <TaskDetailPage /> },
-      { path: 'submissions', element: <SubmissionsFeedPage /> },
+      { path: 'reviews', element: <ReviewsPage /> },
+      { path: 'submissions', element: <Navigate to="/admin/reviews" replace /> },
       { path: 'calendar', element: <CalendarPage /> },
+      { path: 'calendar/:userId', element: <CalendarPage /> },
+      { path: 'office', element: <OfficePage /> },
+      { path: 'inbox', element: <InboxPage /> },
       { path: 'chat', element: <ChatPage /> },
       { path: 'wrapped', element: <Navigate to="/admin/dashboard" replace /> },
-      { path: 'settings', element: <AdminSettingsPage /> },
+      { path: 'settings', element: <SettingsPage /> },
+      { path: 'settings/:section', element: <SettingsPage /> },
+      { path: 'people/:userId', element: <PersonProfilePage /> },
       { path: 'gamification', element: <Navigate to="/admin/dashboard" replace /> },
       { path: '*', element: <Navigate to="/admin/dashboard" replace /> }
     ]
@@ -110,23 +127,31 @@ export const router = createBrowserRouter([
   {
     path: '/app',
     element: (
-      <AuthGuard>
+      <AuthGuard roles={['employee']}>
         <EmployeeLayout />
       </AuthGuard>
     ),
     children: [
-      { path: 'attendance', element: <AttendancePage /> },
+      { path: 'dashboard', element: <DashboardPage /> },
+      { path: 'attendance', element: <Navigate to="/app/dashboard" replace /> },
       { path: 'tasks', element: <TasksPage /> },
       { path: 'tasks/:id', element: <TaskDetailPage /> },
+      { path: 'reviews', element: <ReviewsPage /> },
       { path: 'projects', element: <ProjectsPage /> },
       { path: 'projects/:id', element: <ProjectDetailPage /> },
+      { path: 'projects/:projectId/subfolders/:id', element: <SubfolderPage /> },
       { path: 'calendar', element: <CalendarPage /> },
+      { path: 'calendar/:userId', element: <CalendarPage /> },
+      { path: 'office', element: <OfficePage /> },
+      { path: 'inbox', element: <InboxPage /> },
       { path: 'chat', element: <ChatPage /> },
       { path: 'wrapped', element: <MonthlyWrappedPage /> },
       { path: 'profile', element: <ProfilePage /> },
-      { path: 'settings', element: <EmployeeSettingsPage /> },
-      { path: 'gamification', element: <Navigate to="/app/attendance" replace /> },
-      { path: '*', element: <Navigate to="/app/attendance" replace /> }
+      { path: 'settings', element: <SettingsPage /> },
+      { path: 'settings/:section', element: <SettingsPage /> },
+      { path: 'people/:userId', element: <PersonProfilePage /> },
+      { path: 'gamification', element: <Navigate to="/app/dashboard" replace /> },
+      { path: '*', element: <Navigate to="/app/dashboard" replace /> }
     ]
   },
   {
@@ -140,13 +165,22 @@ export const router = createBrowserRouter([
   {
     path: '/client',
     element: (
-      <AuthGuard>
+      <AuthGuard roles={['client']}>
         <ClientLayout />
       </AuthGuard>
     ),
     children: [
-      { path: 'portal', element: <ClientPortalPage /> },
-      { path: '*', element: <Navigate to="/client/portal" replace /> }
+      { path: 'portal', element: <PortalEntry /> },
+      { path: 'home', element: <ClientHomePage /> },
+      { path: 'chats', element: <ClientChatsPage /> },
+      { path: 'approvals', element: <ClientApprovalsPage /> },
+      { path: 'deliverables', element: <ClientDeliverablesPage /> },
+      { path: 'requirements', element: <ClientRequirementsPage /> },
+      { path: 'meetings', element: <ClientMeetingsPage /> },
+      { path: 'settings', element: <SettingsPage /> },
+      { path: 'settings/:section', element: <SettingsPage /> },
+      { path: 'people/:userId', element: <PersonProfilePage /> },
+      { path: '*', element: <Navigate to="/client/home" replace /> }
     ]
   },
   {

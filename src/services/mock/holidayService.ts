@@ -5,7 +5,6 @@ import { generateId } from '../../utils/ids';
 import { formatDate } from '../../utils/time';
 import { mockNotificationService } from './notificationService';
 
-const DEFAULT_SHIFT_START = '10:00';
 
 export class MockHolidayService implements IHolidayService {
   async getHolidays(): Promise<Holiday[]> {
@@ -57,18 +56,6 @@ export class MockHolidayService implements IHolidayService {
     await delay(100);
     setStoredData(KEYS.WEEK_OFFS, days);
     return days;
-  }
-
-  async getShiftStart(): Promise<string> {
-    await delay(50);
-    const stored = getStoredData<string>(KEYS.SHIFT_START);
-    return typeof stored === 'string' && /^\d{2}:\d{2}$/.test(stored) ? stored : DEFAULT_SHIFT_START;
-  }
-
-  async setShiftStart(time: string): Promise<string> {
-    await delay(100);
-    setStoredData(KEYS.SHIFT_START, time);
-    return time;
   }
 }
 

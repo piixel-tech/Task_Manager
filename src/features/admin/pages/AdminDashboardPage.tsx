@@ -10,28 +10,27 @@ import {
   Sparkles,
   Users
 } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import {
-  attendanceService,
   projectService,
   taskService,
   userService
 } from '../../../services';
-import type { AttendanceDay, Project, Task, User } from '../../../types';
+import type { Project, Task, User } from '../../../types';
+import { TodayOverview } from '../../status/components/TodayOverview';
+import { OfficeBoardCard } from '../../office/components/OfficeBoardCard';
+import { useDailyStatusStore } from '../../../store/useDailyStatusStore';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { StatCard } from '../../../components/ui/StatCard';
 import { HeroCard, HeroStat } from '../../../components/ui/HeroCard';
 import { ProgressRing } from '../../../components/ui/ProgressRing';
 import { StatusChip } from '../../../components/ui/StatusChip';
-import { AvatarStack } from '../../../components/ui/AvatarStack';
 import { UserName } from '../../../components/ui/UserName';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { StaggerItem } from '../../../components/ui/Stagger';
 import { SkeletonCard, SkeletonRows } from '../../../components/ui/Skeleton';
 import { useAuthStore } from '../../../store/authStore';
 import { useAppStore } from '../../../store/useAppStore';
-import { getTodayDateString, formatTime } from '../../../utils/time';
 
 export const AdminDashboardPage: React.FC = () => {
   const navigate = useNavigate();
@@ -41,24 +40,24 @@ export const AdminDashboardPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [attendance, setAttendance] = useState<AttendanceDay[]>([]);
+  const overview = useDailyStatusStore((s) => s.overview);
+  const loadOverview = useDailyStatusStore((s) => s.loadOverview);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       userService.getUsers(),
       projectService.getProjects(),
-      taskService.getTasks(),
-      attendanceService.getAttendance()
+      taskService.getTasks()
     ])
-      .then(([usr, prj, tsk, att]) => {
+      .then(([usr, prj, tsk]) => {
         setUsers(usr);
         setProjects(prj);
         setTasks(tsk);
-        setAttendance(att);
       })
       .finally(() => setLoading(false));
-  }, []);
+    loadOverview();
+  }, [loadOverview]);
 
   const displayName = user?.nickname || user?.name || 'Admin';
   const currentHour = new Date().getHours();
@@ -77,10 +76,8 @@ export const AdminDashboardPage: React.FC = () => {
     [projects, companyFilter]
   );
 
-  const today = getTodayDateString();
-  const todayRecords = attendance.filter((a) => a.date === today);
-  const presentToday = todayRecords.filter((a) => a.status === 'present');
-  const onLeaveToday = todayRecords.filter((a) => a.status === 'on_leave');
+  const presentToday = overview.filter((r) => r.status === 'present' || r.status === 'wfh' || r.status === 'half_day');
+  const onLeaveToday = overview.filter((r) => r.status === 'leave');
 
   const runningTasks = tasks.filter((t) =>
     t.sessions.some((s) => !s.endTime)
@@ -89,17 +86,6 @@ export const AdminDashboardPage: React.FC = () => {
   const completedTasks = tasks.filter((t) => t.status === 'completed');
   const throughput = tasks.length > 0 ? (completedTasks.length / tasks.length) * 100 : 0;
 
-  // Project Progress Half-Donut Gauge calculation
-  const completedProjects = filteredProjects.filter((p) => p.status === 'completed');
-  const projectProgressPct = filteredProjects.length > 0
-    ? Math.round((completedProjects.length / filteredProjects.length) * 100)
-    : 0;
-
-  const halfDonutData = [
-    { name: 'Completed', value: completedProjects.length || 1 },
-    { name: 'Remaining', value: Math.max(0, filteredProjects.length - completedProjects.length) || 1 }
-  ];
-
   // Team activity list with status chips
   const teamActivities = useMemo(() => {
     const list: {
@@ -107,32 +93,8 @@ export const AdminDashboardPage: React.FC = () => {
       user: User;
       action: string;
       time: string;
-      status: 'present' | 'in_progress' | 'review' | 'completed' | 'on_leave';
+      status: 'in_progress' | 'review' | 'completed';
     }[] = [];
-
-    todayRecords.forEach((att) => {
-      const u = users.find((usr) => usr.id === att.userId);
-      if (!u) return;
-      const lastSession = att.punchSessions[att.punchSessions.length - 1];
-
-      if (att.status === 'on_leave') {
-        list.push({
-          id: `att-${att.id}`,
-          user: u,
-          action: 'Marked on leave today',
-          time: 'Today',
-          status: 'on_leave'
-        });
-      } else if (lastSession) {
-        list.push({
-          id: `att-${att.id}`,
-          user: u,
-          action: lastSession.punchOut ? `Punched out at ${formatTime(lastSession.punchOut)}` : `Punched in at ${formatTime(lastSession.punchIn)}`,
-          time: formatTime(lastSession.punchOut || lastSession.punchIn),
-          status: 'present'
-        });
-      }
-    });
 
     tasks.forEach((t) => {
       const u = users.find((usr) => usr.id === t.assignedUserId);
@@ -158,13 +120,13 @@ export const AdminDashboardPage: React.FC = () => {
     });
 
     return list.slice(0, 6);
-  }, [todayRecords, tasks, users]);
+  }, [tasks, users]);
 
   return (
     <>
       <PageHeader
         title={`${greeting}, ${displayName}`}
-        description="Real-time workspace stats, project gauges, live board preview, and team activities."
+        description="Who is in today, workspace stats, project gauges and team activity."
         actions={
           <>
             <Button
@@ -194,7 +156,7 @@ export const AdminDashboardPage: React.FC = () => {
             Executive Console
           </>
         }
-        title={`${runningTasks.length} active tasks & ${presentToday.length} members present`}
+        title={`${runningTasks.length} active tasks & ${presentToday.length} members in today`}
         description="Real-time workspace operation across Piixel Studio & Unwork SaaS."
         aside={
           <ProgressRing
@@ -215,22 +177,26 @@ export const AdminDashboardPage: React.FC = () => {
             >
               Open Task Hub
             </Button>
-            <Button size="sm" variant="ghostDark" onClick={() => navigate('/admin/liveboard')}>
-              Live Board
+            <Button size="sm" variant="ghostDark" onClick={() => navigate('/admin/calendar')}>
+              Calendar
             </Button>
           </>
         }
       >
         <div className="flex flex-wrap gap-8">
-          <HeroStat label="Present today" value={presentToday.length} />
+          <HeroStat label="Working today" value={presentToday.length} />
           <HeroStat label="On leave" value={onLeaveToday.length} />
           <HeroStat label="Tasks running" value={runningTasks.length} />
         </div>
       </HeroCard>
 
+      <OfficeBoardCard />
+
+      <TodayOverview />
+
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 xl:grid-cols-3">
         <StatCard
-          label="Present today"
+          label="Working today"
           value={presentToday.length}
           icon={<Clock className="h-5 w-5" />}
           tone="ok"
@@ -242,7 +208,7 @@ export const AdminDashboardPage: React.FC = () => {
           value={onLeaveToday.length}
           icon={<Coffee className="h-5 w-5" />}
           tone="warn"
-          hint="Approved leave requests today"
+          hint="Marked leave for today"
         />
 
         <StatCard
@@ -254,57 +220,20 @@ export const AdminDashboardPage: React.FC = () => {
         />
       </div>
 
-      {/* Live Board Preview & Half-Donut Gauge */}
+      {/* Running timers & Half-Donut Gauge */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        {/* Project Progress Half-Donut Gauge */}
+        {/* Projects summary */}
         <Card className="xl:col-span-1 flex flex-col justify-between">
           <CardHeader>
-            <CardTitle className="text-base font-extrabold">Project Progress Gauge</CardTitle>
-            <p className="text-[12.5px] text-[var(--tm-ink-muted)]">
-              Overall project completion percentage
-            </p>
+            <CardTitle className="text-base font-extrabold">Projects</CardTitle>
+            <p className="text-[12.5px] text-[var(--tm-ink-muted)]">Each project is split into subfolders with their own heads.</p>
           </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center pt-0 pb-6">
-            <div className="relative w-[200px] h-[120px] flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-                  <Pie
-                    data={halfDonutData}
-                    cx={100}
-                    cy={100}
-                    startAngle={180}
-                    endAngle={0}
-                    innerRadius={62}
-                    outerRadius={86}
-                    dataKey="value"
-                    isAnimationActive={true}
-                  >
-                    <Cell fill="var(--tm-primary)" />
-                    <Cell fill="var(--tm-bg-sunken)" />
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-
-              <div className="absolute bottom-2 inset-x-0 flex flex-col items-center justify-center text-center">
-                <span className="text-2xl font-black tabular-nums text-[var(--tm-ink)]">
-                  {projectProgressPct}%
-                </span>
-                <span className="text-[10px] font-bold text-[var(--tm-ink-muted)] uppercase">
-                  Completion
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-4 flex items-center gap-6 text-[12px] font-semibold text-[var(--tm-ink-soft)]">
-              <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-[var(--tm-primary)]" />
-                {completedProjects.length} Done
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-[var(--tm-bg-sunken)] border border-[var(--tm-border)]" />
-                {filteredProjects.length - completedProjects.length} In Flight
-              </span>
-            </div>
+          <CardContent className="flex flex-col items-center justify-center gap-1 pb-8 pt-2">
+            <span className="text-5xl font-black tabular-nums text-[var(--tm-ink)]">{filteredProjects.length}</span>
+            <span className="text-[11px] font-bold uppercase text-[var(--tm-ink-muted)]">Active projects</span>
+            <Button className="mt-5" size="sm" variant="outline" onClick={() => navigate('/admin/projects')}>
+              Manage projects
+            </Button>
           </CardContent>
         </Card>
 
@@ -317,16 +246,16 @@ export const AdminDashboardPage: React.FC = () => {
                 Live Board Preview
               </CardTitle>
               <p className="mt-0.5 text-[12.5px] text-[var(--tm-ink-muted)]">
-                Real-time snapshot of running timers and active shifts
+                Tasks being worked on right now
               </p>
             </div>
             <Button
               size="sm"
               variant="outline"
-              onClick={() => navigate('/admin/liveboard')}
+              onClick={() => navigate('/admin/tasks')}
               rightIcon={<ArrowRight className="h-3.5 w-3.5" />}
             >
-              Full Live Board
+              Open Task Hub
             </Button>
           </CardHeader>
 
@@ -430,44 +359,14 @@ export const AdminDashboardPage: React.FC = () => {
           </Card>
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {filteredProjects.slice(0, 6).map((p) => {
-              const projectTasks = tasks.filter((t) => t.projectId === p.id);
-              const done = projectTasks.filter((t) => t.status === 'completed').length;
-              const members = users
-                .filter((u) => p.memberIds?.includes(u.id) || p.assignedUserIds?.includes(u.id))
-                .map((u) => ({ id: u.id, name: u.name, avatarUrl: u.avatarUrl }));
-
-              return (
-                <Card
-                  key={p.id}
-                  interactive
-                  animate={false}
-                  onClick={() => navigate(`/admin/projects/${p.id}`)}
-                >
-                  <CardContent className="pt-6">
-                    <div className="flex items-start justify-between gap-3">
-                      <h3 className="text-[16px] font-bold leading-snug text-[var(--tm-ink)]">
-                        {p.name}
-                      </h3>
-                      <StatusChip status={p.status} size="sm" />
-                    </div>
-
-                    {p.clientName && (
-                      <p className="mt-1.5 text-[12.5px] text-[var(--tm-ink-muted)]">
-                        {p.clientName}
-                      </p>
-                    )}
-
-                    <div className="mt-5 flex items-center justify-between">
-                      <AvatarStack people={members} max={4} size="sm" />
-                      <span className="text-[12px] font-semibold text-[var(--tm-ink-soft)] tabular-nums">
-                        {done}/{projectTasks.length} tasks
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+            {filteredProjects.slice(0, 6).map((p) => (
+              <Card key={p.id} interactive animate={false} onClick={() => navigate(`/admin/projects/${p.id}`)}>
+                <CardContent className="pt-6">
+                  <h3 className="text-[16px] font-bold leading-snug text-[var(--tm-ink)]">{p.name}</h3>
+                  <p className="mt-1.5 text-[12.5px] capitalize text-[var(--tm-ink-muted)]">{p.company}</p>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         )}
       </StaggerItem>

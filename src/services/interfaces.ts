@@ -2,15 +2,11 @@ import type {
   AppNotification,
   NotificationInput,
   User,
-  AttendanceDay,
   Holiday,
   Project,
   Task,
-  ChatRoom,
-  Message,
   Submission,
   AttachedFile,
-  ClientInvite,
   UserGamification,
   Badge,
   BadgeType,
@@ -37,27 +33,12 @@ export interface IUserService {
   toggleUserActive(id: string): Promise<User>;
 }
 
-export interface IAttendanceService {
-  getAttendance(userId?: string, date?: string): Promise<AttendanceDay[]>;
-  markDayStatus(userId: string, status: 'present' | 'on_leave', date?: string): Promise<AttendanceDay>;
-  punchIn(userId: string): Promise<AttendanceDay>;
-  punchOut(userId: string): Promise<AttendanceDay>;
-  startBreak(userId: string, type: 'lunch' | 'tea' | 'personal'): Promise<AttendanceDay>;
-  endBreak(userId: string): Promise<AttendanceDay>;
-  endMyDay(userId: string): Promise<AttendanceDay>;
-  resumeMyDay(userId: string): Promise<AttendanceDay>;
-  correctPunchOutTime(attendanceId: string, correctedTimeISO: string, reason: string): Promise<AttendanceDay>;
-}
-
 export interface IHolidayService {
   getHolidays(): Promise<Holiday[]>;
   addHoliday(holiday: Omit<Holiday, 'id'>): Promise<Holiday>;
   deleteHoliday(id: string): Promise<void>;
   getWeekOffs(): Promise<number[]>;
   setWeekOffs(days: number[]): Promise<number[]>;
-  /** Shift start as "HH:mm"; drives the "not punched in" reminder. */
-  getShiftStart(): Promise<string>;
-  setShiftStart(time: string): Promise<string>;
 }
 
 /**
@@ -116,38 +97,6 @@ export interface ITaskService {
   ): Promise<Task>;
   respondToAssignment(taskId: string, action: 'accept' | 'reject', reason?: string): Promise<Task>;
   getSubmissionsFeed(): Promise<{ submission: Submission; task: Task; user?: User }[]>;
-}
-
-export interface IChatService {
-  getChatRooms(userId: string): Promise<ChatRoom[]>;
-  getMessages(roomId: string): Promise<Message[]>;
-  sendMessage(
-    roomId: string,
-    senderId: string,
-    content: string,
-    replyToId?: string,
-    attachments?: AttachedFile[],
-    mentions?: string[]
-  ): Promise<Message>;
-  createChatRoom(
-    name: string,
-    type: 'direct' | 'group' | 'project' | 'client',
-    participantIds: string[],
-    projectId?: string,
-    createdByUserId?: string
-  ): Promise<ChatRoom>;
-  subscribe(roomId: string, callback: () => void): () => void;
-  markMessagesSeen(roomId: string, userId: string): Promise<void>;
-  syncProjectRooms(projects: Project[]): Promise<void>;
-  addClientRoom(
-    projectId: string,
-    clientName: string,
-    company: string,
-    phone: string
-  ): Promise<{ room: ChatRoom; inviteCode: string }>;
-  getInviteByCode(code: string): Promise<{ invite: ClientInvite; project: Project } | null>;
-  verifyClientOTP(code: string, phone: string, otp: string): Promise<{ user: User; room: ChatRoom }>;
-  revokeClientAccess(roomId: string): Promise<void>;
 }
 
 export interface IGamificationService {

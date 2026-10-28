@@ -1,52 +1,67 @@
 import { create } from 'zustand';
 import type { AppNotification } from '../types';
-import { notificationService } from '../services';
+import { notificationApi } from '../services/http/notificationApi';
 
 interface NotificationState {
   notifications: AppNotification[];
+  unreadCount: number;
   isLoading: boolean;
 
-  /** Loads the signed-in employee's notifications, newest first. */
-  fetchNotifications: (userId: string) => Promise<void>;
+  /** Loads the newest notifications and the unread badge from the backend. */
+  fetchNotifications: () => Promise<void>;
+  /** A notification pushed over the WebSocket. */
+  addLive: (notification: AppNotification) => void;
   markAsRead: (id: string) => Promise<void>;
-  markAllAsRead: (userId: string) => Promise<void>;
+  markAllAsRead: () => Promise<void>;
   clear: () => void;
 }
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
   notifications: [],
+  unreadCount: 0,
   isLoading: false,
 
-  fetchNotifications: async (userId: string) => {
-    if (!userId) return;
+  fetchNotifications: async () => {
     set({ isLoading: true });
     try {
-      const list = await notificationService.getNotifications(userId);
-      set({ notifications: list, isLoading: false });
+      const [notifications, unreadCount] = await Promise.all([
+        notificationApi.list(),
+        notificationApi.unreadCount()
+      ]);
+      set({ notifications, unreadCount, isLoading: false });
     } catch (err) {
       console.error('Failed to load notifications', err);
       set({ isLoading: false });
     }
   },
 
-  markAsRead: async (id: string) => {
-    // Optimistic: the bell should not flash back to unread.
+  addLive: (notification) =>
+    set((state) => {
+      if (state.notifications.some((n) => n.id === notification.id)) return state;
+      return {
+        notifications: [notification, ...state.notifications],
+        unreadCount: state.unreadCount + (notification.read ? 0 : 1)
+      };
+    }),
+
+  markAsRead: async (id) => {
+    const target = get().notifications.find((n) => n.id === id);
+    if (!target || target.read) return;
+    // Optimistic: the badge should not flash back.
     set((state) => ({
-      notifications: state.notifications.map((n) => (n.id === id ? { ...n, read: true } : n))
+      notifications: state.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)),
+      unreadCount: Math.max(0, state.unreadCount - 1)
     }));
-    await notificationService.markAsRead(id).catch(console.error);
+    await notificationApi.markRead([id]).catch(() => get().fetchNotifications());
   },
 
-  markAllAsRead: async (userId: string) => {
+  markAllAsRead: async () => {
     set((state) => ({
-      notifications: state.notifications.map((n) =>
-        n.userId === userId ? { ...n, read: true } : n
-      )
+      notifications: state.notifications.map((n) => ({ ...n, read: true })),
+      unreadCount: 0
     }));
-    await notificationService.markAllAsRead(userId).catch(console.error);
+    await notificationApi.markAllRead().catch(() => get().fetchNotifications());
   },
 
-  clear: () => {
-    if (get().notifications.length > 0) set({ notifications: [] });
-  }
+  clear: () => set({ notifications: [], unreadCount: 0 })
 }));

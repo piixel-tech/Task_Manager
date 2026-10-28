@@ -1,207 +1,176 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ShieldCheck, Phone, KeyRound, ArrowRight, Building2, AlertCircle } from 'lucide-react';
-import { chatService } from '../../../services';
-import type { ClientInvite, Project } from '../../../types';
+import { useNavigate, useParams } from 'react-router-dom';
+import { AlertCircle, Building2, LogOut, MessageSquare } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
-import { useAppStore } from '../../../store/useAppStore';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/Card';
+import { joinApi, type InvitePreview } from '../../../services/http/joinApi';
+import { Card, CardContent } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
-import { Badge } from '../../../components/ui/Badge';
 
+type Mode = 'signup' | 'login';
+
+const errorText = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
+
+/** /join/<token>: a client opens an invite link, signs up or logs in, and lands in the group. */
 export const ClientJoinPage: React.FC = () => {
-  const { code } = useParams<{ code: string }>();
+  const { code: token } = useParams<{ code: string }>();
   const navigate = useNavigate();
-  const { setUser } = useAuthStore();
-  const { showToast } = useAppStore();
+  const { user, initialized, loadCurrentUser, login, logout } = useAuthStore();
 
-  const [loading, setLoading] = useState(true);
-  const [inviteData, setInviteData] = useState<{ invite: ClientInvite; project: Project } | null>(null);
-  const [error, setError] = useState('');
-
-  const [step, setStep] = useState<'phone' | 'otp'>('phone');
-  const [phone, setPhone] = useState('');
-  const [generatedOTP, setGeneratedOTP] = useState('');
-  const [inputOTP, setInputOTP] = useState('');
-  const [isVerifying, setIsVerifying] = useState(false);
+  const [preview, setPreview] = useState<InvitePreview | null>(null);
+  const [invalid, setInvalid] = useState<string | null>(null);
+  const [mode, setMode] = useState<Mode>('signup');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!code) {
-      setError('Invalid invite code');
-      setLoading(false);
-      return;
-    }
+    if (!initialized) void loadCurrentUser();
+  }, [initialized, loadCurrentUser]);
 
-    chatService.getInviteByCode(code).then((data) => {
-      if (!data) {
-        setError('Invite code not found or expired.');
-      } else {
-        setInviteData(data);
-        setPhone(data.invite.phone);
-      }
-      setLoading(false);
-    });
-  }, [code]);
+  useEffect(() => {
+    if (!token) return setInvalid('This invite link is not valid');
+    joinApi.preview(token).then(setPreview).catch((err) => setInvalid(errorText(err, 'This invite link is not valid')));
+  }, [token]);
 
-  const handleSendOTP = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!phone.trim()) return;
+  const enter = (groupId: string) => navigate(`/client/portal?group=${groupId}`, { replace: true });
 
-    // Generate demo 6-digit OTP
-    const demoOTP = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOTP(demoOTP);
-    setStep('otp');
-    showToast(`Verification code generated: ${demoOTP}`);
-  };
-
-  const handleVerifyOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!code || !inputOTP) return;
-
-    if (inputOTP.trim() !== generatedOTP) {
-      showToast('Incorrect OTP code. Please enter the demo OTP shown above.');
-      return;
-    }
-
+  /** Run a step, showing its error on the form instead of throwing. */
+  const run = async (work: () => Promise<void>) => {
+    setBusy(true);
+    setError(null);
     try {
-      setIsVerifying(true);
-      const { user } = await chatService.verifyClientOTP(code, phone, inputOTP);
-      setUser(user);
-      showToast(`Welcome, ${user.name}! Access granted to Client Portal.`);
-      navigate('/client/portal');
-    } catch (err: any) {
-      showToast(err.message || 'Verification failed');
+      await work();
+    } catch (err) {
+      setError(errorText(err, 'Something went wrong'));
     } finally {
-      setIsVerifying(false);
+      setBusy(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[var(--tm-card-muted)] flex items-center justify-center p-4">
-        <div className="text-[var(--tm-ink-muted)] text-sm animate-pulse">Verifying client invite code...</div>
+  const signup = (e: React.FormEvent) => {
+    e.preventDefault();
+    void run(async () => {
+      const { group_id } = await joinApi.signup(token!, { name: name.trim(), email: email.trim(), password });
+      await login(email.trim(), password);
+      enter(group_id);
+    });
+  };
+
+  const logIn = (e: React.FormEvent) => {
+    e.preventDefault();
+    void run(async () => {
+      const u = await login(email.trim(), password);
+      if (u.role !== 'client') return; // the staff notice below takes over; nothing to join
+      enter((await joinApi.join(token!)).group_id);
+    });
+  };
+
+  const joinAsCurrent = () => void run(async () => enter((await joinApi.join(token!)).group_id));
+
+  let body: React.ReactNode;
+  if (invalid) {
+    body = (
+      <div className="space-y-4 text-center">
+        <AlertCircle className="mx-auto h-10 w-10 text-[var(--tm-danger)]" />
+        <h1 className="text-xl font-extrabold text-[var(--tm-ink)]">{invalid}</h1>
+        <p className="text-[13.5px] text-[var(--tm-ink-muted)]">Ask the person who sent it for a new link.</p>
       </div>
     );
-  }
+  } else if (!preview || !initialized) {
+    body = <p className="py-10 text-center text-[13px] text-[var(--tm-ink-muted)]">Checking your invite…</p>;
+  } else {
+    body = (
+      <div className="space-y-6">
+        <div className="space-y-2 text-center">
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)]">
+            <MessageSquare className="h-6 w-6" />
+          </span>
+          <h1 className="text-xl font-extrabold text-[var(--tm-ink)]">Join “{preview.group_name}”</h1>
+          <p className="text-[13.5px] text-[var(--tm-ink-muted)]">
+            {preview.invited_by ? `${preview.invited_by} invited you` : 'You are invited'}
+            {preview.project_name && (
+              <>
+                {' '}
+                to the <span className="inline-flex items-center gap-1 font-semibold text-[var(--tm-ink-soft)]"><Building2 className="h-3.5 w-3.5" />{preview.project_name}</span> project chat
+              </>
+            )}
+            .
+          </p>
+        </div>
 
-  if (error || !inviteData) {
-    return (
-      <div className="min-h-screen bg-[var(--tm-card-muted)] flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="p-8 text-center space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-[var(--tm-danger-bg)] text-[var(--tm-danger)] flex items-center justify-center mx-auto">
-              <AlertCircle className="w-6 h-6" />
-            </div>
-            <h2 className="text-xl font-bold text-[var(--tm-ink)]">Invite Invalid or Expired</h2>
-            <p className="text-xs text-[var(--tm-ink-muted)]">{error || 'This invite link is no longer active.'}</p>
-            <Button variant="primary" onClick={() => navigate('/login')}>
-              Go to Login Page
+        {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700" role="alert">{error}</div>}
+
+        {user && user.role === 'client' ? (
+          <div className="space-y-3 text-center">
+            <p className="text-[13.5px] text-[var(--tm-ink-soft)]">
+              Signed in as <span className="font-bold">{user.name}</span>.
+            </p>
+            <Button className="w-full" isLoading={busy} onClick={joinAsCurrent}>
+              Join the group
             </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const { invite, project } = inviteData;
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-[var(--tm-ink)] via-[var(--tm-primary)] to-[var(--tm-ink)] flex items-center justify-center p-4">
-      <Card className="max-w-md w-full border-[var(--tm-primary)] bg-white/95 backdrop-blur-md shadow-2xl overflow-hidden">
-        <div className="h-2 bg-gradient-to-r from-[var(--tm-primary)] via-[var(--tm-primary)] to-[var(--tm-success)]" />
-        <CardHeader className="text-center pt-6 pb-2">
-          <div className="w-12 h-12 rounded-2xl bg-[var(--tm-primary-soft)] text-[var(--tm-primary)] flex items-center justify-center mx-auto mb-3 shadow-md shadow-soft">
-            <ShieldCheck className="w-6 h-6" />
+            <button type="button" onClick={() => logout()} className="text-[12.5px] font-semibold text-[var(--tm-ink-muted)] hover:underline">
+              Not you? Use a different account
+            </button>
           </div>
-          <CardTitle className="text-xl font-bold text-[var(--tm-ink)]">Client Portal Join</CardTitle>
-          <CardDescription className="text-xs">
-            Enter phone number to receive OTP & access project chat
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="p-6 space-y-5">
-          {/* Project Summary Badge */}
-          <div className="bg-[var(--tm-card-muted)] p-3.5 rounded-xl border border-[var(--tm-border)] space-y-1 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-[var(--tm-ink-muted)] font-semibold text-[10px] uppercase">Project</span>
-              <Badge variant={project.company === 'piixel' ? 'piixel' : 'unwork'} size="sm">
-                {project.company}
-              </Badge>
-            </div>
-            <div className="font-bold text-[var(--tm-ink)] text-sm">{project.name}</div>
-            <div className="flex items-center gap-1.5 text-[var(--tm-ink-muted)] pt-0.5">
-              <Building2 className="w-3.5 h-3.5 text-[var(--tm-primary)]" />
-              <span>Prepared for: <strong>{invite.clientName}</strong></span>
-            </div>
+        ) : user ? (
+          <div className="space-y-3 text-center">
+            <p className="text-[13.5px] text-[var(--tm-ink-soft)]">
+              You are signed in as <span className="font-bold">{user.name}</span> (team). Invite links are for clients, so log out to continue as a client.
+            </p>
+            <Button variant="outline" className="w-full" onClick={() => logout()} leftIcon={<LogOut className="h-4 w-4" />}>
+              Log out
+            </Button>
           </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-1 rounded-full bg-[var(--tm-bg-sunken)] p-1" role="tablist">
+              {(['signup', 'login'] as Mode[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === m}
+                  onClick={() => {
+                    setMode(m);
+                    setError(null);
+                  }}
+                  className={`h-9 rounded-full text-[13px] font-bold ${mode === m ? 'bg-[var(--tm-card)] text-[var(--tm-ink)] shadow-soft-xs' : 'text-[var(--tm-ink-muted)]'}`}
+                >
+                  {m === 'signup' ? 'Create account' : 'I have an account'}
+                </button>
+              ))}
+            </div>
 
-          {step === 'phone' ? (
-            <form onSubmit={handleSendOTP} className="space-y-4">
+            <form onSubmit={mode === 'signup' ? signup : logIn} className="space-y-4">
+              {mode === 'signup' && <Input label="Your name" autoComplete="name" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} required />}
+              <Input label="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
               <Input
-                label="WhatsApp / Mobile Phone Number"
-                type="tel"
-                placeholder="e.g. +91 98765 43210"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                leftIcon={<Phone className="w-4 h-4" />}
+                label="Password"
+                type="password"
+                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                helperText={mode === 'signup' ? 'At least 8 characters.' : undefined}
+                minLength={mode === 'signup' ? 8 : undefined}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 required
               />
-
-              <Button
-                type="submit"
-                variant="primary"
-                size="md"
-                className="w-full"
-                rightIcon={<ArrowRight className="w-4 h-4" />}
-              >
-                Send Verification OTP
+              <Button type="submit" className="w-full" isLoading={busy}>
+                {mode === 'signup' ? 'Create account and join' : 'Log in and join'}
               </Button>
             </form>
-          ) : (
-            <form onSubmit={handleVerifyOTP} className="space-y-4">
-              {/* Demo OTP Display Box */}
-              <div className="p-3.5 bg-[var(--tm-success-bg)] border border-[var(--tm-success-ring)] rounded-xl text-[var(--tm-success)] text-xs space-y-1 text-center animate-bounce">
-                <div className="font-semibold text-[var(--tm-success)]">Demo Verification OTP Code</div>
-                <div className="text-2xl font-mono font-bold tracking-widest text-[var(--tm-success)]">
-                  {generatedOTP}
-                </div>
-                <div className="text-[10px] text-[var(--tm-success)]">Enter this code below to log in instantly</div>
-              </div>
+          </>
+        )}
+      </div>
+    );
+  }
 
-              <Input
-                label="Enter 6-Digit OTP Code"
-                type="text"
-                placeholder="e.g. 849201"
-                maxLength={6}
-                value={inputOTP}
-                onChange={(e) => setInputOTP(e.target.value)}
-                leftIcon={<KeyRound className="w-4 h-4" />}
-                required
-              />
-
-              <div className="flex items-center justify-between gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setStep('phone')}
-                  className="text-xs text-[var(--tm-ink-muted)] hover:text-[var(--tm-ink)] underline"
-                >
-                  Change Phone Number
-                </button>
-
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="md"
-                  isLoading={isVerifying}
-                  className="bg-[var(--tm-success)] hover:bg-[var(--tm-success)]"
-                >
-                  Verify & Access Portal
-                </Button>
-              </div>
-            </form>
-          )}
-        </CardContent>
+  return (
+    <div className="grid min-h-screen place-items-center bg-[var(--tm-bg)] px-4 py-10">
+      <Card className="w-full max-w-md">
+        <CardContent className="pt-6">{body}</CardContent>
       </Card>
     </div>
   );

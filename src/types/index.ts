@@ -13,41 +13,19 @@ export interface User {
   active: boolean;
   leftJobDate?: string; // YYYY-MM-DD
   avatarUrl?: string;
+  phone?: string;
+  bio?: string;
+  /** Appearance, sound and notification preferences (saved on the account). */
+  settings?: import('../services/http/accountApi').UserSettings;
+  /** Focus mode: quiet until this ISO time (only meaningful while in the future). */
+  focusUntil?: string;
+  /** Sidebar: which nodes are open, and the order this person arranged. */
+  sidebarState?: { open: string[]; order: Record<string, string[]> };
   birthday?: string; // MM-DD or YYYY-MM-DD
   joiningDate?: string; // YYYY-MM-DD
   nickname?: string;
-}
-
-export type BreakType = 'lunch' | 'tea' | 'personal';
-
-export interface BreakSession {
-  id: string;
-  breakStart: string;
-  breakEnd?: string;
-  type: BreakType;
-}
-
-export interface PunchSession {
-  id: string;
-  punchIn: string;
-  punchOut?: string;
-  breaks: BreakSession[];
-}
-
-export type AttendanceStatus = 'present' | 'absent' | 'half_day' | 'on_leave';
-
-export interface AttendanceDay {
-  id: string;
-  userId: string;
-  date: string; // YYYY-MM-DD
-  status: AttendanceStatus;
-  punchSessions: PunchSession[];
-  totalHours: number;
-  /** Set when the employee marks "Done for the day"; cleared on Resume Day. */
-  dayEndedAt?: string;
-  flagged?: boolean;
-  autoClosed?: boolean;
-  correctionReason?: string;
+  /** Backend company id (set for users loaded from the API). */
+  companyId?: string;
 }
 
 export type HolidayType = 'national' | 'company' | 'optional';
@@ -58,14 +36,6 @@ export interface Holiday {
   date: string; // YYYY-MM-DD
   type: HolidayType;
 }
-
-export type LiveEmployeeStatus =
-  | 'Working'
-  | 'On break'
-  | 'Done for the day'
-  | 'Punched out'
-  | 'On leave'
-  | 'Not marked';
 
 export interface Project {
   id: string;
@@ -190,7 +160,25 @@ export type NotificationType =
   | 'changes_requested'
   | 'birthday'
   | 'task_due'
-  | 'punch_reminder';
+  | 'office_post'
+  | 'office_resolved'
+  | 'office_reopened'
+  | 'chat_group'
+  | 'chat_client_joined'
+  | 'client_approval'
+  | 'approval_answered'
+  | 'approval_reminder'
+  | 'requirement_added'
+  | 'requirement_updated'
+  | 'requirement_deleted'
+  | 'mention'
+  | 'change_request'
+  | 'activity_assigned'
+  | 'activity_reply'
+  | 'activity_resolved'
+  | 'task_comment'
+  | 'chat_scheduled_failed'
+;
 
 export interface AppNotification {
   id: string;

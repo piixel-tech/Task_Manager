@@ -18,7 +18,8 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
   src: propSrc,
   size = 'md',
   className = '',
-  ring = false
+  ring = false,
+  focus
 }) => {
   const storeUser = useUserStore((state) => (userId ? state.users[userId] : null));
   const currentUser = useAuthStore((state) => state.user);
@@ -35,6 +36,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
       size={size}
       className={className}
       ring={ring}
+      focus={focus}
     />
   );
 };

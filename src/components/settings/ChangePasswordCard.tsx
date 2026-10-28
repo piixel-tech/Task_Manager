@@ -2,14 +2,13 @@ import React, { useState } from 'react';
 import { Lock, KeyRound, Check, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useAppStore } from '../../store/useAppStore';
-import { useUserStore } from '../../store/useUserStore';
-import { userService, authService } from '../../services';
+import { accountApi } from '../../services/http/accountApi';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 
 export const ChangePasswordCard: React.FC = () => {
-  const { user, setUser } = useAuthStore();
+  const { user } = useAuthStore();
   const { showToast } = useAppStore();
 
   const [currentPassword, setCurrentPassword] = useState('');
@@ -60,26 +59,15 @@ export const ChangePasswordCard: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      // 1. Validate current password against stored user record
-      const freshUser = await userService.getUserById(user.id);
-      const actualPassword = freshUser?.password || user.password || 'password123';
-
-      if (currentPassword !== actualPassword) {
-        setFieldErrors({ current: 'Current password does not match.' });
-        setError('Current password does not match.');
+      // 1. The new password must be long enough (the server checks the current one)
+      if (newPassword.length < 8) {
+        setFieldErrors({ new: 'New password must be at least 8 characters.' });
+        setError('New password must be at least 8 characters.');
         setIsSubmitting(false);
         return;
       }
 
-      // 2. Validate new password is at least 6 characters
-      if (newPassword.length < 6) {
-        setFieldErrors({ new: 'New password must be at least 6 characters.' });
-        setError('New password must be at least 6 characters.');
-        setIsSubmitting(false);
-        return;
-      }
-
-      // 3. Validate new and confirm match
+      // 2. Validate new and confirm match
       if (newPassword !== confirmPassword) {
         setFieldErrors({ confirm: 'New password and confirm new password do not match.' });
         setError('New password and confirm new password do not match.');
@@ -87,10 +75,8 @@ export const ChangePasswordCard: React.FC = () => {
         return;
       }
 
-      // 4. Update password
-      const updated = await authService.changePassword(user.id, newPassword);
-      setUser(updated);
-      useUserStore.getState().setUser(updated);
+      // 3. Save it: every other device is signed out, this one stays
+      await accountApi.changePassword(currentPassword, newPassword);
 
       setCurrentPassword('');
       setNewPassword('');
@@ -116,7 +102,7 @@ export const ChangePasswordCard: React.FC = () => {
           <div>
             <CardTitle>Change Password</CardTitle>
             <CardDescription>
-              Update your account password. Must be at least 6 characters.
+              Update your account password (at least 8 characters). Your other devices are signed out.
             </CardDescription>
           </div>
         </div>

@@ -3,7 +3,6 @@ import {
   INITIAL_PROJECTS,
   INITIAL_TASKS,
   INITIAL_HOLIDAYS,
-  INITIAL_ATTENDANCE,
   INITIAL_CHAT_ROOMS,
   INITIAL_MESSAGES
 } from '../../data/seed';
@@ -13,7 +12,6 @@ const KEYS = {
   PROJECTS: 'tm_projects',
   TASKS: 'tm_tasks',
   HOLIDAYS: 'tm_holidays',
-  ATTENDANCE: 'tm_attendance',
   CHAT_ROOMS: 'tm_chat_rooms',
   MESSAGES: 'tm_messages',
   CLIENT_INVITES: 'tm_client_invites',
@@ -26,8 +24,7 @@ const KEYS = {
   TEAM_GOAL: 'tm_team_goal',
   NOTIFICATIONS: 'tm_notifications',
   /** "sent today" keys that stop the date-based checks from duplicating. */
-  NOTIFICATION_KEYS: 'tm_notification_keys',
-  SHIFT_START: 'tm_shift_start'
+  NOTIFICATION_KEYS: 'tm_notification_keys'
 };
 
 const STORAGE_VERSION_KEY = 'tm_storage_version';
@@ -45,7 +42,7 @@ export function initializeStorage(forceReset = false) {
     localStorage.setItem(KEYS.PROJECTS, JSON.stringify(INITIAL_PROJECTS));
     localStorage.setItem(KEYS.TASKS, JSON.stringify(INITIAL_TASKS));
     localStorage.setItem(KEYS.HOLIDAYS, JSON.stringify(INITIAL_HOLIDAYS));
-    localStorage.setItem(KEYS.ATTENDANCE, JSON.stringify(INITIAL_ATTENDANCE));
+    localStorage.removeItem('tm_attendance'); // legacy punch/break data
     localStorage.setItem(KEYS.CHAT_ROOMS, JSON.stringify(INITIAL_CHAT_ROOMS));
     localStorage.setItem(KEYS.MESSAGES, JSON.stringify(INITIAL_MESSAGES));
     localStorage.setItem(KEYS.WEEK_OFFS, JSON.stringify([0, 6])); // Sun, Sat

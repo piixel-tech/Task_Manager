@@ -1,732 +1,498 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { Plus, ChevronLeft, ChevronRight, Settings, Calendar as CalendarIcon, Clock, X } from 'lucide-react';
-import { holidayService } from '../../../services';
-import type { Holiday } from '../../../types';
-import { useAuthStore } from '../../../store/authStore';
-import { useAppStore } from '../../../store/useAppStore';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import {
+  addMinutes,
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isBefore,
+  isSameDay,
+  isSameMonth,
+  parseISO,
+  startOfDay,
+  startOfMonth,
+  startOfWeek
+} from 'date-fns';
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
-import { Badge } from '../../../components/ui/Badge';
-import { StatusChip } from '../../../components/ui/StatusChip';
-import { Modal } from '../../../components/ui/Modal';
-import { Input } from '../../../components/ui/Input';
+import { Avatar } from '../../../components/ui/Avatar';
+import { Input, Textarea } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
+import { StatusChip } from '../../../components/ui/StatusChip';
+import { HeadBadge } from '../../../components/ui/HeadBadge';
 import { PageHeader } from '../../../components/ui/PageHeader';
-import { getMonthInfo, formatDate, formatTime, getTodayDateString, calculateDurationMinutes } from '../../../utils/time';
-import { formatHours } from '../../../utils/format';
+import { useAuthStore } from '../../../store/authStore';
+import { useDailyStatusStore } from '../../../store/useDailyStatusStore';
+import { useConfirm } from '../../../hooks/useConfirm';
+import { socket } from '../../../services/socket';
+import { bookingApi, statusApi, type Booking, type StatusEntry } from '../../../services/http/calendarApi';
+import { externalEventApi, type ExternalEvent } from '../../../services/http/integrationApi';
+import { DAY_STATUSES, statusMeta } from '../../status/statusMeta';
 
-import { useAttendanceStore, calculateBreakMinutes } from '../../../store/useAttendanceStore';
+const DAY_START_HOUR = 9;
+const DAY_END_HOUR = 19;
+const STEP_MINUTES = 30;
+const DURATIONS = [30, 60, 90, 120];
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+const ymd = (d: Date) => format(d, 'yyyy-MM-dd');
+
+/** Someone's calendar: daily status, bookings, and free slots anyone on the team can book. */
 export const CalendarPage: React.FC = () => {
-  const { user } = useAuthStore();
-  const { showToast } = useAppStore();
-  const isAdmin = user?.role === 'admin';
+  const navigate = useNavigate();
+  const params = useParams<{ userId?: string }>();
+  const me = useAuthStore((s) => s.user);
+  const confirm = useConfirm();
+  const { overview, overviewLoaded, loadOverview } = useDailyStatusStore();
 
-  const storeHistory = useAttendanceStore((state) => state.history);
-  const fetchAttendanceHistory = useAttendanceStore((state) => state.fetchAttendanceHistory);
+  const hostId = params.userId ?? me?.id ?? '';
+  const isOwn = hostId === me?.id;
+  const prefix = me?.role === 'admin' ? '/admin' : '/app';
 
-  const todayStr = getTodayDateString();
-  const todayDateObj = new Date();
+  const [month, setMonth] = useState(() => startOfMonth(new Date()));
+  const [selected, setSelected] = useState(() => startOfDay(new Date()));
+  const [statuses, setStatuses] = useState<StatusEntry[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [external, setExternal] = useState<ExternalEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [currentYear, setCurrentYear] = useState(todayDateObj.getFullYear());
-  const [currentMonth, setCurrentMonth] = useState(todayDateObj.getMonth()); // 0-indexed
-
-  const [holidays, setHolidays] = useState<Holiday[]>([]);
-  const [weekOffs, setWeekOffs] = useState<number[]>([0, 6]);
-  const [shiftStart, setShiftStart] = useState('10:00');
-
-  const [isHolidayModalOpen, setIsHolidayModalOpen] = useState(false);
-  const [isWeekOffModalOpen, setIsWeekOffModalOpen] = useState(false);
-  const [selectedDayDetail, setSelectedDayDetail] = useState<{ date: string; dayNum: number } | null>(null);
-
+  // Booking form
+  const [slotStart, setSlotStart] = useState<Date | null>(null);
+  const [duration, setDuration] = useState(60);
   const [title, setTitle] = useState('');
-  const [selectedDates, setSelectedDates] = useState<string[]>([]);
-  const [pickerYear, setPickerYear] = useState(todayDateObj.getFullYear());
-  const [pickerMonth, setPickerMonth] = useState(todayDateObj.getMonth());
-  const [type, setType] = useState<'national' | 'company' | 'optional'>('company');
+  const [note, setNote] = useState('');
 
-  const fetchData = async () => {
-    const [hList, wOffs, shift] = await Promise.all([
-      holidayService.getHolidays(),
-      holidayService.getWeekOffs(),
-      holidayService.getShiftStart()
-    ]);
-    setHolidays(hList);
-    setWeekOffs(wOffs);
-    setShiftStart(shift);
-
-    if (user) {
-      fetchAttendanceHistory(isAdmin ? undefined : user.id);
-    }
-  };
+  const gridDays = useMemo(
+    () =>
+      eachDayOfInterval({
+        start: startOfWeek(startOfMonth(month), { weekStartsOn: 1 }),
+        end: endOfWeek(endOfMonth(month), { weekStartsOn: 1 })
+      }),
+    [month]
+  );
 
   useEffect(() => {
-    fetchData();
-  }, [user, currentYear, currentMonth]);
+    if (!overviewLoaded) loadOverview();
+  }, [overviewLoaded, loadOverview]);
 
-  const attendance = storeHistory;
+  const people = useMemo(() => new Map(overview.map((r) => [r.user_id, r])), [overview]);
+  const host = people.get(hostId) ?? (isOwn && me ? { name: me.name, avatar_url: me.avatarUrl ?? null } : undefined);
 
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-
-  const { totalDays, startDayOfWeek } = getMonthInfo(currentYear, currentMonth);
-  const currentMonthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
-
-  let presentCount = 0;
-  let leaveCount = 0;
-  let holidayCount = 0;
-
-  for (let d = 1; d <= totalDays; d++) {
-    const dateStr = `${currentMonthStr}-${String(d).padStart(2, '0')}`;
-    const hol = holidays.find((h) => h.date === dateStr);
-    const att = attendance.find((a) => a.date === dateStr);
-
-    if (hol) {
-      holidayCount++;
-    } else if (att?.status === 'present') {
-      presentCount++;
-    } else if (att?.status === 'on_leave') {
-      leaveCount++;
-    }
-  }
-
-  const toggleHolidayDate = (dateStr: string) => {
-    setSelectedDates((prev) =>
-      prev.includes(dateStr)
-        ? prev.filter((d) => d !== dateStr)
-        : [...prev, dateStr].sort()
-    );
-  };
-
-  const removeHolidayDate = (dateStr: string) => {
-    setSelectedDates((prev) => prev.filter((d) => d !== dateStr));
-  };
-
-  const handleAddHoliday = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim() || selectedDates.length === 0) {
-      showToast('Please enter a holiday title and select at least one date.');
-      return;
-    }
+  const load = useCallback(async () => {
+    if (!hostId) return;
+    const from = ymd(gridDays[0]);
+    const to = ymd(gridDays[gridDays.length - 1]);
     try {
-      await Promise.all(
-        selectedDates.map((d) =>
-          holidayService.addHoliday({ title: title.trim(), date: d, type })
-        )
-      );
-      showToast(`${selectedDates.length} ${selectedDates.length === 1 ? 'holiday' : 'holidays'} added!`);
-      setIsHolidayModalOpen(false);
-      setTitle('');
-      setSelectedDates([]);
-      fetchData();
-    } catch (err: any) {
-      showToast(err.message || 'Failed to add holiday');
+      const [s, b, x] = await Promise.all([
+        statusApi.range(hostId, from, to),
+        bookingApi.list(hostId, from, to),
+        // Connected calendars (Google) are optional: the calendar still works if they can't be loaded.
+        externalEventApi.list(hostId, from, to).catch(() => [] as ExternalEvent[])
+      ]);
+      setStatuses(s);
+      setBookings(b);
+      setExternal(x);
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Could not load this calendar');
+    } finally {
+      setLoading(false);
     }
+  }, [hostId, gridDays]);
+
+  useEffect(() => {
+    setLoading(true);
+    load();
+  }, [load]);
+
+  // Someone's status changed: refresh this month.
+  useEffect(() => socket.on('daily_status', () => load()), [load]);
+  // A background sync pulled in new Google events.
+  useEffect(() => socket.on('calendar_sync', () => load()), [load]);
+
+  // Reset the booking form when the day or person changes.
+  useEffect(() => {
+    setSlotStart(null);
+    setTitle('');
+    setNote('');
+  }, [selected, hostId]);
+
+  const statusByDate = useMemo(() => new Map(statuses.map((s) => [s.date, s.status])), [statuses]);
+  const dayBookings = useMemo(
+    () =>
+      bookings
+        .filter((b) => isSameDay(parseISO(b.start), selected))
+        .sort((a, b) => a.start.localeCompare(b.start)),
+    [bookings, selected]
+  );
+
+  /** Connected-calendar events touching a day (all-day events end at midnight, exclusive). */
+  const externalOn = useCallback(
+    (day: Date) => external.filter((e) => parseISO(e.start) < addMinutes(startOfDay(day), 24 * 60) && parseISO(e.end) > startOfDay(day)),
+    [external]
+  );
+  const dayExternal = useMemo(() => externalOn(selected), [externalOn, selected]);
+
+  const selectedStatus = statusByDate.get(ymd(selected));
+  const isPastDay = isBefore(selected, startOfDay(new Date()));
+  const onLeave = selectedStatus === 'leave';
+  const canBook = !isOwn && me?.role !== 'client' && !isPastDay && !onLeave;
+
+  /** A start time is free if [start, start+duration) overlaps nothing and isn't in the past. */
+  const slots = useMemo(() => {
+    const result: { start: Date; free: boolean }[] = [];
+    const first = addMinutes(startOfDay(selected), DAY_START_HOUR * 60);
+    const last = addMinutes(startOfDay(selected), DAY_END_HOUR * 60);
+    for (let t = first; isBefore(t, last); t = addMinutes(t, STEP_MINUTES)) {
+      const end = addMinutes(t, duration);
+      const fits = !isBefore(last, end);
+      const clash =
+        bookings.some((b) => parseISO(b.start) < end && parseISO(b.end) > t) ||
+        external.some((e) => e.busy && !e.all_day && parseISO(e.start) < end && parseISO(e.end) > t);
+      result.push({ start: t, free: fits && !clash && !isBefore(t, new Date()) });
+    }
+    return result;
+  }, [selected, duration, bookings, external]);
+
+  const changeMonth = (delta: number) => {
+    const next = addMonths(month, delta);
+    setMonth(next);
+    setSelected(isSameMonth(next, new Date()) ? startOfDay(new Date()) : next);
   };
 
-  const handleSaveShiftStart = async (time: string) => {
-    setShiftStart(time);
-    await holidayService.setShiftStart(time);
-    showToast('Shift start time updated!');
+  const submitBooking = async () => {
+    if (!slotStart) return;
+    const end = addMinutes(slotStart, duration);
+    const label = `${format(slotStart, 'EEE d MMM, HH:mm')} - ${format(end, 'HH:mm')}`;
+    await confirm({
+      title: `Book ${label}?`,
+      message: `${host?.name ?? 'This person'} will be notified.`,
+      confirmLabel: 'Book slot',
+      action: () =>
+        bookingApi.create({
+          host_user_id: hostId,
+          start: slotStart.toISOString(),
+          end: end.toISOString(),
+          title: title.trim(),
+          note: note.trim()
+        }),
+      successTitle: 'Slot booked',
+      successMessage: label
+    }).then((ok) => {
+      if (ok) {
+        setSlotStart(null);
+        setTitle('');
+        setNote('');
+        load();
+      }
+    });
   };
 
-  const handleToggleWeekOff = async (dayNum: number) => {
-    const updated = weekOffs.includes(dayNum)
-      ? weekOffs.filter((d) => d !== dayNum)
-      : [...weekOffs, dayNum];
-    setWeekOffs(updated);
-    await holidayService.setWeekOffs(updated);
-    showToast('Updated week-off settings!');
-  };
+  const cancelBooking = (b: Booking) =>
+    confirm({
+      title: 'Cancel this booking?',
+      message: `${format(parseISO(b.start), 'EEE d MMM, HH:mm')} - ${format(parseISO(b.end), 'HH:mm')}. The other person will be notified.`,
+      confirmLabel: 'Cancel booking',
+      danger: true,
+      action: () => bookingApi.cancel(b.id),
+      successTitle: 'Booking cancelled'
+    }).then((ok) => {
+      if (ok) load();
+    });
 
-  const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-  // Today stats for right panel
-  const todayRecord = useMemo(() => attendance.find((a) => a.date === todayStr), [attendance, todayStr]);
-
-  // Upcoming holidays / events for right panel
-  const upcomingHolidays = useMemo(() => {
-    return holidays
-      .filter((h) => h.date >= todayStr)
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .slice(0, 5);
-  }, [holidays, todayStr]);
+  const todayStatus = statusMeta(statusByDate.get(ymd(new Date())));
 
   return (
     <>
       <PageHeader
-        title="Calendar &amp; Schedule"
-        description="Month grid with rounded day cells, status chips, and upcoming events."
+        title={
+          <span className="flex items-center gap-3">
+            {host && <Avatar name={host.name} src={host.avatar_url ?? undefined} size="md" />}
+            {isOwn ? 'My calendar' : `${host?.name ?? 'Calendar'}`}
+            {people.get(hostId)?.is_head && <HeadBadge />}
+          </span>
+        }
+        description={
+          isOwn
+            ? 'Your daily status and bookings. Teammates can book your free slots.'
+            : 'Daily status and bookings. Pick a day, then a free slot to book time.'
+        }
         actions={
-          isAdmin ? (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsWeekOffModalOpen(true)}
-                leftIcon={<Settings className="h-4 w-4" />}
-              >
-                Set Week-Offs
+          <>
+            {todayStatus && (
+              <StatusChip tone={todayStatus.tone} dot>
+                Today: {todayStatus.label}
+              </StatusChip>
+            )}
+            {!isOwn && (
+              <Button variant="outline" size="sm" onClick={() => navigate(`${prefix}/calendar`)}>
+                My calendar
               </Button>
-              <Button
-                size="sm"
-                onClick={() => {
-                  setPickerYear(currentYear);
-                  setPickerMonth(currentMonth);
-                  setSelectedDates([]);
-                  setTitle('');
-                  setIsHolidayModalOpen(true);
-                }}
-                leftIcon={<Plus className="h-4 w-4" />}
-              >
-                Add Holiday
-              </Button>
-            </div>
-          ) : undefined
+            )}
+          </>
         }
       />
 
-      {/* Stats row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-[var(--tm-success-bg)] border border-[var(--tm-success-ring)] p-4 rounded-[var(--tm-radius-lg)] flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold text-[var(--tm-success)] uppercase tracking-wider block">Present</span>
-            <span className="text-2xl font-black text-[var(--tm-success)] mt-1 block">{presentCount}</span>
-          </div>
-          <StatusChip status="present" size="sm" />
+      {loadError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">
+          {loadError}
         </div>
+      )}
 
-        <div className="bg-[var(--tm-warning-bg)] border border-[var(--tm-warning-ring)] p-4 rounded-[var(--tm-radius-lg)] flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold text-[var(--tm-warning)] uppercase tracking-wider block">Leave / Holiday</span>
-            <span className="text-2xl font-black text-[var(--tm-warning)] mt-1 block">{leaveCount + holidayCount}</span>
-          </div>
-          <Badge variant="warning" size="sm">Leave / Holiday</Badge>
-        </div>
-
-        <div className="bg-[var(--tm-bg-sunken)] border border-[var(--tm-border)] p-4 rounded-[var(--tm-radius-lg)] flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold text-[var(--tm-ink-soft)] uppercase tracking-wider block">Week-Offs</span>
-            <span className="text-2xl font-black text-[var(--tm-ink-soft)] mt-1 block">{weekOffs.length * 4}</span>
-          </div>
-          <Badge variant="default" size="sm">Week-Off</Badge>
-        </div>
-      </div>
-
-      {/* Main Grid + Right Panel Layout */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Month Grid (xl:col-span-2) */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        {/* Month grid */}
         <Card className="xl:col-span-2">
           <CardHeader className="flex items-center justify-between">
-            <CardTitle className="text-lg font-extrabold">
-              {monthNames[currentMonth]} {currentYear}
-            </CardTitle>
+            <CardTitle className="text-base font-extrabold">{format(month, 'MMMM yyyy')}</CardTitle>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  if (currentMonth === 0) {
-                    setCurrentMonth(11);
-                    setCurrentYear((y) => y - 1);
-                  } else {
-                    setCurrentMonth((m) => m - 1);
-                  }
-                }}
-                className="p-2 rounded-full border border-[var(--tm-border)] hover:bg-[var(--tm-bg-sunken)] transition-colors"
-                title="Previous Month"
-              >
+              <Button variant="outline" size="sm" onClick={() => changeMonth(-1)} aria-label="Previous month">
                 <ChevronLeft className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => {
-                  if (currentMonth === 11) {
-                    setCurrentMonth(0);
-                    setCurrentYear((y) => y + 1);
-                  } else {
-                    setCurrentMonth((m) => m + 1);
-                  }
+                  setMonth(startOfMonth(new Date()));
+                  setSelected(startOfDay(new Date()));
                 }}
-                className="p-2 rounded-full border border-[var(--tm-border)] hover:bg-[var(--tm-bg-sunken)] transition-colors"
-                title="Next Month"
               >
+                Today
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => changeMonth(1)} aria-label="Next month">
                 <ChevronRight className="h-4 w-4" />
-              </button>
+              </Button>
             </div>
           </CardHeader>
-
-          <CardContent className="p-4">
-            <div className="grid grid-cols-7 gap-2 mb-2 text-center text-[11px] font-extrabold text-[var(--tm-ink-muted)] uppercase tracking-wider">
-              {daysOfWeek.map((day) => (
-                <div key={day} className="py-1">
-                  {day}
+          <CardContent>
+            <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] font-bold uppercase tracking-wider text-[var(--tm-ink-muted)]">
+              {WEEKDAYS.map((d) => (
+                <div key={d} className="py-1">
+                  {d}
                 </div>
               ))}
             </div>
-
-            <div className="grid grid-cols-7 gap-2">
-              {Array.from({ length: startDayOfWeek }).map((_, i) => (
-                <div key={`empty-${i}`} className="h-24 bg-[var(--tm-card-muted)]/50 rounded-2xl border border-transparent" />
-              ))}
-
-              {Array.from({ length: totalDays }).map((_, idx) => {
-                const dayNum = idx + 1;
-                const dateStr = `${currentMonthStr}-${String(dayNum).padStart(2, '0')}`;
-                const dateObj = new Date(currentYear, currentMonth, dayNum);
-                const dayOfWeek = dateObj.getDay();
-                const isWeekOff = weekOffs.includes(dayOfWeek);
-                const hol = holidays.find((h) => h.date === dateStr);
-                const att = attendance.find((a) => a.date === dateStr);
-
-                const isToday = dateStr === todayStr;
-
-                let statusBg = 'bg-white border-[var(--tm-border)] hover:border-[var(--tm-primary)]';
-                let chipLabel = '';
-                let chipStyle = '';
-
-                if (hol || att?.status === 'on_leave') {
-                  statusBg = 'bg-[var(--tm-warning-bg)] border-[var(--tm-warning-ring)]';
-                  chipLabel = hol ? hol.title : 'Leave / Holiday';
-                  chipStyle = 'bg-[var(--tm-warning)] text-white font-bold';
-                } else if (att?.status === 'present') {
-                  statusBg = 'bg-[var(--tm-success-bg)] border-[var(--tm-success-ring)]';
-                  chipLabel = 'Present';
-                  chipStyle = 'bg-[var(--tm-success)] text-white font-bold';
-                } else if (isWeekOff) {
-                  statusBg = 'bg-[var(--tm-bg-sunken)] border-[var(--tm-border)] text-[var(--tm-ink-muted)]';
-                  chipLabel = 'Week-off';
-                  chipStyle = 'bg-[var(--tm-neutral-ring)] text-[var(--tm-ink-soft)] font-semibold';
-                }
-
+            <div className={`mt-1 grid grid-cols-7 gap-1.5 ${loading ? 'opacity-60' : ''}`}>
+              {gridDays.map((day) => {
+                const key = ymd(day);
+                const meta = statusMeta(statusByDate.get(key));
+                const count = bookings.filter((b) => isSameDay(parseISO(b.start), day)).length;
+                const googleCount = externalOn(day).length;
+                const isSelected = isSameDay(day, selected);
                 return (
-                  <div
-                    key={dateStr}
-                    onClick={() => setSelectedDayDetail({ date: dateStr, dayNum })}
-                    className={`h-24 p-2.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${statusBg} ${
-                      isToday ? 'ring-2 ring-[var(--tm-primary)] ring-offset-2 font-black' : ''
-                    }`}
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSelected(day)}
+                    className={`flex min-h-[74px] flex-col items-start rounded-[var(--tm-radius-md)] border p-2 text-left
+                      transition-colors ${
+                        isSelected
+                          ? 'border-[var(--tm-primary)] bg-[var(--tm-primary-softer)]'
+                          : 'border-[var(--tm-border)] bg-[var(--tm-card)] hover:border-[var(--tm-border-strong)]'
+                      } ${isSameMonth(day, month) ? '' : 'opacity-45'}`}
                   >
-                    <div className="flex items-center justify-between text-xs font-extrabold">
-                      <span className={isToday ? 'grid h-6 w-6 place-items-center rounded-full bg-[var(--tm-primary)] text-white' : 'text-[var(--tm-ink)]'}>
-                        {dayNum}
+                    <span
+                      className={`text-[12.5px] font-bold ${
+                        isSameDay(day, new Date()) ? 'text-[var(--tm-primary)]' : 'text-[var(--tm-ink)]'
+                      }`}
+                    >
+                      {format(day, 'd')}
+                    </span>
+                    {meta && (
+                      <span className="mt-1 flex items-center gap-1 text-[10.5px] font-semibold text-[var(--tm-ink-soft)]">
+                        <span className="h-1.5 w-1.5 rounded-full" style={{ background: meta.color }} />
+                        <span className="truncate">{meta.label}</span>
                       </span>
-                      {att && att.totalHours > 0 && (
-                        <span className="text-[10.5px] font-bold text-[var(--tm-primary)]">
-                          {att.totalHours}h
-                        </span>
-                      )}
-                    </div>
-
-                    {chipLabel && (
-                      <div className={`text-[10px] px-2 py-0.5 rounded-full truncate text-center shadow-2xs ${chipStyle}`}>
-                        {chipLabel}
-                      </div>
                     )}
-                  </div>
+                    {count > 0 && (
+                      <span className="mt-auto text-[10.5px] font-bold text-[var(--tm-primary)]">
+                        {count} booking{count > 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {googleCount > 0 && (
+                      <span className={`${count > 0 ? '' : 'mt-auto '}text-[10.5px] font-semibold text-[var(--tm-ink-muted)]`}>
+                        {isOwn ? `${googleCount} on Google` : 'Busy'}
+                      </span>
+                    )}
+                  </button>
                 );
               })}
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-4 text-[11.5px] text-[var(--tm-ink-muted)]">
+              {DAY_STATUSES.map((s) => (
+                <span key={s.value} className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
+                  {s.label}
+                </span>
+              ))}
             </div>
           </CardContent>
         </Card>
 
-        {/* Right Panel: "Today" & "Coming up" */}
-        <div className="space-y-6">
-          {/* Right Panel Section 1: Today */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base font-extrabold flex items-center gap-2">
-                <CalendarIcon className="h-4 w-4 text-[var(--tm-primary)]" />
-                Today
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-[var(--tm-radius-lg)] bg-[var(--tm-card-muted)] p-4 border border-[var(--tm-border)] space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[13px] font-extrabold text-[var(--tm-ink)]">
-                    {formatDate(todayStr, 'EEEE, MMM d')}
-                  </span>
-                  <StatusChip status={todayRecord?.status || 'not_marked'} size="sm" dot />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[var(--tm-border)]">
-                  <div>
-                    <span className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--tm-ink-muted)] block">First In</span>
-                    <span className="text-[14px] font-extrabold text-[var(--tm-ink)] block mt-0.5">
-                      {formatTime(todayRecord?.punchSessions[0]?.punchIn)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--tm-ink-muted)] block">Hours Today</span>
-                    <span className="text-[14px] font-extrabold text-[var(--tm-primary)] block mt-0.5">
-                      {formatHours(todayRecord?.totalHours || 0)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Right Panel Section 2: Coming up */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base font-extrabold flex items-center gap-2">
-                <Clock className="h-4 w-4 text-[var(--tm-primary)]" />
-                Coming Up
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-3">
-              {upcomingHolidays.length === 0 ? (
-                <p className="py-6 text-center text-xs text-[var(--tm-ink-muted)]">
-                  No upcoming holidays scheduled.
+        {/* Selected day */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-extrabold">{format(selected, 'EEEE, d MMMM')}</CardTitle>
+            <div className="mt-2">
+              {selectedStatus ? (
+                <StatusChip tone={statusMeta(selectedStatus)?.tone} size="sm" dot>
+                  {statusMeta(selectedStatus)?.label}
+                </StatusChip>
+              ) : (
+                <StatusChip tone="neutral" size="sm" dot>
+                  No status set
+                </StatusChip>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <section>
+              <h4 className="mb-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[var(--tm-ink-muted)]">
+                Bookings
+              </h4>
+              {dayBookings.length === 0 ? (
+                <p className="rounded-[var(--tm-radius-md)] bg-[var(--tm-card-muted)] px-4 py-5 text-center text-[13px] text-[var(--tm-ink-muted)]">
+                  Nothing booked.
                 </p>
               ) : (
-                <ul className="space-y-2.5">
-                  {upcomingHolidays.map((h) => (
-                    <li
-                      key={h.id}
-                      className="flex items-center justify-between gap-3 rounded-[var(--tm-radius-md)] bg-[var(--tm-card-muted)] p-3 border border-[var(--tm-border)]"
-                    >
-                      <div>
-                        <h4 className="text-[13px] font-bold text-[var(--tm-ink)]">{h.title}</h4>
-                        <span className="text-[11px] text-[var(--tm-ink-muted)]">
-                          {formatDate(h.date, 'EEEE, MMM d')}
-                        </span>
+                <ul className="space-y-2">
+                  {dayBookings.map((b) => {
+                    const canCancel = me?.role === 'admin' || b.host_user_id === me?.id || b.booked_by === me?.id;
+                    return (
+                      <li
+                        key={b.id}
+                        className="flex items-start justify-between gap-3 rounded-[var(--tm-radius-md)] bg-[var(--tm-card-muted)] px-4 py-3"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 text-[12.5px] font-bold tabular-nums text-[var(--tm-primary)]">
+                            <Clock className="h-3.5 w-3.5" />
+                            {format(parseISO(b.start), 'HH:mm')} - {format(parseISO(b.end), 'HH:mm')}
+                          </div>
+                          <div className="mt-0.5 truncate text-[13px] font-bold text-[var(--tm-ink)]">{b.title}</div>
+                          {b.note && (
+                            <p className="mt-0.5 text-[12px] leading-snug text-[var(--tm-ink-muted)]">{b.note}</p>
+                          )}
+                          {b.title !== 'Busy' && (
+                            <p className="mt-1 text-[11.5px] text-[var(--tm-ink-muted)]">
+                              Booked by {people.get(b.booked_by)?.name ?? 'a teammate'}
+                            </p>
+                          )}
+                        </div>
+                        {canCancel && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label="Cancel booking"
+                            onClick={() => cancelBooking(b)}
+                            className="text-[var(--tm-danger)]"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+
+            {dayExternal.length > 0 && (
+              <section>
+                <h4 className="mb-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[var(--tm-ink-muted)]">
+                  {isOwn ? 'Google Calendar' : 'Busy elsewhere'}
+                </h4>
+                <ul className="space-y-2">
+                  {dayExternal.map((e) => (
+                    <li key={e.id} className="rounded-[var(--tm-radius-md)] bg-[var(--tm-card-muted)] px-4 py-3">
+                      <div className="flex items-center gap-1.5 text-[12.5px] font-bold tabular-nums text-[var(--tm-ink-soft)]">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        {e.all_day ? 'All day' : `${format(parseISO(e.start), 'HH:mm')} - ${format(parseISO(e.end), 'HH:mm')}`}
                       </div>
-                      <Badge variant="primary" size="sm" className="capitalize">
-                        {h.type}
-                      </Badge>
+                      <div className="mt-0.5 truncate text-[13px] font-bold text-[var(--tm-ink)]">{e.title}</div>
+                      {e.location && <p className="mt-0.5 text-[12px] text-[var(--tm-ink-muted)]">{e.location}</p>}
                     </li>
                   ))}
                 </ul>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Selected Day Detail Modal */}
-      {selectedDayDetail && (
-        <Modal
-          isOpen={!!selectedDayDetail}
-          onClose={() => setSelectedDayDetail(null)}
-          title={`Details for ${formatDate(selectedDayDetail.date, 'EEEE, MMMM dd, yyyy')}`}
-        >
-          <div className="space-y-4">
-            {(() => {
-              const att = attendance.find((a) => a.date === selectedDayDetail.date);
-              const firstPunchIn = att?.punchSessions[0]?.punchIn;
-              const lastPunchOut = att?.punchSessions.slice().reverse().find((s) => s.punchOut)?.punchOut;
-
-              const breakSessions: { label: string; start: string; end?: string; duration: number }[] = [];
-              const totalBreakMinutes = calculateBreakMinutes(att);
-
-              if (att && att.punchSessions) {
-                att.punchSessions.forEach((sess, sIdx) => {
-                  sess.breaks?.forEach((b, bIdx) => {
-                    if (b.breakStart) {
-                      const dur = calculateDurationMinutes(b.breakStart, b.breakEnd || getTodayDateString());
-                      breakSessions.push({
-                        label: `Break #${bIdx + 1}`,
-                        start: b.breakStart,
-                        end: b.breakEnd,
-                        duration: Math.round(dur)
-                      });
-                    }
-                  });
-
-                  if (sess.punchOut && sIdx < att.punchSessions.length - 1) {
-                    const nextSess = att.punchSessions[sIdx + 1];
-                    if (nextSess?.punchIn) {
-                      const gapDur = calculateDurationMinutes(sess.punchOut, nextSess.punchIn);
-                      breakSessions.push({
-                        label: `Interval Break`,
-                        start: sess.punchOut,
-                        end: nextSess.punchIn,
-                        duration: Math.round(gapDur)
-                      });
-                    }
-                  }
-                });
-              }
-
-              return (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4 rounded-[var(--tm-radius-lg)] bg-[var(--tm-card-muted)] p-4 border border-[var(--tm-border)]">
-                    <div>
-                      <span className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--tm-ink-muted)] block">Punch-in Time</span>
-                      <span className="text-base font-extrabold text-[var(--tm-ink)] block mt-0.5">
-                        {formatTime(firstPunchIn)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--tm-ink-muted)] block">Punch-out Time</span>
-                      <span className="text-base font-extrabold text-[var(--tm-ink)] block mt-0.5">
-                        {formatTime(lastPunchOut)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="rounded-[var(--tm-radius-lg)] bg-[var(--tm-card-muted)] p-4 border border-[var(--tm-border)] space-y-3">
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--tm-ink-muted)] flex items-center justify-between">
-                      <span>Break Time Breakdown</span>
-                      <span className="text-[var(--tm-primary)] font-black text-sm">Total: {totalBreakMinutes} min</span>
-                    </div>
-
-                    {breakSessions.length === 0 ? (
-                      <p className="text-xs text-[var(--tm-ink-muted)] italic">No break sessions taken.</p>
-                    ) : (
-                      <ul className="space-y-2 text-xs">
-                        {breakSessions.map((b, idx) => (
-                          <li key={idx} className="flex items-center justify-between p-2 rounded-lg bg-[var(--tm-card)] border border-[var(--tm-border)] font-semibold text-[var(--tm-ink-soft)]">
-                            <span>{b.label}: {formatTime(b.start)} – {formatTime(b.end)}</span>
-                            <span className="text-[var(--tm-primary)] font-bold">{b.duration} min</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        </Modal>
-      )}
-
-      {/* Week-Off Modal */}
-      <Modal
-        isOpen={isWeekOffModalOpen}
-        onClose={() => setIsWeekOffModalOpen(false)}
-        title="Set Company Weekly Off Days"
-        description="Select recurring days off for employee calendar views"
-      >
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {daysOfWeek.map((dayName, idx) => {
-              const isSelected = weekOffs.includes(idx);
-              return (
-                <button
-                  key={dayName}
-                  type="button"
-                  onClick={() => handleToggleWeekOff(idx)}
-                  className={`p-3 rounded-xl border text-xs font-bold transition-all ${
-                    isSelected
-                      ? 'bg-[var(--tm-primary)] text-white border-[var(--tm-primary)] shadow-xs'
-                      : 'bg-[var(--tm-card-muted)] text-[var(--tm-ink-soft)] border-[var(--tm-border)] hover:bg-[var(--tm-bg-sunken)]'
-                  }`}
-                >
-                  {dayName}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="space-y-1 border-t border-[var(--tm-border)] pt-4">
-            <label
-              htmlFor="shift-start-time"
-              className="block text-xs font-semibold uppercase tracking-wider text-[var(--tm-ink-soft)]"
-            >
-              Shift start time
-            </label>
-            <input
-              id="shift-start-time"
-              type="time"
-              value={shiftStart}
-              onChange={(e) => handleSaveShiftStart(e.target.value)}
-              className="w-40 rounded-lg border border-[var(--tm-border-strong)] p-2.5 text-sm text-[var(--tm-ink)] focus:border-[var(--tm-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--tm-primary-soft)]"
-            />
-            <p className="text-[11px] text-[var(--tm-ink-muted)]">
-              Employees who have not punched in an hour after this time get a reminder.
-            </p>
-          </div>
-
-          <div className="flex justify-end pt-4 border-t border-[var(--tm-border)]">
-            <Button variant="primary" onClick={() => setIsWeekOffModalOpen(false)}>
-              Done
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Add Holiday Modal */}
-      <Modal
-        isOpen={isHolidayModalOpen}
-        onClose={() => {
-          setIsHolidayModalOpen(false);
-          setTitle('');
-          setSelectedDates([]);
-        }}
-        title="Add Holiday"
-        description="Select one or more dates for this holiday"
-      >
-        <form onSubmit={handleAddHoliday} className="space-y-4">
-          <Input
-            label="Holiday Title"
-            placeholder="e.g. Festival of Lights / Diwali"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-          />
-
-          <Select
-            label="Type"
-            value={type}
-            onChange={(e) => setType(e.target.value as any)}
-            options={[
-              { value: 'company', label: 'Company Holiday' },
-              { value: 'national', label: 'National Holiday' },
-              { value: 'optional', label: 'Optional Leave' }
-            ]}
-          />
-
-          {/* Multiple Date Picker Section */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-semibold text-[var(--tm-ink-soft)] uppercase tracking-wider">
-                Select Dates ({selectedDates.length} selected)
-              </label>
-              {selectedDates.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedDates([])}
-                  className="text-xs text-[var(--tm-ink-soft)] hover:text-red-500 font-medium"
-                >
-                  Clear all
-                </button>
-              )}
-            </div>
-
-            {/* Selected dates chips */}
-            {selectedDates.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-2 bg-[var(--tm-card-muted)] rounded-lg border border-[var(--tm-border)]">
-                {selectedDates.map((d) => (
-                  <span
-                    key={d}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--tm-primary-softer)] text-[var(--tm-primary)] border border-[var(--tm-primary-soft)]"
-                  >
-                    <span>{d}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeHolidayDate(d)}
-                      className="text-[var(--tm-ink-soft)] hover:text-red-500 rounded-full focus:outline-none"
-                      title="Remove date"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-[var(--tm-ink-subtle)] italic">
-                Click dates in the calendar below to toggle holiday dates.
-              </p>
+              </section>
             )}
 
-            {/* Interactive Mini Calendar Date Picker */}
-            <div className="rounded-xl border border-[var(--tm-border)] bg-[var(--tm-card-muted)] p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-bold text-[var(--tm-ink)]">
-                  {monthNames[pickerMonth]} {pickerYear}
-                </span>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (pickerMonth === 0) {
-                        setPickerMonth(11);
-                        setPickerYear(pickerYear - 1);
-                      } else {
-                        setPickerMonth(pickerMonth - 1);
-                      }
-                    }}
-                    className="p-1 rounded-md text-[var(--tm-ink-soft)] hover:bg-[var(--tm-bg-sunken)] hover:text-[var(--tm-ink)]"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (pickerMonth === 11) {
-                        setPickerMonth(0);
-                        setPickerYear(pickerYear + 1);
-                      } else {
-                        setPickerMonth(pickerMonth + 1);
-                      }
-                    }}
-                    className="p-1 rounded-md text-[var(--tm-ink-soft)] hover:bg-[var(--tm-bg-sunken)] hover:text-[var(--tm-ink)]"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
+            <section>
+              <h4 className="mb-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[var(--tm-ink-muted)]">
+                Book a slot
+              </h4>
+              {isOwn ? (
+                <p className="text-[13px] text-[var(--tm-ink-muted)]">
+                  This is your calendar. Teammates book your free slots from here.
+                </p>
+              ) : me?.role === 'client' ? (
+                <p className="text-[13px] text-[var(--tm-ink-muted)]">Booking isn’t available for your account yet.</p>
+              ) : isPastDay ? (
+                <p className="text-[13px] text-[var(--tm-ink-muted)]">This day has passed.</p>
+              ) : onLeave ? (
+                <p className="text-[13px] text-[var(--tm-ink-muted)]">{host?.name ?? 'They'} are on leave this day.</p>
+              ) : (
+                canBook && (
+                  <div className="space-y-4">
+                    <Select
+                      label="Length"
+                      value={String(duration)}
+                      onChange={(e) => {
+                        setDuration(Number(e.target.value));
+                        setSlotStart(null);
+                      }}
+                      options={DURATIONS.map((d) => ({ value: String(d), label: `${d} minutes` }))}
+                    />
+                    <div>
+                      <span className="mb-1.5 block text-[12px] font-semibold text-[var(--tm-ink-soft)]">
+                        Free start times
+                      </span>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {slots.map(({ start, free }) => {
+                          const active = slotStart !== null && isSameDay(start, slotStart) && start.getTime() === slotStart.getTime();
+                          return (
+                            <button
+                              key={start.toISOString()}
+                              type="button"
+                              disabled={!free}
+                              onClick={() => setSlotStart(start)}
+                              className={`rounded-[var(--tm-radius-md)] border py-2 text-[12px] font-semibold tabular-nums transition-colors ${
+                                active
+                                  ? 'border-[var(--tm-primary)] bg-[var(--tm-primary)] text-white'
+                                  : free
+                                    ? 'border-[var(--tm-border)] bg-[var(--tm-card)] text-[var(--tm-ink)] hover:border-[var(--tm-primary)]'
+                                    : 'cursor-not-allowed border-transparent bg-[var(--tm-bg-sunken)] text-[var(--tm-ink-muted)] line-through opacity-60'
+                              }`}
+                            >
+                              {format(start, 'HH:mm')}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
 
-              {/* Days header */}
-              <div className="grid grid-cols-7 gap-1 text-center mb-1">
-                {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-                  <span key={d} className="text-[11px] font-semibold text-[var(--tm-ink-subtle)]">
-                    {d}
-                  </span>
-                ))}
-              </div>
-
-              {/* Day grid */}
-              <div className="grid grid-cols-7 gap-1">
-                {(() => {
-                  const { totalDays: pTotalDays, startDayOfWeek: pStartDay } = getMonthInfo(pickerYear, pickerMonth);
-                  const blanks = Array.from({ length: pStartDay }, (_, i) => i);
-                  const dayNums = Array.from({ length: pTotalDays }, (_, i) => i + 1);
-
-                  return (
-                    <>
-                      {blanks.map((b) => (
-                        <div key={`blank-${b}`} className="h-7" />
-                      ))}
-                      {dayNums.map((dayNum) => {
-                        const dateStr = `${pickerYear}-${String(pickerMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-                        const isSelected = selectedDates.includes(dateStr);
-                        return (
-                          <button
-                            key={dateStr}
-                            type="button"
-                            onClick={() => toggleHolidayDate(dateStr)}
-                            className={`h-7 text-xs rounded-md font-medium transition-all flex items-center justify-center ${
-                              isSelected
-                                ? 'bg-[var(--tm-primary)] text-white font-bold shadow-xs'
-                                : 'text-[var(--tm-ink)] hover:bg-[var(--tm-bg-sunken)]'
-                            }`}
-                          >
-                            {dayNum}
-                          </button>
-                        );
-                      })}
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-4 border-t border-[var(--tm-border)]">
-            <Button
-              variant="outline"
-              type="button"
-              onClick={() => {
-                setIsHolidayModalOpen(false);
-                setTitle('');
-                setSelectedDates([]);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button variant="primary" type="submit" disabled={selectedDates.length === 0}>
-              {selectedDates.length > 1
-                ? `Save ${selectedDates.length} Holidays`
-                : 'Save Holiday'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+                    {slotStart && (
+                      <div className="space-y-3">
+                        <p className="text-[12.5px] font-semibold text-[var(--tm-ink-soft)]">
+                          {format(slotStart, 'HH:mm')} - {format(addMinutes(slotStart, duration), 'HH:mm')}
+                        </p>
+                        <Input label="Title" placeholder="e.g. Design review" value={title} onChange={(e) => setTitle(e.target.value)} />
+                        <Textarea label="Note (optional)" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+                        <Button className="w-full" disabled={!title.trim()} onClick={submitBooking}>
+                          Book slot
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )
+              )}
+            </section>
+          </CardContent>
+        </Card>
+      </div>
     </>
   );
 };

@@ -5,11 +5,14 @@ import { useAuthStore } from '../../../store/authStore';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Card, CardContent } from '../../../components/ui/Card';
+import { accountApi } from '../../../services/http/accountApi';
 
 export const ChangePasswordPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, changePassword, isLoading, error } = useAuthStore();
-
+  const { user } = useAuthStore();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [validationError, setValidationError] = useState('');
@@ -18,8 +21,8 @@ export const ChangePasswordPage: React.FC = () => {
     e.preventDefault();
     setValidationError('');
 
-    if (newPassword.length < 6) {
-      setValidationError('Password must be at least 6 characters long.');
+    if (newPassword.length < 8) {
+      setValidationError('Password must be at least 8 characters long.');
       return;
     }
 
@@ -28,15 +31,16 @@ export const ChangePasswordPage: React.FC = () => {
       return;
     }
 
+    setError('');
+    setIsLoading(true);
     try {
-      const updatedUser = await changePassword(newPassword);
-      if (updatedUser.role === 'admin') {
-        navigate('/admin/dashboard');
-      } else {
-        navigate('/app/tasks');
-      }
+      await accountApi.changePassword(currentPassword, newPassword);
+      useAuthStore.setState((s) => (s.user ? { user: { ...s.user, mustChangePassword: false } } : s));
+      navigate(user?.role === 'admin' ? '/admin/dashboard' : '/app/tasks');
     } catch (err) {
-      // Handled in authStore
+      setError(err instanceof Error ? err.message : 'Could not change your password');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -65,6 +69,16 @@ export const ChangePasswordPage: React.FC = () => {
               )}
 
               <Input
+                label="Temporary Password"
+                type="password"
+                placeholder="The one you were given"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                leftIcon={<Lock className="w-4 h-4" />}
+                required
+              />
+
+              <Input
                 label="New Password"
                 type="password"
                 placeholder="Enter new password"
@@ -89,7 +103,7 @@ export const ChangePasswordPage: React.FC = () => {
                   <CheckCircle2 className="w-3.5 h-3.5 text-[var(--tm-success)]" /> Password requirements:
                 </div>
                 <ul className="list-disc list-inside pl-2 space-y-0.5 text-[11px] text-[var(--tm-ink-muted)]">
-                  <li>At least 6 characters long</li>
+                  <li>At least 8 characters long</li>
                   <li>Mix of letters and numbers recommended</li>
                 </ul>
               </div>

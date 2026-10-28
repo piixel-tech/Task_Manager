@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Activity, Briefcase, Calendar, CheckSquare, Clock, LayoutDashboard, MessageSquare, Users } from 'lucide-react';
+import { Briefcase, Calendar, CheckSquare, LayoutDashboard, MessageSquare, Users } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useNavCounts } from '../../hooks/useNavCounts';
 
@@ -14,17 +14,17 @@ export const BottomTabBar: React.FC = () => {
   const navItems = isAdmin
     ? [
         { label: 'Dashboard', icon: LayoutDashboard, path: `${prefix}/dashboard` },
-        { label: 'Live', icon: Activity, path: `${prefix}/liveboard` },
+        { label: 'Calendar', icon: Calendar, path: `${prefix}/calendar` },
         { label: 'Team', icon: Users, path: `${prefix}/users` },
         { label: 'Tasks', icon: CheckSquare, path: `${prefix}/tasks`, count: counts.tasks },
-        { label: 'Chat', icon: MessageSquare, path: `${prefix}/chat` }
+        { label: 'Chat', icon: MessageSquare, path: `${prefix}/chat`, count: counts.unreadChats }
       ]
     : [
-        { label: 'Dashboard', icon: Clock, path: `${prefix}/attendance` },
+        { label: 'Dashboard', icon: LayoutDashboard, path: `${prefix}/dashboard` },
         { label: 'Tasks', icon: CheckSquare, path: `${prefix}/tasks`, count: counts.tasks },
         { label: 'Projects', icon: Briefcase, path: `${prefix}/projects`, count: counts.projects },
         { label: 'Calendar', icon: Calendar, path: `${prefix}/calendar` },
-        { label: 'Chat', icon: MessageSquare, path: `${prefix}/chat` }
+        { label: 'Chat', icon: MessageSquare, path: `${prefix}/chat`, count: counts.unreadChats }
       ];
 
   return (

@@ -65,7 +65,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
       try {
         const [tasks, projects, users] = await Promise.all([
           taskService.getTasks(undefined, isAdmin ? undefined : user.id),
-          projectService.getProjects(undefined, isAdmin ? undefined : user.id),
+          projectService.getProjects(),
           isAdmin ? userService.getUsers() : Promise.resolve([])
         ]);
 

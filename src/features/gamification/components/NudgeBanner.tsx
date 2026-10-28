@@ -1,52 +1,7 @@
 import React from 'react';
-import { CalendarHeart, Clock, PartyPopper, Trophy } from 'lucide-react';
+import { CalendarHeart, PartyPopper, Trophy } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { CurvePattern } from '../../../components/ui/HeroCard';
-
-interface NudgeBannerProps {
-  isPunchedIn: boolean;
-  hasMarkedAttendanceToday: boolean;
-  onPunchIn?: () => void;
-}
-
-export const NudgeBanner: React.FC<NudgeBannerProps> = ({
-  isPunchedIn,
-  hasMarkedAttendanceToday,
-  onPunchIn
-}) => {
-  const now = new Date();
-  const currentHour = now.getHours();
-
-  // Show nudge banner if past 11:00 AM and attendance not marked or not punched in today
-  if (currentHour < 11 || hasMarkedAttendanceToday || isPunchedIn) {
-    return null;
-  }
-
-  return (
-    <div
-      className="flex items-center justify-between gap-4 border-b border-[var(--tm-warning-ring)]
-        bg-[var(--tm-warning-bg)] px-4 py-3 lg:px-8"
-    >
-      <div className="flex items-center gap-2.5 text-[13px] text-[var(--tm-warning)]">
-        <Clock className="h-4 w-4 shrink-0" />
-        <span>
-          <strong className="font-bold">Attendance reminder:</strong> it is past 11:00 AM and you
-          have not marked Present or Leave today.
-        </span>
-      </div>
-
-      {onPunchIn && (
-        <button
-          onClick={onPunchIn}
-          className="shrink-0 rounded-full bg-[var(--tm-warning)] px-4 py-1.5 text-[12px]
-            font-bold text-white transition-opacity hover:opacity-90"
-        >
-          Punch in now
-        </button>
-      )}
-    </div>
-  );
-};
 
 /** Shared layout for the celebratory banners: dark accent panel, white text. */
 const CelebrationCard: React.FC<{

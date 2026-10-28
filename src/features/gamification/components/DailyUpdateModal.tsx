@@ -56,7 +56,7 @@ export const DailyUpdateModal: React.FC<DailyUpdateModalProps> = ({
       }
 
       if (summaryLines.length === 0) {
-        summaryLines.push('Punched in and managed daily workflow and team tasks.');
+        summaryLines.push('Managed daily workflow and team tasks.');
       }
 
       const generated = `Today: ${summaryLines.join('; ')}`;

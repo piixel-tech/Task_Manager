@@ -162,3 +162,84 @@
 
   --ease-soft: var(--tm-ease);
 }
+
+/* ==========================================================================
+   Dark mode. Set on <html data-theme="dark"> (from the person's Appearance
+   setting; "system" follows the device). These come after the accent blocks
+   so they win; each accent gets lifted tones that stay readable on dark.
+   ========================================================================== */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --tm-bg: #0f1512;
+  --tm-bg-sunken: #0b100e;
+  --tm-card: #161d19;
+  --tm-card-muted: #1a221e;
+  --tm-border: #26302b;
+  --tm-border-strong: #34413a;
+
+  --tm-ink: #e8eeea;
+  --tm-ink-soft: #b2c0b8;
+  --tm-ink-muted: #8f9f96;
+  --tm-ink-invert: #0f1512;
+
+  --tm-success: #6fd6a2;
+  --tm-success-bg: #163225;
+  --tm-success-ring: #24503b;
+  --tm-warning: #f0c36d;
+  --tm-warning-bg: #35290f;
+  --tm-warning-ring: #54411a;
+  --tm-danger: #f19a9a;
+  --tm-danger-bg: #381717;
+  --tm-danger-ring: #5a2727;
+  --tm-info: #7fc3e6;
+  --tm-info-bg: #12303f;
+  --tm-info-ring: #1f4b60;
+  --tm-neutral: #b2c0b8;
+  --tm-neutral-bg: #1f2823;
+  --tm-neutral-ring: #2c3832;
+
+  --tm-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --tm-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --tm-shadow-md: 0 6px 20px rgba(0, 0, 0, 0.4);
+  --tm-shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme='dark'][data-accent='forest'] {
+  --tm-primary: #2f8a5c;
+  --tm-primary-dark: #8fd6ae;
+  --tm-primary-light: #5fbf8a;
+  --tm-primary-soft: #1b3a2b;
+  --tm-primary-softer: #15291f;
+}
+:root[data-theme='dark'][data-accent='ocean'] {
+  --tm-primary: #2b80a8;
+  --tm-primary-dark: #8fcbe6;
+  --tm-primary-light: #58b4d6;
+  --tm-primary-soft: #16364a;
+  --tm-primary-softer: #122834;
+}
+:root[data-theme='dark'][data-accent='plum'] {
+  --tm-primary: #8f4f9c;
+  --tm-primary-dark: #d9a8e3;
+  --tm-primary-light: #b57cc0;
+  --tm-primary-soft: #3a2340;
+  --tm-primary-softer: #2a1a2e;
+}
+:root[data-theme='dark'][data-accent='ember'] {
+  --tm-primary: #c0602e;
+  --tm-primary-dark: #f0b08a;
+  --tm-primary-light: #e08a5c;
+  --tm-primary-soft: #43261a;
+  --tm-primary-softer: #301c13;
+}
+
+/* Parts of the app that use fixed light colours rather than the tokens. */
+:root[data-theme='dark'] .bg-white { background-color: var(--tm-card); }
+:root[data-theme='dark'] .bg-red-50 { background-color: var(--tm-danger-bg); }
+:root[data-theme='dark'] .border-red-200 { border-color: var(--tm-danger-ring); }
+:root[data-theme='dark'] .text-red-700, :root[data-theme='dark'] .text-red-600 { color: var(--tm-danger); }
+:root[data-theme='dark'] .bg-red-100 { background-color: var(--tm-danger-bg); }
+:root[data-theme='dark'] .text-black { color: var(--tm-ink); }
+
+/* Compact spacing: everything sized in rem shrinks a little. */
+:root[data-density='compact'] { font-size: 14.5px; }

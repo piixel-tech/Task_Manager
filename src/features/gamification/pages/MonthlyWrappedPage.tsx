@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Sparkles, Clock, CheckCircle2 } from 'lucide-react';
-import { taskService, attendanceService, projectService } from '../../../services';
-import type { Task, AttendanceDay, Project } from '../../../types';
+import { taskService, projectService } from '../../../services';
+import type { Task, Project } from '../../../types';
+import { statusApi, type StatusEntry } from '../../../services/http/calendarApi';
 import { useAuthStore } from '../../../store/authStore';
 import { Card, CardContent } from '../../../components/ui/Card';
 
@@ -9,7 +10,7 @@ export const MonthlyWrappedPage: React.FC = () => {
   const { user } = useAuthStore();
 
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [attendance, setAttendance] = useState<AttendanceDay[]>([]);
+  const [statuses, setStatuses] = useState<StatusEntry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -22,13 +23,17 @@ export const MonthlyWrappedPage: React.FC = () => {
     if (!user) return;
     setLoading(true);
     try {
-      const [userTasks, userAtt, allProjects] = await Promise.all([
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const first = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
+      const last = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate())}`;
+      const [userTasks, monthStatuses, allProjects] = await Promise.all([
         taskService.getTasks(undefined, user.id),
-        attendanceService.getAttendance(user.id),
+        statusApi.range(user.id, first, last).catch(() => [] as StatusEntry[]),
         projectService.getProjects()
       ]);
       setTasks(userTasks);
-      setAttendance(userAtt);
+      setStatuses(monthStatuses);
       setProjects(allProjects);
     } catch (err) {
       console.error(err);
@@ -46,8 +51,8 @@ export const MonthlyWrappedPage: React.FC = () => {
   }
 
   const completedTasks = tasks.filter((t) => t.status === 'completed');
-  const totalHours = attendance.reduce((acc, a) => acc + (a.totalHours || 0), 0);
-  const presentDays = attendance.filter((a) => a.status === 'present').length;
+  const workedDays = statuses.filter((x) => x.status !== 'leave').length;
+  const leaveDays = statuses.filter((x) => x.status === 'leave').length;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -69,18 +74,18 @@ export const MonthlyWrappedPage: React.FC = () => {
 
       {/* Grid of Wrapped Cards (2 Cards) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Card 1: Hours & Attendance */}
+        {/* Card 1: Days worked */}
         <Card className="bg-[var(--tm-primary)] text-white border-none shadow-xl">
           <CardContent className="p-6 space-y-4">
             <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center">
               <Clock className="w-5 h-5 text-white" />
             </div>
             <div>
-              <div className="text-xs font-medium text-white/75 uppercase tracking-wider">Total Productive Hours</div>
-              <div className="text-3xl font-extrabold mt-1">{totalHours.toFixed(1)} hrs</div>
+              <div className="text-xs font-medium text-white/75 uppercase tracking-wider">Days Worked</div>
+              <div className="text-3xl font-extrabold mt-1">{workedDays} days</div>
             </div>
             <div className="text-xs text-white/75 bg-white/10 p-2.5 rounded-xl">
-              Across <strong>{presentDays}</strong> present working days this month.
+              <strong>{leaveDays}</strong> day(s) on leave this month.
             </div>
           </CardContent>
         </Card>

@@ -9,7 +9,8 @@ export interface AvatarPickerModalProps {
   onClose: () => void;
   userName: string;
   currentAvatarUrl?: string;
-  onSave: (newAvatarUrl: string) => Promise<void>;
+  /** `photo` is set when a picture was chosen from the device: upload it, then save. */
+  onSave: (newAvatarUrl: string, photo?: File) => Promise<void>;
 }
 
 const PRESET_COLORS = [
@@ -38,6 +39,8 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
   
   // Custom states
   const [photoUrl, setPhotoUrl] = useState<string>('');
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [error, setError] = useState('');
   const [selectedColor, setSelectedColor] = useState<string>('#0F3D27');
   const [selectedIcon, setSelectedIcon] = useState<string>('Star');
   const [selectedEmoji, setSelectedEmoji] = useState<string>('🚀');
@@ -46,6 +49,8 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setPhotoFile(file);
+      setError('');
       const reader = new FileReader();
       reader.onload = (event) => {
         if (event.target?.result) {
@@ -75,9 +80,12 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
   const handleSave = async () => {
     setSaving(true);
     try {
-      const finalUrl = computeResultingAvatarUrl();
-      await onSave(finalUrl);
+      setError('');
+      if (activeTab === 'photo' && photoFile) await onSave('', photoFile);
+      else await onSave(computeResultingAvatarUrl());
       onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save your picture');
     } finally {
       setSaving(false);
     }
@@ -269,6 +277,8 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
             </div>
           </div>
         )}
+
+        {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</p>}
 
         {/* Action buttons */}
         <div className="flex justify-end gap-3 pt-4 border-t border-[var(--tm-border)]">

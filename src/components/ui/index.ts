@@ -12,6 +12,7 @@ export {
   CardTitle
 } from './Card';
 export { CountUp } from './CountUp';
+export { ConfirmDialog } from './ConfirmDialog';
 export { Drawer } from './Drawer';
 export { EmptyState } from './EmptyState';
 export { HatchedBarChart } from './HatchedBarChart';
@@ -24,6 +25,7 @@ export { ProgressBar, ProgressRing } from './ProgressRing';
 export { Select } from './Select';
 export { Skeleton, SkeletonCard, SkeletonGrid, SkeletonRows } from './Skeleton';
 export { SlideToConfirm } from './SlideToConfirm';
+export { SuccessDialog } from './SuccessDialog';
 export { Stagger, StaggerItem } from './Stagger';
 export { StatCard } from './StatCard';
 export { StatusChip } from './StatusChip';

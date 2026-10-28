@@ -1,52 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ArrowRight, Lock, Mail, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowRight, Lock, Mail } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
-import { Badge } from '../../../components/ui/Badge';
+import { homeForRole } from '../../../app/roleHome';
 import { CurvePattern } from '../../../components/ui/HeroCard';
 import { Stagger, StaggerItem } from '../../../components/ui/Stagger';
 import { useMotionPrefs } from '../../../components/ui/useMotionPrefs';
 import { fastT } from '../../../components/ui/motion';
-
-interface DemoLogin {
-  id: string;
-  name: string;
-  role: string;
-  tag: string;
-  variant: 'both' | 'warning' | 'piixel' | 'unwork';
-  icon?: React.ReactNode;
-}
-
-const demoLogins: DemoLogin[] = [
-  {
-    id: 'aarav-piixel@ceo',
-    name: 'Aarav Sharma',
-    role: 'CEO & Admin',
-    tag: 'Admin',
-    variant: 'both',
-    icon: <ShieldCheck className="h-4 w-4" />
-  }
-];
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const { login, isLoading, error, clearError, loadCurrentUser } = useAuthStore();
   const { reduced } = useMotionPrefs();
 
-  const [loginId, setLoginId] = useState('aarav-piixel@ceo');
-  const [password, setPassword] = useState('password123');
+  const [loginId, setLoginId] = useState('');
+  const [password, setPassword] = useState('');
 
   useEffect(() => {
     clearError();
     loadCurrentUser().then((u) => {
       if (u) {
-        if (u.mustChangePassword) navigate('/change-password');
-        else if (u.role === 'admin') navigate('/admin/dashboard');
-        else if (u.role === 'client') navigate('/client/portal');
-        else navigate('/app/attendance');
+        navigate(u.mustChangePassword ? '/change-password' : homeForRole(u.role), { replace: true });
       }
     });
     // Runs once on mount — the redirect target comes from the loaded session.
@@ -58,21 +35,12 @@ export const LoginPage: React.FC = () => {
     clearError();
     try {
       const user = await login(loginId, password);
-      if (user.mustChangePassword) {
-        navigate('/change-password');
-      } else if (user.role === 'admin') {
-        navigate('/admin/dashboard');
-      } else {
-        navigate('/app/tasks');
-      }
+      navigate(user.mustChangePassword ? '/change-password' : homeForRole(user.role), {
+        replace: true
+      });
     } catch {
       // surfaced via the store's `error`
     }
-  };
-
-  const handleQuickLogin = (quickId: string) => {
-    setLoginId(quickId);
-    setPassword('password123');
   };
 
   return (
@@ -104,12 +72,12 @@ export const LoginPage: React.FC = () => {
               One workspace for design, engineering and growth.
             </h1>
             <p className="mt-5 max-w-sm text-[14.5px] leading-relaxed text-white/70">
-              Attendance, tasks, projects and team chat — tracked together, across both companies.
+              Daily status, tasks, projects and team chat — tracked together, across both companies.
             </p>
 
             <div className="mt-10 flex gap-10">
               {[
-                ['Attendance', 'Punch in, breaks, audits'],
+                ['Calendar', 'Daily status and bookings'],
                 ['Tasks', 'Assign, track, submit'],
                 ['Projects', 'Clients and weekly reports']
               ].map(([title, sub]) => (
@@ -145,7 +113,7 @@ export const LoginPage: React.FC = () => {
               Welcome back
             </h2>
             <p className="mt-1.5 text-[14px] text-[var(--tm-ink-muted)]">
-              Sign in with your workspace login ID.
+              Sign in with your workspace email.
             </p>
           </StaggerItem>
 
@@ -165,19 +133,20 @@ export const LoginPage: React.FC = () => {
                 )}
 
                 <Input
-                  label="Login ID"
-                  type="text"
-                  placeholder="name-company@jobtitle"
+                  label="Email"
+                  type="email"
+                  autoComplete="username"
+                  placeholder="you@company.com"
                   value={loginId}
                   onChange={(e) => setLoginId(e.target.value)}
                   leftIcon={<Mail className="h-4 w-4" />}
-                  helperText="e.g. rahul-piixel@seo-executive"
                   required
                 />
 
                 <Input
                   label="Password"
                   type="password"
+                  autoComplete="current-password"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -198,53 +167,6 @@ export const LoginPage: React.FC = () => {
             </div>
           </StaggerItem>
 
-          {/* Quick demo logins */}
-          <StaggerItem>
-            <div className="mb-3 flex items-center gap-1.5 px-1">
-              <Sparkles className="h-3.5 w-3.5 text-[var(--tm-primary)]" />
-              <span className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-[var(--tm-ink-muted)]">
-                Quick demo logins
-              </span>
-            </div>
-
-            <div className="space-y-2">
-              {demoLogins.map((d) => {
-                const selected = loginId === d.id;
-                return (
-                  <motion.button
-                    key={d.id}
-                    type="button"
-                    onClick={() => handleQuickLogin(d.id)}
-                    whileTap={reduced ? undefined : { scale: 0.99 }}
-                    transition={fastT}
-                    className={`flex w-full items-center justify-between gap-3 rounded-[var(--tm-radius-md)]
-                      border px-4 py-3 text-left transition-colors
-                      ${selected
-                        ? 'border-[var(--tm-primary)] bg-[var(--tm-primary-softer)]'
-                        : 'border-[var(--tm-border)] bg-[var(--tm-card)] hover:border-[var(--tm-border-strong)]'
-                      }`}
-                  >
-                    <span className="flex min-w-0 items-center gap-3">
-                      {d.icon && (
-                        <span className="text-[var(--tm-primary)]">{d.icon}</span>
-                      )}
-                      <span className="min-w-0 leading-tight">
-                        <span className="block truncate text-[13px] font-bold text-[var(--tm-ink)]">
-                          {d.name}
-                        </span>
-                        <span className="block truncate text-[11.5px] text-[var(--tm-ink-muted)]">
-                          {d.id}
-                        </span>
-                      </span>
-                    </span>
-                    <Badge variant={d.variant} size="sm">
-                      {d.tag}
-                    </Badge>
-                  </motion.button>
-                );
-              })}
-            </div>
-          </StaggerItem>
         </Stagger>
       </main>
     </div>

@@ -1,44 +1,55 @@
 import { useEffect } from 'react';
-import { notificationService } from '../../services';
 import { useAuthStore } from '../../store/authStore';
 import { useNotificationStore } from '../../store/useNotificationStore';
-import { NOTIFICATION_CHECK_INTERVAL_MS, runNotificationChecks } from './notificationChecks';
+import { toast } from '../../store/useToastStore';
+import { socket } from '../../services/socket';
+import { amFocused } from '../../store/useFocusStore';
+import { useFocusSync } from '../focus/useFocusSync';
+import { useSettingsStore } from '../../store/useSettingsStore';
+import { toNotification, type ApiNotification } from '../../services/http/notificationApi';
 
 /**
- * Keeps the bell in sync for the signed-in employee:
- * loads the list, listens for new notifications, and runs the date-based
- * checks on app load and every 5 minutes.
+ * Keeps the bell in sync for the signed-in user: loads the list and badge,
+ * opens the WebSocket, and turns live "notification" events into a toast
+ * plus a badge bump. Disconnects on logout.
  */
 export function useNotificationSync(): void {
-  const user = useAuthStore((state) => state.user);
-  const userId = user?.id;
-  const isEmployee = user?.role === 'employee';
+  const userId = useAuthStore((state) => state.user?.id);
+  useFocusSync();
+
+  // This person's saved appearance and notification choices apply as soon as they are known.
+  useEffect(() => {
+    if (userId) useSettingsStore.getState().init(useAuthStore.getState().user?.settings);
+    else useSettingsStore.getState().reset();
+  }, [userId]);
 
   useEffect(() => {
-    const { fetchNotifications, clear } = useNotificationStore.getState();
+    const { fetchNotifications, addLive, clear } = useNotificationStore.getState();
 
-    if (!userId || !isEmployee) {
+    if (!userId) {
       clear();
       return;
     }
 
-    fetchNotifications(userId);
+    fetchNotifications();
 
-    // Refresh whenever a notification is added or read anywhere in the app.
-    const unsubscribe = notificationService.subscribe(() => {
-      useNotificationStore.getState().fetchNotifications(userId);
+    const off = socket.on('notification', (data: ApiNotification) => {
+      const notification = toNotification(data);
+      addLive(notification);
+      // In Focus mode the server sends nothing live; this covers a notification already in flight.
+      if (!amFocused()) toast.info(notification.title, notification.message, notification.link || undefined);
     });
-
-    // Date-based checks: on load, then every 5 minutes.
-    runNotificationChecks(user);
-    const interval = setInterval(() => {
-      runNotificationChecks(useAuthStore.getState().user);
-    }, NOTIFICATION_CHECK_INTERVAL_MS);
+    // An admin ended this sign-in: leave straight away instead of waiting for the next request to fail.
+    const offRevoked = socket.on('session:revoked', () => {
+      toast.error('You were signed out', 'An admin ended this session.');
+      void useAuthStore.getState().logout();
+    });
+    socket.connect();
 
     return () => {
-      unsubscribe();
-      clearInterval(interval);
+      off();
+      offRevoked();
+      socket.disconnect();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, isEmployee]);
+  }, [userId]);
 }
