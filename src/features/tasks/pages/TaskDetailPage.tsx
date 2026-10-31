@@ -1,3 +1,4 @@
+import { FadeIn } from '../../../components/ui/FadeIn';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CalendarClock, Download, MessageSquare, ExternalLink, FileText, Link2, Pencil, Play, Send, Square, Trash2 } from 'lucide-react';
@@ -26,6 +27,15 @@ import { SubmitReviewModal } from '../../reviews/components/SubmitReviewModal';
 import { RichText } from '../../../components/editor/RichText';
 import { ActivityPanel } from '../../activity/components/ActivityPanel';
 
+/** Progress is automatic: it follows the status (there are no per-task subtasks or checklist to count). */
+const STATUS_PROGRESS: Record<ApiTask['status'], number> = {
+  todo: 0,
+  in_progress: 50,
+  changes_requested: 50,
+  submitted: 75,
+  approved: 100
+};
+
 const formatSize = (bytes: number) =>
   bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
@@ -44,16 +54,12 @@ export const TaskDetailPage: React.FC = () => {
   const [rounds, setRounds] = useState<Review[]>([]);
   const [busy, setBusy] = useState(false);
 
-  // Progress slider: follows the server value until the assignee drags it.
-  const [progress, setProgress] = useState(0);
-  const [savedAt, setSavedAt] = useState(0);
   // Live timer display: seconds since the last fetch, added to the server total.
   const [tick, setTick] = useState(0);
   const fetchedAt = useRef(Date.now());
 
   const apply = useCallback((t: ApiTask) => {
     setTask(t);
-    setProgress(t.progress);
     fetchedAt.current = Date.now();
     setTick(0);
   }, []);
@@ -75,6 +81,12 @@ export const TaskDetailPage: React.FC = () => {
     setLoading(true);
     load();
   }, [load]);
+
+  // Opening a task you were given clears its "new" badge in the nav.
+  const assigneeId = task?.assignee?.id;
+  useEffect(() => {
+    if (id && me?.id && assigneeId === me.id) taskApi.markSeen(id).catch(() => {});
+  }, [id, me?.id, assigneeId]);
 
   // A decision or resubmission on this task arrives live.
   useEffect(
@@ -101,6 +113,7 @@ export const TaskDetailPage: React.FC = () => {
   }
 
   const overdue = isOverdue(task);
+  const progress = STATUS_PROGRESS[task.status];
   const totalSeconds = task.total_seconds + (task.timer_running ? tick : 0);
 
   const run = async (work: () => Promise<void>) => {
@@ -113,14 +126,6 @@ export const TaskDetailPage: React.FC = () => {
       setBusy(false);
     }
   };
-
-  const commitProgress = () =>
-    progress === task.progress
-      ? undefined
-      : run(async () => {
-          apply(await taskApi.setProgress(task.id, progress));
-          setSavedAt(Date.now());
-        });
 
   const startTimer = () =>
     run(async () => {
@@ -146,7 +151,7 @@ export const TaskDetailPage: React.FC = () => {
   const open = (a: Asset) => assetApi.open(a).catch((err) => toast.error('Could not open the file', err.message));
 
   return (
-    <>
+    <FadeIn>
       <PageHeader
         title={
           <span className="flex flex-wrap items-center gap-3">
@@ -158,7 +163,7 @@ export const TaskDetailPage: React.FC = () => {
         description={
           <button
             type="button"
-            className="font-semibold text-[var(--tm-primary)] hover:underline"
+            className="font-semibold text-[var(--tm-primary-dark)] hover:underline"
             onClick={() => navigate(`${prefix}/projects/${task.project_id}/subfolders/${task.subfolder_id}`)}
           >
             {task.project_name} › {task.subfolder_name}
@@ -205,9 +210,9 @@ export const TaskDetailPage: React.FC = () => {
                   >
                     <span className="flex min-w-0 items-center gap-3">
                       {a.kind === 'link' ? (
-                        <Link2 className="h-4 w-4 shrink-0 text-[var(--tm-primary)]" />
+                        <Link2 className="h-4 w-4 shrink-0 text-[var(--tm-primary-dark)]" />
                       ) : (
-                        <FileText className="h-4 w-4 shrink-0 text-[var(--tm-primary)]" />
+                        <FileText className="h-4 w-4 shrink-0 text-[var(--tm-primary-dark)]" />
                       )}
                       <span className="min-w-0 leading-tight">
                         <span className="block truncate text-[13px] font-bold text-[var(--tm-ink)]">{a.name}</span>
@@ -245,14 +250,87 @@ export const TaskDetailPage: React.FC = () => {
       )}
 
       {task.status === 'changes_requested' && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-[13px] font-semibold text-red-700">
+        <div className="tm-error px-4 py-3 text-[13px] font-semibold">
           Changes were requested. See the comments below, then resubmit for review.
         </div>
       )}
 
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
+        <Tile label="Start date">
+          {task.start_date ? (
+            <span className="flex items-center gap-1.5">
+              <CalendarClock className="h-4 w-4 text-[var(--tm-ink-muted)]" />
+              {formatDate(task.start_date)}
+            </span>
+          ) : (
+            <span className="font-semibold text-[var(--tm-ink-muted)]">No start date</span>
+          )}
+        </Tile>
+        <Tile label="Due">
+          {task.due_date ? (
+            <span className={`flex items-center gap-1.5 ${overdue ? 'text-[var(--tm-danger)]' : ''}`}>
+              <CalendarClock className="h-4 w-4" />
+              {formatDate(task.due_date)}
+              {overdue && <span className="text-[12px]">· overdue</span>}
+            </span>
+          ) : (
+            <span className="font-semibold text-[var(--tm-ink-muted)]">No due date</span>
+          )}
+        </Tile>
+        <Tile label="Priority">
+          <StatusChip status={task.priority} size="sm" />
+        </Tile>
+        <Tile label="Status">
+          <StatusChip status={task.status} size="sm" />
+        </Tile>
+        <Tile label="Progress">
+          <div className="space-y-2">
+            <span className="text-xl font-black tabular-nums">{progress}%</span>
+            <ProgressBar value={progress} tone={progressTone(task)} height={8} />
+          </div>
+        </Tile>
+        <Tile label="Assignee">
+          {task.assignee ? (
+            <PersonLink userId={task.assignee.id} className="flex items-center gap-2">
+              <Avatar name={task.assignee.name} src={task.assignee.avatar_url ?? undefined} size="xs" />
+              <span className="truncate">{task.assignee.name}</span>
+            </PersonLink>
+          ) : (
+            <span className="font-semibold text-[var(--tm-ink-muted)]">Unassigned</span>
+          )}
+        </Tile>
+        <Tile label="Assigned by" hint={`Created ${formatDate(task.created_at)}`}>
+          <span className="truncate">{task.created_by?.name ?? 'Unknown'}</span>
+        </Tile>
+        <Tile label="Subfolder">
+          <span className="truncate">{task.subfolder_name}</span>
+        </Tile>
+        <Tile label="Time tracked">
+          <div className="space-y-2.5">
+            <div className="flex items-center gap-2">
+              <StatusDot running={task.timer_running} />
+              <span className="text-xl font-black tabular-nums">{formatDuration(totalSeconds)}</span>
+            </div>
+            {task.can_work &&
+              (task.timer_running ? (
+                <Button size="sm" variant="danger" className="w-full" isLoading={busy} onClick={stopTimer} leftIcon={<Square className="h-4 w-4" />}>
+                  Stop timer
+                </Button>
+              ) : (
+                <Button size="sm" className="w-full" isLoading={busy} onClick={startTimer} leftIcon={<Play className="h-4 w-4" />}>
+                  Start timer
+                </Button>
+              ))}
+          </div>
+        </Tile>
+        <Tile label="Attachments">
+          <span className="text-xl font-black tabular-nums">{task.assets.length}</span>
+        </Tile>
+      </div>
+
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
+      <div className="grid gap-6">
+        <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="text-base font-extrabold">Description</CardTitle>
@@ -291,104 +369,8 @@ export const TaskDetailPage: React.FC = () => {
             </Card>
           )}
 
-          <Card>
-            <CardHeader className="flex items-center justify-between">
-              <CardTitle className="text-base font-extrabold">Progress</CardTitle>
-              <span className="text-2xl font-black tabular-nums text-[var(--tm-ink)]">{task.progress}%</span>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <ProgressBar value={task.can_work ? progress : task.progress} tone={progressTone(task)} height={12} />
-              {task.can_work ? (
-                <div className="space-y-1.5">
-                  <input
-                    type="range"
-                    min={0}
-                    max={99}
-                    value={progress}
-                    disabled={busy}
-                    onChange={(e) => setProgress(Number(e.target.value))}
-                    onPointerUp={commitProgress}
-                    onKeyUp={commitProgress}
-                    aria-label="Progress"
-                    className="w-full accent-[var(--tm-primary)]"
-                  />
-                  <p className="text-[11.5px] text-[var(--tm-ink-muted)]">
-                    Set how far along you are (up to 99%). It reaches 100% when the task is approved.
-                    {savedAt > 0 && progress === task.progress && ' Saved.'}
-                  </p>
-                </div>
-              ) : (
-                <p className="text-[11.5px] text-[var(--tm-ink-muted)]">
-                  {task.status === 'approved'
-                    ? 'Approved: complete.'
-                    : task.status === 'submitted'
-                    ? 'Submitted: progress is locked until the review is decided.'
-                    : 'Only the assignee updates progress. It reaches 100% when the task is approved.'}
-                </p>
-              )}
-            </CardContent>
-          </Card>
         </div>
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base font-extrabold">Time tracked</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-3">
-                <StatusDot running={task.timer_running} />
-                <span className="text-3xl font-black tabular-nums text-[var(--tm-ink)]">{formatDuration(totalSeconds)}</span>
-              </div>
-              {task.can_work ? (
-                task.timer_running ? (
-                  <Button variant="danger" className="w-full" isLoading={busy} onClick={stopTimer} leftIcon={<Square className="h-4 w-4" />}>
-                    Stop timer
-                  </Button>
-                ) : (
-                  <Button className="w-full" isLoading={busy} onClick={startTimer} leftIcon={<Play className="h-4 w-4" />}>
-                    Start timer
-                  </Button>
-                )
-              ) : (
-                <p className="text-[11.5px] text-[var(--tm-ink-muted)]">Only the assignee runs the timer.</p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base font-extrabold">Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-[13px]">
-              <Row label="Assignee">
-                {task.assignee && (
-                  <PersonLink userId={task.assignee.id} className="flex items-center gap-2 font-semibold text-[var(--tm-ink)]">
-                    <Avatar name={task.assignee.name} src={task.assignee.avatar_url ?? undefined} size="xs" />
-                    {task.assignee.name}
-                  </PersonLink>
-                )}
-              </Row>
-              <Row label="Created by">
-                <span className="font-semibold text-[var(--tm-ink)]">{task.created_by?.name ?? 'Unknown'}</span>
-              </Row>
-              <Row label="Due">
-                {task.due_date ? (
-                  <span className={`flex items-center gap-1.5 font-semibold ${overdue ? 'text-[var(--tm-danger)]' : 'text-[var(--tm-ink)]'}`}>
-                    <CalendarClock className="h-4 w-4" />
-                    {formatDate(task.due_date)}
-                    {overdue && ' · overdue'}
-                  </span>
-                ) : (
-                  <span className="text-[var(--tm-ink-muted)]">No due date</span>
-                )}
-              </Row>
-              <Row label="Created">
-                <span className="font-semibold text-[var(--tm-ink)]">{formatDate(task.created_at)}</span>
-              </Row>
-            </CardContent>
-          </Card>
-        </div>
       </div>
 
         <div className="xl:sticky xl:top-24 xl:self-start">
@@ -398,13 +380,14 @@ export const TaskDetailPage: React.FC = () => {
 
       <SubmitReviewModal isOpen={submitting} onClose={() => setSubmitting(false)} task={task} onSubmitted={load} />
       <TaskFormModal isOpen={editing} onClose={() => setEditing(false)} task={task} onSaved={apply} />
-    </>
+    </FadeIn>
   );
 };
 
-const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
-  <div className="flex items-center justify-between gap-3">
-    <span className="text-[var(--tm-ink-muted)]">{label}</span>
-    {children}
+const Tile: React.FC<{ label: string; hint?: string; children: React.ReactNode }> = ({ label, hint, children }) => (
+  <div className="min-w-0 space-y-2 rounded-[var(--tm-radius-lg)] border border-[var(--tm-border)] bg-[var(--tm-card)] p-4">
+    <span className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--tm-ink-muted)]">{label}</span>
+    <div className="min-w-0 text-[13.5px] font-semibold text-[var(--tm-ink)]">{children}</div>
+    {hint && <span className="block text-[11.5px] text-[var(--tm-ink-muted)]">{hint}</span>}
   </div>
 );

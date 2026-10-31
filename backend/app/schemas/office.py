@@ -14,7 +14,7 @@ MAX_SEEN_BATCH = 100
 
 class PostCreate(BaseModel):
     text: str = Field(min_length=1, max_length=MAX_TEXT)
-    category: Category = "general"
+    category: Category | None = None  # optional: the form no longer asks; missing means "general"
     photo_id: PydanticObjectId | None = None
 
     @field_validator("text")

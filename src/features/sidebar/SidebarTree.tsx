@@ -8,6 +8,7 @@ import {
   ChevronRight,
   ClipboardList,
   Folder,
+  FolderOpen,
   FolderPlus,
   ListChecks,
   MessageSquarePlus,
@@ -24,6 +25,7 @@ import type { ProjectNode, SubfolderNode } from '../../services/http/sidebarApi'
 import { inOrder, useSidebarStore } from '../../store/useSidebarStore';
 import { NodeMenu, type MenuAction } from './NodeMenu';
 import { SidebarModals, type SidebarAction } from './SidebarModals';
+import { SkeletonRows } from '../../components/ui/Skeleton';
 
 interface Props {
   isAdmin: boolean;
@@ -38,7 +40,7 @@ const TREE_EVENTS = /^(task_|review_|project_|subfolder_|head_|members_|changes_
 const ICON = 'h-4 w-4 shrink-0';
 
 /** The Projects section: project → subfolders, with "+" to create, "⋯" to rename / move / delete, and a badge of my open tasks. */
-export const SidebarTree: React.FC<Props> = ({ isAdmin, prefix, onNavigate }) => {
+export const SidebarTree: React.FC<Props> = ({ prefix, onNavigate }) => {
   const confirm = useConfirm();
   const navigate = useNavigate();
   const location = useLocation();
@@ -144,20 +146,16 @@ export const SidebarTree: React.FC<Props> = ({ isAdmin, prefix, onNavigate }) =>
   ];
 
   // --- Look ---------------------------------------------------------------------------------------------
-  const muted = isAdmin ? 'text-slate-400' : 'text-[var(--tm-ink-muted)]';
-  const hoverBtn = isAdmin ? 'hover:bg-[#1a382a] hover:text-white' : 'hover:bg-[var(--tm-bg-sunken)] hover:text-[var(--tm-ink)]';
+  const muted = 'text-[var(--tm-ink-muted)]';
+  const hoverBtn = 'hover:bg-[var(--tm-bg-sunken)] hover:text-[var(--tm-ink)]';
   const linkTone = (active: boolean) =>
-    isAdmin
-      ? active
-        ? 'bg-[#183d2b] text-emerald-400 font-bold'
-        : 'text-slate-200 hover:bg-[#183d2b]/60 hover:text-white'
-      : active
-        ? 'bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)] font-bold'
-        : 'text-[var(--tm-ink-soft)] hover:bg-[var(--tm-bg-sunken)] hover:text-[var(--tm-ink)]';
+    active
+      ? 'bg-[var(--tm-solid)] text-[var(--tm-solid-ink)] font-bold shadow-soft-xs'
+      : 'text-[var(--tm-ink-soft)] hover:bg-[var(--tm-bg-sunken)] hover:text-[var(--tm-ink)]';
 
   const badge = (n: number) =>
     n > 0 ? (
-      <span className={`ml-1 inline-flex min-w-[20px] shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[10.5px] font-bold tabular-nums ${isAdmin ? 'bg-[#162e22] text-slate-300' : 'bg-[var(--tm-bg-sunken)] text-[var(--tm-ink-soft)]'}`} aria-label={`${n} open tasks`}>
+      <span className={`ml-1 inline-flex min-w-[20px] shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[10.5px] font-bold tabular-nums bg-[var(--tm-accent)] text-[var(--tm-accent-ink)]`} aria-label={`${n} open tasks`}>
         {n}
       </span>
     ) : null;
@@ -186,13 +184,13 @@ export const SidebarTree: React.FC<Props> = ({ isAdmin, prefix, onNavigate }) =>
   const createProject = tree?.can_create_project;
 
   return (
-    <div className="mt-6">
+    <div>
       <div className="group/row flex items-center gap-1">
         <button
           type="button"
           aria-expanded={projectsOpen}
           onClick={() => toggle('projects')}
-          className={`flex flex-1 items-center gap-1.5 rounded-full py-1.5 pl-1 pr-2 text-[10.5px] font-bold uppercase tracking-[0.14em] ${isAdmin ? 'text-emerald-500/80 hover:text-emerald-400' : 'text-[var(--tm-ink-muted)] hover:text-[var(--tm-ink)]'}`}
+          className={`flex flex-1 items-center gap-1.5 rounded-full py-1.5 pl-1 pr-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[var(--tm-ink-muted)] hover:text-[var(--tm-ink)]`}
         >
           <ChevronRight className={`h-3.5 w-3.5 transition-transform ${projectsOpen ? 'rotate-90' : ''}`} />
           Projects
@@ -213,7 +211,7 @@ export const SidebarTree: React.FC<Props> = ({ isAdmin, prefix, onNavigate }) =>
       {projectsOpen && (
         <div className="mt-1 space-y-0.5">
           {error && !tree && <p className="px-3 py-2 text-[12px] text-[var(--tm-danger)]">{error}</p>}
-          {!tree && !error && <p className={`px-3 py-2 text-[12px] ${muted}`}>Loading…</p>}
+          {!tree && !error && <SkeletonRows count={3} />}
           {tree && projects.length === 0 && <p className={`px-3 py-2 text-[12px] ${muted}`}>{createProject ? 'No projects yet. Use + to start one.' : 'You are not on any project yet.'}</p>}
 
           {projects.map((p) => {
@@ -227,9 +225,12 @@ export const SidebarTree: React.FC<Props> = ({ isAdmin, prefix, onNavigate }) =>
                 <div className="group/row flex items-center">
                   {chevron(`p:${p.id}`, p.name)}
                   <NavLink to={projectPath(p)} end onClick={onNavigate} className={({ isActive }) => `flex min-w-0 flex-1 items-center gap-2 rounded-full py-2 pl-2 pr-2 text-[13px] font-semibold ${linkTone(isActive)}`}>
-                    <Briefcase className={ICON} strokeWidth={2.1} />
+                    {expanded ? <FolderOpen className={ICON} strokeWidth={2.1} /> : <Briefcase className={ICON} strokeWidth={2.1} />}
                     <span className="flex-1 truncate">{p.name}</span>
                     {badge(p.open_tasks)}
+                    <span className="inline-flex min-w-[22px] shrink-0 items-center justify-center rounded-full bg-[var(--tm-bg-sunken)] px-1.5 py-0.5 text-[10.5px] font-bold tabular-nums text-[var(--tm-ink-soft)]" aria-label={`${subs.length} subfolders`}>
+                      {subs.length}
+                    </span>
                   </NavLink>
                   {projectCreate.length > 0 && iconButton(`Create in ${p.name}`, (el) => show(el, `Create in ${p.name}`, projectCreate), <Plus className="h-4 w-4" />)}
                   {projectManage.length > 0 && iconButton(`${p.name} options`, (el) => show(el, p.name, projectManage), <MoreHorizontal className="h-4 w-4" />)}
@@ -241,7 +242,7 @@ export const SidebarTree: React.FC<Props> = ({ isAdmin, prefix, onNavigate }) =>
                       const create = createForSubfolder(p, s);
                       const manage = manageSubfolder(p, s, subIds);
                       return (
-                        <div key={s.id} className="group/row flex items-center">
+                        <div key={s.id} className="group/row relative flex items-center before:absolute before:-left-1.5 before:top-1/2 before:h-px before:w-2.5 before:bg-[var(--tm-border-strong)]">
                           <NavLink to={subfolderPath(p, s)} onClick={onNavigate} className={({ isActive }) => `flex min-w-0 flex-1 items-center gap-2 rounded-full py-1.5 pl-3 pr-2 text-[12.5px] font-semibold ${linkTone(isActive)}`}>
                             <Folder className="h-3.5 w-3.5 shrink-0" strokeWidth={2.1} />
                             <span className="flex-1 truncate">{s.name}</span>

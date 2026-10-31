@@ -53,12 +53,12 @@ export const SubmitReviewModal: React.FC<Props> = ({ isOpen, onClose, task, onSu
   const changeFiles = (next: Asset[]) => {
     files
       .filter((a) => uploaded.current.has(a.id) && !next.some((n) => n.id === a.id))
-      .forEach((a) => assetApi.remove(a.id).catch(() => {}));
+      .forEach((a) => assetApi.remove(a.id).catch(() => { }));
     setFiles(next);
   };
 
   const close = () => {
-    if (!sent.current) uploaded.current.forEach((id) => assetApi.remove(id).catch(() => {}));
+    if (!sent.current) uploaded.current.forEach((id) => assetApi.remove(id).catch(() => { }));
     onClose();
   };
 
@@ -89,11 +89,11 @@ export const SubmitReviewModal: React.FC<Props> = ({ isOpen, onClose, task, onSu
     <Modal isOpen={isOpen} onClose={close} title="Submit for review" maxWidth="xl">
       <form onSubmit={submit} className="space-y-4">
         {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</div>
+          <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>
         )}
 
         <Textarea
-          label="Note (required)"
+          label="Note"
           rows={4}
           placeholder="What did you do, and what should the reviewer look at?"
           value={note}

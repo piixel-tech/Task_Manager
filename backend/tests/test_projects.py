@@ -322,3 +322,41 @@ async def test_overview_flags_heads_per_subfolder(client, admin, alice, bob, com
     assert rows[alice.id]["is_head"] is True  # head of a subfolder
     assert rows[bob.id]["is_head"] is False  # plain member
     assert rows[alice.id]["role"] == "employee"  # "head" is never an account role
+
+
+# --- Start date, short description, more than one company -----------------------------------------------
+async def test_start_date_and_description_are_optional_and_saved(client, admin, alice, company):
+    plain = await make_project(client, admin, company, heads=[alice])
+    assert plain["start_date"] is None and plain["description"] == "" and plain["company_ids"] == [str(company.id)]
+
+    body = payload(company, [alice], name="With extras")
+    body.update(start_date="2026-11-03", description="  Rebuild of the marketing site  ")
+    r = await client.post("/projects", json=body, headers=admin.headers)
+    assert r.status_code == 201, r.text
+    assert r.json()["start_date"] == "2026-11-03" and r.json()["description"] == "Rebuild of the marketing site"
+
+    r = await client.patch(f"/projects/{r.json()['id']}", json={"start_date": None, "description": "Short"}, headers=admin.headers)
+    assert r.status_code == 200 and r.json()["start_date"] is None and r.json()["description"] == "Short"
+
+    too_long = payload(company, [alice], name="Long")
+    too_long["description"] = "x" * 201
+    assert (await client.post("/projects", json=too_long, headers=admin.headers)).status_code == 422
+
+
+async def test_a_project_can_belong_to_several_companies(client, admin, alice, bob, company):
+    other = await Company(name="Unwork").insert()
+    body = payload(company, [alice], [bob], name="Shared")
+    body["company_ids"] = [str(other.id), str(company.id)]
+    r = await client.post("/projects", json=body, headers=admin.headers)
+    assert r.status_code == 201, r.text
+    assert r.json()["company_id"] == str(other.id) and r.json()["company_ids"] == [str(other.id), str(company.id)]
+    # members from either company see it: visibility still follows the subfolder team
+    for who in (alice, bob):
+        listed = await client.get("/projects", headers=who.headers)
+        assert [p["name"] for p in listed.json()] == ["Shared"]
+
+    r = await client.patch(f"/projects/{r.json()['id']}", json={"company_ids": [str(company.id)]}, headers=admin.headers)
+    assert r.status_code == 200 and r.json()["company_ids"] == [str(company.id)]
+    bad = payload(company, [alice], name="Bad")
+    bad["company_ids"] = [str(company.id), str(alice.user.id)]
+    assert (await client.post("/projects", json=bad, headers=admin.headers)).status_code == 422

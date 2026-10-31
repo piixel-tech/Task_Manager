@@ -213,7 +213,7 @@ export const GroupInfoModal: React.FC<Props> = ({ group, onClose }) => {
               </div>
             </div>
           )}
-          <ul className="divide-y divide-[var(--tm-border)] rounded-xl border border-[var(--tm-border)]">
+          <ul className="divide-y divide-[var(--tm-border)] rounded-[var(--tm-radius-md)] border border-[var(--tm-border)]">
             {group.members.map((u) => (
               <li key={u.id} className="flex items-center gap-3 px-3 py-2">
                 <MemberIdentity user={u} isMe={u.id === me.id} />

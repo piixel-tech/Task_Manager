@@ -34,6 +34,7 @@ export interface ApiTask {
   unresolved_changes: number;
   assignee: UserBrief | null;
   created_by: UserBrief | null;
+  start_date?: string | null;
   due_date: string | null;
   priority: ApiPriority;
   status: ApiTaskStatus;
@@ -59,6 +60,7 @@ export interface TaskInput {
   /** `description` is HTML from the rich editor. */
   html?: boolean;
   assignee_id: string;
+  start_date?: string | null;
   due_date: string | null;
   priority: ApiPriority;
   asset_ids: string[];
@@ -88,6 +90,12 @@ export const taskApi = {
   create: (input: TaskInput) => call<ApiTask>(() => api.post('/tasks', input), 'Could not create the task'),
   update: (id: string, input: Partial<Omit<TaskInput, 'subfolder_id'>>) =>
     call<ApiTask>(() => api.patch(`/tasks/${id}`, input), 'Could not save the task'),
+  /** Tasks someone else gave you that you haven't opened yet (the nav badge). */
+  unseenCount: async () => (await call<{ count: number }>(() => api.get('/tasks/unseen-count'), 'Could not load')).count,
+  markSeen: async (id: string) => {
+    await call<void>(() => api.post(`/tasks/${id}/seen`), 'Could not save');
+    window.dispatchEvent(new Event('tm:nav-counts'));
+  },
   remove: (id: string) => call<void>(() => api.delete(`/tasks/${id}`), 'Could not delete the task'),
 
   setProgress: (id: string, progress: number) =>

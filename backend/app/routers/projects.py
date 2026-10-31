@@ -15,6 +15,7 @@ from app.schemas.project import (
 )
 from app.services.projects import (
     check_clients,
+    check_companies,
     check_company,
     check_staff,
     get_project_or_404,
@@ -73,11 +74,18 @@ async def list_projects(user: User = Depends(get_current_user)) -> list[ProjectO
 async def create_project(body: ProjectCreate, user: User = Depends(get_current_user)) -> ProjectDetail:
     """Admin only: a project always starts with its first subfolder and at least one head."""
     require(user, "project.create")
-    await check_company(body.company_id)
+    companies = unique(body.company_ids) if body.company_ids else [body.company_id]
+    await check_companies(companies)
     await check_clients(body.client_ids)
 
     project = Project(
-        name=body.name.strip(), company_id=body.company_id, client_ids=unique(body.client_ids), created_by=user.id
+        name=body.name.strip(),
+        company_id=companies[0],
+        extra_company_ids=companies[1:],
+        start_date=body.start_date.isoformat() if body.start_date else None,
+        description=body.description.strip(),
+        client_ids=unique(body.client_ids),
+        created_by=user.id,
     )
     await project.insert()
     try:
@@ -113,9 +121,18 @@ async def update_project(
     project = await get_project_or_404(project_id)
     old_name, old_clients = project.name, set(project.client_ids)
 
-    if body.company_id is not None:
+    if body.company_ids is not None:
+        companies = unique(body.company_ids)
+        await check_companies(companies)
+        project.company_id, project.extra_company_ids = companies[0], companies[1:]
+    elif body.company_id is not None:
         await check_company(body.company_id)
         project.company_id = body.company_id
+        project.extra_company_ids = [c for c in project.extra_company_ids if c != body.company_id]
+    if "start_date" in body.model_fields_set:
+        project.start_date = body.start_date.isoformat() if body.start_date else None
+    if body.description is not None:
+        project.description = body.description.strip()
     if body.client_ids is not None:
         await check_clients(body.client_ids)
         project.client_ids = unique(body.client_ids)

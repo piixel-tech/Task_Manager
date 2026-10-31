@@ -26,7 +26,7 @@ export const Badge: React.FC<BadgeProps> = ({
   ...props
 }) => {
   const sizeStyles = {
-    sm: 'text-[10px] px-2 py-0.5',
+    sm: 'text-[11px] px-2 py-0.5',
     md: 'text-[11px] px-2.5 py-1'
   };
 
@@ -34,7 +34,7 @@ export const Badge: React.FC<BadgeProps> = ({
     default:
       'bg-[var(--tm-neutral-bg)] text-[var(--tm-neutral)] ring-[var(--tm-neutral-ring)]',
     primary:
-      'bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)] ring-[color-mix(in_srgb,var(--tm-primary)_18%,transparent)]',
+      'bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)] ring-[color-mix(in_srgb,var(--tm-primary-light)_55%,transparent)]',
     success:
       'bg-[var(--tm-success-bg)] text-[var(--tm-success)] ring-[var(--tm-success-ring)]',
     warning:
@@ -43,8 +43,8 @@ export const Badge: React.FC<BadgeProps> = ({
     info: 'bg-[var(--tm-info-bg)] text-[var(--tm-info)] ring-[var(--tm-info-ring)]',
     piixel:
       'bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)] ring-[color-mix(in_srgb,var(--tm-primary)_18%,transparent)]',
-    unwork: 'bg-[#fdf1dc] text-[#8a5b06] ring-[#f6dfb4]',
-    both: 'bg-[#eee7f6] text-[#55327e] ring-[#ddd0ee]'
+    unwork: 'bg-[var(--tm-warning-bg)] text-[var(--tm-warning)] ring-[var(--tm-warning-ring)]',
+    both: 'bg-[var(--tm-info-bg)] text-[var(--tm-info)] ring-[var(--tm-info-ring)]'
   };
 
   return (

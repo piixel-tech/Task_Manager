@@ -4,6 +4,7 @@ import { PageHeader } from '../../../components/ui/PageHeader';
 import { Select } from '../../../components/ui/Select';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { SkeletonGrid } from '../../../components/ui/Skeleton';
+import { FadeIn } from '../../../components/ui/FadeIn';
 import { portalApi, type PortalProject } from '../../../services/http/portalApi';
 import { RequirementsPanel } from '../../requirements/components/RequirementsPanel';
 
@@ -28,20 +29,20 @@ export const ClientRequirementsPage: React.FC = () => {
   return (
     <>
       <PageHeader title="Requirements" description="A running record of what you have asked for. Add to it any time; the team sees it straight away." />
-      {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</div>}
+      {error && <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>}
       {!projects ? (
         error ? null : <SkeletonGrid count={2} />
       ) : !project ? (
-        <EmptyState icon={<ClipboardList className="h-6 w-6 text-[var(--tm-primary)]" />} title="No project yet" description="Once you are added to a project you can record your requirements here." />
+        <EmptyState icon={<ClipboardList className="h-6 w-6 text-[var(--tm-primary-dark)]" />} title="No project yet" description="Once you are added to a project you can record your requirements here." />
       ) : (
-        <>
+        <FadeIn>
           {projects.length > 1 && (
             <div className="sm:w-72">
               <Select label="Project" value={projectId} onChange={(e) => setProjectId(e.target.value)} options={projects.map((p) => ({ value: p.id, label: p.name }))} />
             </div>
           )}
           <RequirementsPanel key={project.id} projectId={project.id} subfolders={project.subfolders} />
-        </>
+        </FadeIn>
       )}
     </>
   );

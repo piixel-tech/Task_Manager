@@ -1,17 +1,19 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardCheck } from 'lucide-react';
-import { Card, CardContent } from '../../../components/ui/Card';
+import { CheckCheck, ClipboardCheck, Inbox, RotateCcw } from 'lucide-react';
+import { StatCard } from '../../../components/ui/StatCard';
+import { FilterBar } from '../../../components/ui/FilterBar';
+import { DetailCard, MasterDetail, MasterRow, SubCard, SubGrid, useMasterSelection } from '../../../components/ui/MasterDetail';
 import { Avatar } from '../../../components/ui/Avatar';
 import { PersonLink } from '../../../components/ui/PersonLink';
 import { PageHeader } from '../../../components/ui/PageHeader';
-import { PillTabs } from '../../../components/ui/PillTabs';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { SkeletonGrid } from '../../../components/ui/Skeleton';
 import { useAuthStore } from '../../../store/authStore';
 import { socket } from '../../../services/socket';
 import { reviewApi, type Review } from '../../../services/http/reviewApi';
 import { formatDate } from '../../../utils/time';
+import { dailyCounts, weekTrend } from '../../../utils/trend';
 import { DecisionPill, SubmissionFiles } from '../components/ReviewRounds';
 import { ReviewActions } from '../components/ReviewActions';
 
@@ -28,6 +30,12 @@ export const ReviewsPage: React.FC = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [quick, setQuick] = useState<'' | 'waiting' | 'resub'>('');
+  const visible = useMemo(
+    () => (quick === 'waiting' ? reviews.filter((r) => r.can_decide) : quick === 'resub' ? reviews.filter((r) => r.round > 1) : reviews),
+    [reviews, quick]
+  );
+  const { selected, open, select, back } = useMasterSelection(visible);
 
   const load = useCallback(async () => {
     try {
@@ -64,80 +72,141 @@ export const ReviewsPage: React.FC = () => {
         }
       />
 
-      <PillTabs
-        activeTab={tab}
-        onChange={(t) => setTab(t as Tab)}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="In this list"
+          onClick={() => setQuick('')}
+          value={reviews.length}
+          icon={<Inbox className="h-5 w-5" />}
+          tone="primary"
+          hint={tab === 'pending' ? 'Submissions waiting' : 'Decisions made'}
+          {...weekTrend(dailyCounts(reviews, (r) => r.created_at, 14))}
+        />
+        <StatCard onClick={() => { setTab('pending'); setQuick('waiting'); }} label="Waiting on you" value={reviews.filter((r) => r.can_decide).length} icon={<ClipboardCheck className="h-5 w-5" />} tone="warn" hint="You can decide these now" />
+        <StatCard onClick={() => setQuick('resub')} label="Resubmissions" value={reviews.filter((r) => r.round > 1).length} icon={<RotateCcw className="h-5 w-5" />} tone="neutral" hint="Round 2 or later" />
+        <StatCard
+          label="Decided"
+          onClick={() => {
+            setQuick('');
+            setTab('decided');
+          }}
+          value={reviews.filter((r) => r.decision !== 'pending').length}
+          icon={<CheckCheck className="h-5 w-5" />}
+          tone="ok"
+          hint="Approved or sent back"
+          trend={dailyCounts(reviews, (r) => r.decided_at, 7)}
+          trendKind="line"
+        />
+      </div>
+
+      {quick && (
+        <FilterBar
+          activeCount={1}
+          onClear={() => setQuick('')}
+          chips={[{ key: 'quick', label: quick === 'waiting' ? 'Waiting on you' : 'Resubmissions', onRemove: () => setQuick('') }]}
+        >
+          <span />
+        </FilterBar>
+      )}
+
+      {error && (
+        <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>
+      )}
+
+      <MasterDetail
         tabs={[
           { id: 'pending', label: 'Pending' },
           { id: 'decided', label: 'Decided' }
         ]}
-      />
-
-      {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</div>
-      )}
-
-      {loading ? (
-        <SkeletonGrid count={3} />
-      ) : reviews.length === 0 ? (
-        <EmptyState
-          icon={<ClipboardCheck className="h-6 w-6 text-[var(--tm-primary)]" />}
-          title={tab === 'pending' ? 'Nothing to review' : 'No decisions yet'}
-          description={
-            tab === 'pending' ? 'When someone submits work to you, it shows up here.' : 'Approved and sent-back reviews appear here.'
-          }
-        />
-      ) : (
-        <div className="space-y-4">
-          {reviews.map((r) => (
-            <Card key={r.id} animate={false}>
-              <CardContent className="space-y-4 pt-6">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <button
-                      type="button"
-                      onClick={() => navigate(`${prefix}/tasks/${r.task_id}`)}
-                      className="truncate text-left text-[15.5px] font-bold text-[var(--tm-ink)] hover:text-[var(--tm-primary)] hover:underline"
-                    >
-                      {r.task_title}
-                    </button>
-                    <p className="mt-0.5 text-[12px] text-[var(--tm-ink-muted)]">
-                      {r.project_name} › {r.subfolder_name} · Round {r.round}
-                    </p>
-                  </div>
-                  <DecisionPill decision={r.decision} />
-                </div>
-
-                <div className="space-y-2 text-[13px]">
-                  <p className="flex flex-wrap items-center gap-2 text-[var(--tm-ink-muted)]">
-                    {r.submitted_by && (
-                      <PersonLink userId={r.submitted_by.id} className="inline-flex items-center gap-1.5 font-semibold text-[var(--tm-ink)]">
-                        <Avatar name={r.submitted_by.name} src={r.submitted_by.avatar_url ?? undefined} size="xs" />
-                        {r.submitted_by.name}
+        activeTab={tab}
+        onTabChange={(t) => setTab(t as Tab)}
+        detailOpen={open}
+        onBack={back}
+        list={
+          loading ? (
+            <SkeletonGrid count={3} />
+          ) : visible.length === 0 ? (
+            <p className="px-3 py-6 text-center text-[13px] text-[var(--tm-ink-muted)]">
+              {tab === 'pending' ? 'Nothing to review' : 'No decisions yet'}
+            </p>
+          ) : (
+            visible.map((r) => (
+              <MasterRow
+                key={r.id}
+                selected={r.id === selected?.id}
+                onSelect={() => select(r.id)}
+                avatar={r.submitted_by && <Avatar name={r.submitted_by.name} src={r.submitted_by.avatar_url ?? undefined} size="md" />}
+                title={r.task_title}
+                subtitle={`${r.project_name} › ${r.subfolder_name} · Round ${r.round}`}
+                chip={<DecisionPill decision={r.decision} />}
+              />
+            ))
+          )
+        }
+        detail={
+          loading ? null : !selected ? (
+            <EmptyState
+              icon={<ClipboardCheck className="h-6 w-6 text-[var(--tm-primary-dark)]" />}
+              title={tab === 'pending' ? 'Nothing to review' : 'No decisions yet'}
+              description={
+                tab === 'pending' ? 'When someone submits work to you, it shows up here.' : 'Approved and sent-back reviews appear here.'
+              }
+            />
+          ) : (
+            <DetailCard
+              title={
+                <button
+                  type="button"
+                  onClick={() => navigate(`${prefix}/tasks/${selected.task_id}`)}
+                  className="text-left hover:underline"
+                >
+                  {selected.task_title}
+                </button>
+              }
+              subtitle={`${selected.project_name} › ${selected.subfolder_name} · Round ${selected.round}`}
+              badges={<DecisionPill decision={selected.decision} />}
+            >
+              <SubGrid>
+                <SubCard title="Submitted by">
+                  <p className="flex flex-wrap items-center gap-2 text-[13px] text-[var(--tm-ink-muted)]">
+                    {selected.submitted_by && (
+                      <PersonLink userId={selected.submitted_by.id} className="inline-flex items-center gap-1.5 font-semibold text-[var(--tm-ink)]">
+                        <Avatar name={selected.submitted_by.name} src={selected.submitted_by.avatar_url ?? undefined} size="xs" />
+                        {selected.submitted_by.name}
                       </PersonLink>
                     )}
-                    submitted {formatDate(r.created_at, 'MMM d, h:mm a')}
-                    {isAdmin && r.approver && <span>· for {r.approver.name}</span>}
+                    {formatDate(selected.created_at, 'MMM d, h:mm a')}
                   </p>
-                  <p className="whitespace-pre-wrap leading-relaxed text-[var(--tm-ink-soft)]">{r.note}</p>
-                  <SubmissionFiles files={r.files} />
-                </div>
-
-                {r.decision !== 'pending' && (
-                  <p className="text-[12.5px] text-[var(--tm-ink-muted)]">
-                    <strong className="text-[var(--tm-ink)]">{r.decided_by?.name ?? 'Someone'}</strong>{' '}
-                    {r.decision === 'approved' ? 'approved' : 'requested changes'}
-                    {r.decided_at && ` · ${formatDate(r.decided_at, 'MMM d, h:mm a')}`}
-                    {r.comments && <span className="mt-1 block whitespace-pre-wrap text-[var(--tm-ink-soft)]">{r.comments}</span>}
-                  </p>
+                  {isAdmin && selected.approver && (
+                    <p className="mt-2 text-[12.5px] text-[var(--tm-ink-muted)]">For {selected.approver.name}</p>
+                  )}
+                </SubCard>
+                {selected.decision !== 'pending' && (
+                  <SubCard title="Decision">
+                    <p className="text-[12.5px] text-[var(--tm-ink-muted)]">
+                      <strong className="text-[var(--tm-ink)]">{selected.decided_by?.name ?? 'Someone'}</strong>{' '}
+                      {selected.decision === 'approved' ? 'approved' : 'requested changes'}
+                      {selected.decided_at && ` · ${formatDate(selected.decided_at, 'MMM d, h:mm a')}`}
+                      {selected.comments && (
+                        <span className="mt-1 block whitespace-pre-wrap text-[var(--tm-ink-soft)]">{selected.comments}</span>
+                      )}
+                    </p>
+                  </SubCard>
                 )}
-
-                {r.can_decide && <ReviewActions review={r} onDone={load} />}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+                <SubCard title="Note" span>
+                  <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--tm-ink-soft)]">{selected.note}</p>
+                  <SubmissionFiles files={selected.files} />
+                </SubCard>
+                {selected.can_decide && (
+                  <SubCard title="Your decision" span>
+                    <ReviewActions review={selected} onDone={load} />
+                  </SubCard>
+                )}
+              </SubGrid>
+            </DetailCard>
+          )
+        }
+      />
     </>
   );
 };

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ExternalLink, FileText, Film } from 'lucide-react';
 import { AuthImage } from '../../../components/ui/AuthImage';
 import { Button } from '../../../components/ui/Button';
+import { SkeletonRows } from '../../../components/ui/Skeleton';
 import { PillTabs } from '../../../components/ui/PillTabs';
 import { assetApi } from '../../../services/http/taskApi';
 import { toast } from '../../../store/useToastStore';
@@ -86,8 +87,8 @@ export const SharedTabs: React.FC<Props> = ({ groupId, onOpenMessage }) => {
         ]}
       />
 
-      {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</p>}
-      {loading && files.length + links.length === 0 && <p className="py-6 text-center text-[13px] text-[var(--tm-ink-muted)]">Loading…</p>}
+      {error && <p className="tm-error px-4 py-3 text-xs font-semibold">{error}</p>}
+      {loading && files.length + links.length === 0 && <SkeletonRows count={4} />}
       {empty && (
         <p className="py-6 text-center text-[13px] text-[var(--tm-ink-muted)]">
           {kind === 'media' ? 'No photos or videos yet.' : kind === 'docs' ? 'No documents yet.' : 'No links yet.'}
@@ -97,7 +98,7 @@ export const SharedTabs: React.FC<Props> = ({ groupId, onOpenMessage }) => {
       {kind === 'media' && files.length > 0 && (
         <ul className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
           {files.map((m) => (
-            <li key={m.id} className="group/tile relative aspect-square overflow-hidden rounded-xl bg-[var(--tm-bg-sunken)]">
+            <li key={m.id} className="group/tile relative aspect-square overflow-hidden rounded-[var(--tm-radius-sm)] bg-[var(--tm-bg-sunken)]">
               <button type="button" aria-label={`Show ${m.file?.name ?? 'media'} in the chat`} onClick={() => onOpenMessage(m.id)} className="h-full w-full">
                 {m.file?.mime.startsWith('image/') ? (
                   <AuthImage url={m.file.url} alt={m.file.name} className="h-full w-full object-cover" />
@@ -108,7 +109,7 @@ export const SharedTabs: React.FC<Props> = ({ groupId, onOpenMessage }) => {
                 )}
               </button>
               {m.file && !m.file.mime.startsWith('image/') && (
-                <button type="button" onClick={() => open(m)} className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-1.5 py-1 text-left text-[10.5px] font-semibold text-white">
+                <button type="button" onClick={() => open(m)} className="absolute inset-x-0 bottom-0 truncate bg-[var(--tm-solid)]/70 px-2 py-1.5 text-left text-[10.5px] font-semibold text-[var(--tm-solid-ink)] backdrop-blur-sm">
                   {m.file.name}
                 </button>
               )}
@@ -118,10 +119,10 @@ export const SharedTabs: React.FC<Props> = ({ groupId, onOpenMessage }) => {
       )}
 
       {kind === 'docs' && files.length > 0 && (
-        <ul className="divide-y divide-[var(--tm-border)] rounded-xl border border-[var(--tm-border)]">
+        <ul className="divide-y divide-[var(--tm-border)] rounded-[var(--tm-radius-md)] border border-[var(--tm-border)]">
           {files.map((m) => (
             <li key={m.id} className="flex items-center gap-3 px-3 py-2.5">
-              <FileText className="h-6 w-6 shrink-0 text-[var(--tm-primary)]" />
+              <FileText className="h-6 w-6 shrink-0 text-[var(--tm-primary-dark)]" />
               <button type="button" onClick={() => open(m)} className="min-w-0 flex-1 text-left">
                 <span className="block truncate text-[13.5px] font-bold text-[var(--tm-ink)]">{m.file?.name}</span>
                 <span className="text-[11.5px] text-[var(--tm-ink-muted)]">
@@ -137,13 +138,13 @@ export const SharedTabs: React.FC<Props> = ({ groupId, onOpenMessage }) => {
       )}
 
       {kind === 'links' && links.length > 0 && (
-        <ul className="divide-y divide-[var(--tm-border)] rounded-xl border border-[var(--tm-border)]">
+        <ul className="divide-y divide-[var(--tm-border)] rounded-[var(--tm-radius-md)] border border-[var(--tm-border)]">
           {links.map((l) => (
             <li key={`${l.message_id}-${l.url}`} className="flex items-center gap-3 px-3 py-2.5">
-              <ExternalLink className="h-5 w-5 shrink-0 text-[var(--tm-primary)]" />
+              <ExternalLink className="h-5 w-5 shrink-0 text-[var(--tm-primary-dark)]" />
               <a href={l.url} target="_blank" rel="noopener noreferrer nofollow" className="min-w-0 flex-1">
                 <span className="block truncate text-[13.5px] font-bold text-[var(--tm-ink)]">{l.title || host(l.url)}</span>
-                <span className="block truncate text-[11.5px] text-[var(--tm-primary)]">{l.url}</span>
+                <span className="block truncate text-[11.5px] text-[var(--tm-primary-dark)]">{l.url}</span>
                 <span className="text-[11.5px] text-[var(--tm-ink-muted)]">
                   {l.sender?.name ?? 'Former member'} · {when(l.created_at)}
                 </span>

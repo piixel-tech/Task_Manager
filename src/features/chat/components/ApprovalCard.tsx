@@ -78,7 +78,7 @@ export const ApprovalCard: React.FC<Props> = ({ reminder, approval: a, canAnswer
               <button
                 type="button"
                 onClick={() => open(f)}
-                className="flex w-full items-center gap-2 rounded-xl bg-black/5 px-2.5 py-2 text-left text-[12.5px] font-semibold hover:bg-black/10 dark:bg-white/10"
+                className="flex w-full items-center gap-2 rounded-full bg-[var(--tm-card-muted)] px-3.5 py-2 text-left text-[12.5px] font-semibold hover:bg-[var(--tm-bg-sunken)]"
               >
                 {f.kind === 'link' ? <Link2 className="h-4 w-4 shrink-0" /> : <FileText className="h-4 w-4 shrink-0" />}
                 <span className="truncate">{f.name}</span>
@@ -88,7 +88,7 @@ export const ApprovalCard: React.FC<Props> = ({ reminder, approval: a, canAnswer
         </ul>
       )}
 
-      <div className={`flex items-start gap-2 rounded-xl px-3 py-2 text-[12.5px] font-semibold ${status.tone}`} role="status">
+      <div className={`flex items-start gap-2 rounded-[var(--tm-radius-sm)] px-3 py-2 text-[12.5px] font-semibold ${status.tone}`} role="status">
         <Icon className="mt-0.5 h-4 w-4 shrink-0" />
         <div className="min-w-0">
           <p>
@@ -121,7 +121,7 @@ export const ApprovalCard: React.FC<Props> = ({ reminder, approval: a, canAnswer
 
       <Modal isOpen={rejecting} onClose={() => setRejecting(false)} title={a.reject_label} description="Tell the team what needs to change." maxWidth="md">
         <form onSubmit={submitRejection} className="space-y-4">
-          <p className="rounded-xl bg-[var(--tm-card-muted)] p-3 text-[13px] text-[var(--tm-ink-soft)]">{a.question}</p>
+          <p className="rounded-[var(--tm-radius-sm)] bg-[var(--tm-card-muted)] p-3.5 text-[13px] text-[var(--tm-ink-soft)]">{a.question}</p>
           <div>
             <label htmlFor={`reason-${a.id}`} className="mb-1.5 block text-[12.5px] font-bold text-[var(--tm-ink-soft)]">
               Reason (required)

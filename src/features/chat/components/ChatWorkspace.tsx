@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { MessageSquare } from 'lucide-react';
+import { ChatInfoPanel } from './ChatInfoPanel';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { useAuthStore } from '../../../store/authStore';
 import { useChatStore } from '../../../store/useChatStore';
@@ -16,7 +17,7 @@ import { NewGroupModal } from './NewGroupModal';
  */
 export const ChatWorkspace: React.FC<{ canCreate: boolean; heightClass?: string }> = ({
   canCreate,
-  heightClass = 'h-[calc(100dvh-13rem)]'
+  heightClass = 'h-[calc(100dvh-10.5rem)]'
 }) => {
   const me = useAuthStore((s) => s.user)!;
   const groups = useChatStore((s) => s.groups);
@@ -27,6 +28,7 @@ export const ChatWorkspace: React.FC<{ canCreate: boolean; heightClass?: string 
   const [params, setParams] = useSearchParams();
   const [creating, setCreating] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(true);
   const [search, setSearch] = useState<null | 'all' | 'mentions'>(null);
 
   const active = groups.find((g) => g.id === activeId) ?? null;
@@ -67,21 +69,21 @@ export const ChatWorkspace: React.FC<{ canCreate: boolean; heightClass?: string 
   return (
     <>
       <div
-        className={`flex ${heightClass} min-h-[440px] overflow-hidden rounded-[var(--tm-radius-xl)] border border-[var(--tm-border)] bg-[var(--tm-card)] shadow-soft-xs`}
+        className={`flex ${heightClass} min-h-[440px] gap-4`}
       >
-        <aside className={`${active ? 'hidden lg:block' : 'block'} w-full shrink-0 border-r border-[var(--tm-border)] lg:w-[340px]`}>
+        <aside className={`${active ? 'hidden lg:block' : 'block'} w-full shrink-0 overflow-hidden rounded-[24px] bg-[var(--tm-card)] p-3 shadow-soft lg:w-[320px]`}>
           <GroupList groups={groups} loaded={loaded} activeId={activeId} meId={me.id} onSelect={select} onNew={canCreate ? () => setCreating(true) : undefined}
             onSearch={() => setSearch('all')}
             onMentions={() => setSearch('mentions')}
           />
         </aside>
 
-        <section className={`${active ? 'block' : 'hidden lg:flex'} min-w-0 flex-1 lg:items-center lg:justify-center`}>
+        <section className={`${active ? 'block' : 'hidden lg:flex'} min-w-0 flex-1 overflow-hidden rounded-[24px] bg-[var(--tm-card)] shadow-soft lg:items-center lg:justify-center`}>
           {active ? (
-            <Conversation group={active} onBack={() => select(null)} onInfo={() => setShowInfo(true)} />
+            <Conversation group={active} onBack={() => select(null)} onInfo={() => setShowInfo(true)} panelOpen={panelOpen} onTogglePanel={() => setPanelOpen((o) => !o)} />
           ) : (
             <EmptyState
-              icon={<MessageSquare className="h-6 w-6 text-[var(--tm-primary)]" />}
+              icon={<MessageSquare className="h-6 w-6 text-[var(--tm-primary-dark)]" />}
               title="Pick a conversation"
               description={canCreate ? 'Choose a group on the left, or start a new one.' : 'Choose a conversation on the left.'}
               actionLabel={canCreate ? 'New group' : undefined}
@@ -89,6 +91,12 @@ export const ChatWorkspace: React.FC<{ canCreate: boolean; heightClass?: string 
             />
           )}
         </section>
+
+        {active && panelOpen && (
+          <aside className="hidden w-[320px] shrink-0 overflow-hidden rounded-[24px] bg-[var(--tm-card)] shadow-soft xl:block">
+            <ChatInfoPanel group={active} meId={me.id} onManage={() => setShowInfo(true)} />
+          </aside>
+        )}
       </div>
 
       {canCreate && (

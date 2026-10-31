@@ -71,6 +71,7 @@ export const TaskFormModal: React.FC<Props> = ({ isOpen, onClose, task, defaultP
   const descEditor = useRef<RichEditorHandle>(null);
   const [descEmpty, setDescEmpty] = useState(true);
   const [assigneeId, setAssigneeId] = useState('');
+  const [startDate, setStartDate] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [priority, setPriority] = useState<ApiPriority>('medium');
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -88,6 +89,7 @@ export const TaskFormModal: React.FC<Props> = ({ isOpen, onClose, task, defaultP
     setTitle(task?.title ?? prefill?.title ?? '');
     setDescEmpty(!task && !prefill?.description);
     setAssigneeId(task?.assignee?.id ?? me?.id ?? '');
+    setStartDate(task?.start_date ?? '');
     setDueDate(task?.due_date ?? '');
     setPriority(task?.priority ?? 'medium');
     setAssets(task?.assets ?? []);
@@ -95,7 +97,7 @@ export const TaskFormModal: React.FC<Props> = ({ isOpen, onClose, task, defaultP
     setSubfolderId(task?.subfolder_id ?? prefill?.subfolderId ?? defaultSubfolderId ?? '');
 
     projectApi.list().then(setProjects).catch((e) => setError(e.message));
-    if (isAdmin) projectApi.directory().then(setDirectory).catch(() => {});
+    if (isAdmin) projectApi.directory().then(setDirectory).catch(() => { });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, task, prefill, defaultSubfolderId]);
 
@@ -142,12 +144,12 @@ export const TaskFormModal: React.FC<Props> = ({ isOpen, onClose, task, defaultP
     // Something uploaded in this session and then removed is deleted right away.
     assets
       .filter((a) => uploaded.current.has(a.id) && !next.some((n) => n.id === a.id))
-      .forEach((a) => assetApi.remove(a.id).catch(() => {}));
+      .forEach((a) => assetApi.remove(a.id).catch(() => { }));
     setAssets(next);
   };
 
   const close = () => {
-    if (!saved.current) uploaded.current.forEach((id) => assetApi.remove(id).catch(() => {}));
+    if (!saved.current) uploaded.current.forEach((id) => assetApi.remove(id).catch(() => { }));
     onClose();
   };
 
@@ -164,6 +166,7 @@ export const TaskFormModal: React.FC<Props> = ({ isOpen, onClose, task, defaultP
       description: descEditor.current.html(),
       html: true,
       assignee_id: assigneeId,
+      start_date: startDate || (task ? '' : null),
       due_date: dueDate || null,
       priority,
       asset_ids: assets.map((a) => a.id)
@@ -185,7 +188,7 @@ export const TaskFormModal: React.FC<Props> = ({ isOpen, onClose, task, defaultP
       // Attachments dropped from an existing task: clean them up (best effort, owner/admin only).
       (task?.assets ?? [])
         .filter((a) => !assets.some((x) => x.id === a.id))
-        .forEach((a) => assetApi.remove(a.id).catch(() => {}));
+        .forEach((a) => assetApi.remove(a.id).catch(() => { }));
       onSaved(result);
       onClose();
     }
@@ -195,7 +198,7 @@ export const TaskFormModal: React.FC<Props> = ({ isOpen, onClose, task, defaultP
     <Modal isOpen={isOpen} onClose={close} title={task ? 'Edit task' : 'New task'} maxWidth="xl">
       <form onSubmit={submit} className="space-y-4">
         {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</div>
+          <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>
         )}
 
         {task ? (
@@ -226,7 +229,7 @@ export const TaskFormModal: React.FC<Props> = ({ isOpen, onClose, task, defaultP
 
         <Input label="Title" placeholder="e.g. Write homepage copy" value={title} onChange={(e) => setTitle(e.target.value)} required />
         <div>
-          <span className="mb-1.5 block text-[12.5px] font-bold text-[var(--tm-ink-soft)]">Description (required)</span>
+          <span className="mb-1.5 block text-[12.5px] font-bold text-[var(--tm-ink-soft)]">Description</span>
           <RichEditor
             key={`${task?.id ?? 'new'}-${prefill?.messageId ?? ''}-${isOpen}`}
             ref={descEditor}
@@ -240,13 +243,14 @@ export const TaskFormModal: React.FC<Props> = ({ isOpen, onClose, task, defaultP
           {prefill?.fileName && <p className="mt-1.5 text-[12px] text-[var(--tm-ink-muted)]">“{prefill.fileName}” from the message is attached to the task.</p>}
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Select
             label="Assignee"
             value={assigneeId}
             onChange={(e) => setAssigneeId(e.target.value)}
             options={assignees.length ? assignees.map((a) => ({ value: a.id, label: a.id === me?.id ? `${a.name} (me)` : a.name })) : [{ value: '', label: 'Pick a subfolder first' }]}
           />
+          <Input label="Start date" type="date" value={startDate} max={dueDate || undefined} onChange={(e) => setStartDate(e.target.value)} />
           <Input label="Due date" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           <Select
             label="Priority"

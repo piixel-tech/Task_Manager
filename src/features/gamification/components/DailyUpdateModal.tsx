@@ -96,8 +96,8 @@ export const DailyUpdateModal: React.FC<DailyUpdateModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Submit Daily Update Summary">
       <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-        <div className="bg-[var(--tm-primary-softer)] border border-[var(--tm-primary-soft)] p-3 rounded-xl flex items-start gap-2 text-[var(--tm-primary-dark)]">
-          <Sparkles className="w-4 h-4 text-[var(--tm-primary)] mt-0.5 shrink-0" />
+        <div className="bg-[var(--tm-primary-softer)] border border-[var(--tm-primary-soft)] p-3 rounded-[var(--tm-radius-sm)] flex items-start gap-2 text-[var(--tm-primary-dark)]">
+          <Sparkles className="w-4 h-4 text-[var(--tm-primary-dark)] mt-0.5 shrink-0" />
           <p>
             Auto-generated summary based on your logged tasks today. You can edit this text before posting to the Admin's Daily Updates feed.
           </p>
@@ -110,7 +110,7 @@ export const DailyUpdateModal: React.FC<DailyUpdateModalProps> = ({
             value={summaryText}
             onChange={(e) => setSummaryText(e.target.value)}
             disabled={loading}
-            className="w-full px-3 py-2 border border-[var(--tm-border-strong)] rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--tm-primary)] focus:border-[var(--tm-primary)] text-[var(--tm-ink)]"
+            className="w-full px-3 py-2 border border-[var(--tm-border-strong)] rounded-[var(--tm-radius-sm)] focus:outline-none focus:ring-2 focus:ring-[var(--tm-primary)] focus:border-[var(--tm-primary)] text-[var(--tm-ink)]"
             placeholder="Write or edit your daily summary..."
           />
         </div>

@@ -5,6 +5,7 @@ import {
   Briefcase,
   CheckSquare,
   CornerDownLeft,
+  Layers,
   Search,
   Users as UsersIcon
 } from 'lucide-react';
@@ -15,7 +16,7 @@ import { backdropVariants, modalVariants } from '../ui/motion';
 import { StatusChip } from '../ui/StatusChip';
 import { Avatar } from '../ui/Avatar';
 
-type ResultKind = 'task' | 'project' | 'person';
+type ResultKind = 'task' | 'project' | 'person' | 'page';
 
 interface Result {
   id: string;
@@ -32,10 +33,22 @@ export interface CommandPaletteProps {
   onClose: () => void;
 }
 
+/** Clients search only the portal pages they can open. */
+const CLIENT_PAGES: Result[] = [
+  { id: 'home', label: 'Home', path: '/client/home' },
+  { id: 'chats', label: 'Chats', path: '/client/chats' },
+  { id: 'approvals', label: 'Approvals', path: '/client/approvals' },
+  { id: 'deliverables', label: 'Deliverables', path: '/client/deliverables' },
+  { id: 'requirements', label: 'Requirements', path: '/client/requirements' },
+  { id: 'meetings', label: 'Book a meeting', path: '/client/meetings' },
+  { id: 'settings', label: 'Settings', path: '/client/settings' }
+].map(({ id, label, path }) => ({ id, kind: 'page' as const, title: label, path }));
+
 const kindMeta: Record<ResultKind, { label: string; icon: React.ElementType }> = {
   task: { label: 'Tasks', icon: CheckSquare },
   project: { label: 'Projects', icon: Briefcase },
-  person: { label: 'People', icon: UsersIcon }
+  person: { label: 'People', icon: UsersIcon },
+  page: { label: 'Pages', icon: Layers }
 };
 
 /**
@@ -52,11 +65,16 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
   const [loading, setLoading] = useState(false);
 
   const isAdmin = user?.role === 'admin';
+  const isClient = user?.role === 'client';
   const prefix = isAdmin ? '/admin' : '/app';
 
   // Load the searchable set once the palette opens.
   useEffect(() => {
     if (!isOpen || !user) return;
+    if (isClient) {
+      setResults(CLIENT_PAGES);
+      return;
+    }
 
     let alive = true;
     setLoading(true);
@@ -107,7 +125,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
     return () => {
       alive = false;
     };
-  }, [isOpen, user, isAdmin, prefix]);
+  }, [isOpen, user, isAdmin, isClient, prefix]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -181,7 +199,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
             animate="show"
             exit="exit"
             onClick={onClose}
-            className="absolute inset-0 bg-[rgba(22,33,28,0.34)] backdrop-blur-[4px]"
+            className="absolute inset-0 bg-[var(--tm-scrim)] backdrop-blur-[6px]"
           />
 
           <motion.div
@@ -192,8 +210,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
             initial={reduced ? 'show' : 'hidden'}
             animate="show"
             exit={reduced ? 'show' : 'exit'}
-            className="relative z-10 flex max-h-[70vh] w-full max-w-xl flex-col overflow-hidden
-              rounded-[var(--tm-radius-xl)] bg-[var(--tm-card)] shadow-soft-lg"
+            className="glass-strong relative z-10 flex max-h-[70vh] w-full max-w-xl flex-col overflow-hidden
+              rounded-[var(--tm-radius-xl)]"
           >
             <div className="flex items-center gap-3 border-b border-[var(--tm-border)] px-5 py-4">
               <Search className="h-[18px] w-[18px] shrink-0 text-[var(--tm-ink-muted)]" />
@@ -202,11 +220,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
                 autoFocus
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search tasks, projects, people…"
+                placeholder={isClient ? 'Search pages…' : 'Search tasks, projects, people…'}
                 className="flex-1 bg-transparent text-[15px] text-[var(--tm-ink)] outline-none
                   placeholder:text-[var(--tm-ink-muted)]"
               />
-              <kbd className="rounded-md bg-[var(--tm-bg-sunken)] px-2 py-1 text-[10px] font-bold text-[var(--tm-ink-muted)]">
+              <kbd className="rounded-[var(--tm-radius-sm)]bg-[var(--tm-bg-sunken)] px-2 py-1 text-[10px] font-bold text-[var(--tm-ink-muted)]">
                 ESC
               </kbd>
             </div>

@@ -85,7 +85,7 @@ export const ClientJoinPage: React.FC = () => {
     body = (
       <div className="space-y-6">
         <div className="space-y-2 text-center">
-          <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)]">
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-[var(--tm-radius-md)] bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)]">
             <MessageSquare className="h-6 w-6" />
           </span>
           <h1 className="text-xl font-extrabold text-[var(--tm-ink)]">Join “{preview.group_name}”</h1>
@@ -101,7 +101,7 @@ export const ClientJoinPage: React.FC = () => {
           </p>
         </div>
 
-        {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700" role="alert">{error}</div>}
+        {error && <div className="tm-error px-4 py-3 text-xs font-semibold" role="alert">{error}</div>}
 
         {user && user.role === 'client' ? (
           <div className="space-y-3 text-center">

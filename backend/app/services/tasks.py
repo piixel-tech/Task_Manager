@@ -166,6 +166,7 @@ async def task_outs(tasks: list[Task], viewer: User) -> list[TaskOut]:
                 else None,
                 assignee=brief(people[t.assignee_id]) if t.assignee_id in people else None,
                 created_by=brief(people[t.created_by]) if t.created_by in people else None,
+                start_date=t.start_date,
                 due_date=t.due_date,
                 priority=t.priority,
                 status=t.status,

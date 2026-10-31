@@ -1,110 +1,110 @@
 /* ==========================================================================
-   Task Manager — Design System tokens
-   Soft-grey canvas, white cards, deep forest green primary.
-   Accent themes (Forest / Ocean / Plum / Ember) swap the --primary ramp only;
-   status colours stay semantically fixed.
+   Task Manager — Design System tokens (see DESIGN.md)
+   Lavender canvas, very large radii, charcoal pill / circle controls under a
+   top header with a charcoal nav pill. One palette for admin, employee and client.
    ========================================================================== */
 
 :root {
   /* --- Canvas & surfaces --- */
-  --tm-bg: #f4f5f4;
-  --tm-bg-sunken: #eceeec;
+  --tm-bg: #f3f1f6;
+  --tm-bg-sunken: #eae7f0;
   --tm-card: #ffffff;
-  --tm-card-muted: #fafbfa;
-  --tm-border: #e6e8e6;
-  --tm-border-strong: #d6dad6;
+  --tm-card-muted: #f7f5fa;
+  --tm-border: #e6e2ee;
+  --tm-border-strong: #cfcad9;
 
   /* --- Ink --- */
-  --tm-ink: #16211c;
-  --tm-ink-soft: #5c6b63;
-  --tm-ink-muted: #6b7a72;
+  --tm-ink: #2a2933;
+  --tm-ink-soft: #3e3d4a;
+  --tm-ink-muted: #7b7986;
   --tm-ink-invert: #ffffff;
 
-  /* --- Primary ramp: Forest (default accent) --- */
-  --tm-primary: #1f5f3f;
-  --tm-primary-dark: #0f3d27;
-  --tm-primary-light: #5fbf8a;
-  --tm-primary-soft: #e7f1ea;
-  --tm-primary-softer: #f2f8f4;
+  /* --- Solid controls: violet circular / pill buttons, active tab, active nav, bell --- */
+  --tm-solid: #3e3d4a;
+  --tm-solid-ink: #ffffff;
+  --tm-solid-hover: #2a2933;
+  --tm-solid-accent: #c4b5e0;
+
+  /* --- Primary ramp: violet. `-dark` is the readable text shade (links, chip text on the
+         tint); `-hover` is the pressed/hover fill; the soft tints are for selected rows,
+         chips and folder back sheets. --- */
+  --tm-primary: #3e3d4a;
+  --tm-primary-dark: #8f7fbf;
+  --tm-primary-hover: #2a2933;
+  --tm-primary-light: #c4b5e0;
+  --tm-primary-soft: #e7e2f2;
+  --tm-subfolder-bg: #e7e2f2; /* the "First subfolder" block in the New project form */
+  --tm-primary-softer: #f1eef8;
   --tm-on-primary: #ffffff;
+  /* Highlight fill (counters, progress, switch, checkbox) and the ink that sits on it. */
+  --tm-accent: #c4b5e0;
+  --tm-accent-ink: #2a2933;
 
-  /* --- Status (fixed across accents) --- */
-  --tm-success: #1f7a4d;
-  --tm-success-bg: #e3f4ea;
-  --tm-success-ring: #c2e6d2;
+  /* --- Hero / featured cards: charcoal with white text --- */
+  --tm-hero: #2a2933;
+  --tm-hero-2: #3e3d4a;
 
-  --tm-warning: #8a5a06;
-  --tm-warning-bg: #fdf1dc;
-  --tm-warning-ring: #f6dfb4;
+  /* --- Dark panels: charcoal in both modes (see .tm-sidebar) --- */
+  --tm-side-bg: #2a2933;
 
-  --tm-danger: #a32a2a;
-  --tm-danger-bg: #fbe6e6;
-  --tm-danger-ring: #f2c9c9;
+  /* --- Detail cards: deep lavender gradient with white text --- */
+  --tm-detail: #8f7fbf;
+  --tm-detail-2: #a99bd3;
+  --tm-detail-ink: #ffffff;
 
-  --tm-info: #1f5a7a;
-  --tm-info-bg: #e3eff6;
-  --tm-info-ring: #c3dcea;
+  /* --- Status (softened to sit with plum + gold) --- */
+  --tm-success: #2f6e50;
+  --tm-success-bg: #e4f0e9;
+  --tm-success-ring: #cbe2d6;
 
-  --tm-neutral: #5c6b63;
-  --tm-neutral-bg: #eef0ee;
-  --tm-neutral-ring: #dfe3df;
+  --tm-warning: #7d5a1b;
+  --tm-warning-bg: #f7eedc;
+  --tm-warning-ring: #ebdcb6;
 
-  /* --- Radii --- */
-  --tm-radius-sm: 12px;
-  --tm-radius-md: 16px;
-  --tm-radius-lg: 20px;
-  --tm-radius-xl: 24px;
+  --tm-danger: #a24a55;
+  --tm-danger-bg: #f6e4e6;
+  --tm-danger-ring: #ebc9ce;
+
+  --tm-info: #3f5b8c;
+  --tm-info-bg: #e5eaf4;
+  --tm-info-ring: #cad4e8;
+
+  --tm-neutral: #55526c;
+  --tm-neutral-bg: #eeebf3;
+  --tm-neutral-ring: #ddd9e6;
+
+  /* --- Radii: everything is big and round --- */
+  --tm-radius-sm: 14px;
+  --tm-radius-md: 20px;
+  --tm-radius-lg: 28px;
+  --tm-radius-xl: 32px;
+  --tm-radius-card: 20px;
   --tm-radius-pill: 999px;
 
-  /* --- Very soft shadows --- */
-  --tm-shadow-xs: 0 1px 2px rgba(22, 33, 28, 0.04);
-  --tm-shadow-sm: 0 2px 8px rgba(22, 33, 28, 0.045);
-  --tm-shadow-md: 0 6px 20px rgba(22, 33, 28, 0.06);
-  --tm-shadow-lg: 0 16px 40px rgba(22, 33, 28, 0.08);
-  --tm-shadow-hero: 0 18px 44px rgba(15, 61, 39, 0.22);
+  /* --- Soft, large shadows (charcoal-tinted) --- */
+  --tm-shadow-xs: 0 1px 2px rgba(42, 41, 51, 0.04);
+  --tm-shadow-sm: 0 2px 12px rgba(42, 41, 51, 0.045);
+  --tm-shadow-md: 0 6px 20px rgba(42, 41, 51, 0.07);
+  --tm-shadow-lg: 0 14px 36px rgba(42, 41, 51, 0.11);
+  --tm-shadow-hero: 0 12px 32px rgba(42, 41, 51, 0.2);
+  --tm-glow: 0 0 0 4px color-mix(in srgb, var(--tm-primary) 30%, transparent);
+
+  /* --- Glass: overlays only (sidebar, top bar, modals, popovers, dropdowns, toasts) --- */
+  --tm-glass-bg: rgba(255, 255, 255, 0.78);
+  --tm-glass-bg-strong: rgba(255, 255, 255, 0.94);
+  --tm-glass-blur-strong: 28px;
+  --tm-glass-border-strong: rgba(42, 41, 51, 0.1);
+  --tm-glass-shadow-strong: 0 24px 64px rgba(42, 41, 51, 0.22), 0 4px 14px rgba(42, 41, 51, 0.08);
+  --tm-glass-border: rgba(255, 255, 255, 0.75);
+  --tm-glass-blur: 22px;
+  --tm-glass-shadow: 0 12px 40px rgba(42, 41, 51, 0.12);
+  --tm-scrim: rgba(34, 33, 43, 0.45);
 
   /* --- Motion --- */
   --tm-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --tm-dur-fast: 180ms;
   --tm-dur: 260ms;
   --tm-dur-slow: 340ms;
-}
-
-/* ---------- Accent themes ---------- */
-:root[data-accent='forest'] {
-  --tm-primary: #1f5f3f;
-  --tm-primary-dark: #0f3d27;
-  --tm-primary-light: #5fbf8a;
-  --tm-primary-soft: #e7f1ea;
-  --tm-primary-softer: #f2f8f4;
-  --tm-shadow-hero: 0 18px 44px rgba(15, 61, 39, 0.22);
-}
-
-:root[data-accent='ocean'] {
-  --tm-primary: #1b5a78;
-  --tm-primary-dark: #0c374b;
-  --tm-primary-light: #58b4d6;
-  --tm-primary-soft: #e4eff5;
-  --tm-primary-softer: #f1f7fa;
-  --tm-shadow-hero: 0 18px 44px rgba(12, 55, 75, 0.22);
-}
-
-:root[data-accent='plum'] {
-  --tm-primary: #5a2a62;
-  --tm-primary-dark: #39163f;
-  --tm-primary-light: #b57cc0;
-  --tm-primary-soft: #f1e7f3;
-  --tm-primary-softer: #f8f3f9;
-  --tm-shadow-hero: 0 18px 44px rgba(57, 22, 63, 0.22);
-}
-
-:root[data-accent='ember'] {
-  --tm-primary: #8a3a1c;
-  --tm-primary-dark: #5a2110;
-  --tm-primary-light: #e08a5c;
-  --tm-primary-soft: #fbeae1;
-  --tm-primary-softer: #fdf5f1;
-  --tm-shadow-hero: 0 18px 44px rgba(90, 33, 16, 0.22);
 }
 
 /* ==========================================================================
@@ -128,10 +128,16 @@
 
   --color-primary: var(--tm-primary);
   --color-primary-dark: var(--tm-primary-dark);
+  --color-primary-hover: var(--tm-primary-hover);
+  --color-hero: var(--tm-hero);
   --color-primary-light: var(--tm-primary-light);
   --color-primary-soft: var(--tm-primary-soft);
   --color-primary-softer: var(--tm-primary-softer);
   --color-on-primary: var(--tm-on-primary);
+  --color-solid: var(--tm-solid);
+  --color-solid-ink: var(--tm-solid-ink);
+  --color-accent: var(--tm-accent);
+  --color-accent-ink: var(--tm-accent-ink);
 
   --color-ok: var(--tm-success);
   --color-ok-bg: var(--tm-success-bg);
@@ -159,78 +165,82 @@
   --shadow-soft: var(--tm-shadow-md);
   --shadow-soft-lg: var(--tm-shadow-lg);
   --shadow-hero: var(--tm-shadow-hero);
+  --shadow-glow: var(--tm-glow);
 
   --ease-soft: var(--tm-ease);
 }
 
 /* ==========================================================================
    Dark mode. Set on <html data-theme="dark"> (from the person's Appearance
-   setting; "system" follows the device). These come after the accent blocks
-   so they win; each accent gets lifted tones that stay readable on dark.
+   setting; "system" follows the device). Deep violet-ink canvas, lavender primary,
+   lifted champagne accent.
    ========================================================================== */
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --tm-bg: #0f1512;
-  --tm-bg-sunken: #0b100e;
-  --tm-card: #161d19;
-  --tm-card-muted: #1a221e;
-  --tm-border: #26302b;
-  --tm-border-strong: #34413a;
+  --tm-bg: #16151c;
+  --tm-bg-sunken: #111016;
+  --tm-card: #22212b;
+  --tm-card-muted: #2a2933;
+  --tm-border: #33323f;
+  --tm-border-strong: #4a4958;
 
-  --tm-ink: #e8eeea;
-  --tm-ink-soft: #b2c0b8;
-  --tm-ink-muted: #8f9f96;
-  --tm-ink-invert: #0f1512;
+  --tm-ink: #f1eff6;
+  --tm-ink-soft: #cfccda;
+  --tm-ink-muted: #a19eaf;
+  --tm-ink-invert: #16151c;
 
-  --tm-success: #6fd6a2;
-  --tm-success-bg: #163225;
-  --tm-success-ring: #24503b;
-  --tm-warning: #f0c36d;
-  --tm-warning-bg: #35290f;
-  --tm-warning-ring: #54411a;
-  --tm-danger: #f19a9a;
-  --tm-danger-bg: #381717;
-  --tm-danger-ring: #5a2727;
-  --tm-info: #7fc3e6;
-  --tm-info-bg: #12303f;
-  --tm-info-ring: #1f4b60;
-  --tm-neutral: #b2c0b8;
-  --tm-neutral-bg: #1f2823;
-  --tm-neutral-ring: #2c3832;
+  /* Same violet as light mode, white on it. */
+  --tm-solid: #c4b5e0;
+  --tm-solid-ink: #2a2933;
+  --tm-solid-hover: #d5cbea;
+  --tm-solid-accent: #2a2933;
 
-  --tm-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --tm-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
-  --tm-shadow-md: 0 6px 20px rgba(0, 0, 0, 0.4);
-  --tm-shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.5);
-}
+  --tm-primary: #c4b5e0;
+  --tm-primary-dark: #c4b5e0;
+  --tm-primary-hover: #d5cbea;
+  --tm-primary-light: #a99bd3;
+  --tm-primary-soft: #2f2b40;
+  --tm-subfolder-bg: #2a2933;
+  --tm-primary-softer: #27243a;
+  --tm-on-primary: #2a2933;
+  --tm-accent: #c4b5e0;
+  --tm-accent-ink: #2a2933;
 
-:root[data-theme='dark'][data-accent='forest'] {
-  --tm-primary: #2f8a5c;
-  --tm-primary-dark: #8fd6ae;
-  --tm-primary-light: #5fbf8a;
-  --tm-primary-soft: #1b3a2b;
-  --tm-primary-softer: #15291f;
-}
-:root[data-theme='dark'][data-accent='ocean'] {
-  --tm-primary: #2b80a8;
-  --tm-primary-dark: #8fcbe6;
-  --tm-primary-light: #58b4d6;
-  --tm-primary-soft: #16364a;
-  --tm-primary-softer: #122834;
-}
-:root[data-theme='dark'][data-accent='plum'] {
-  --tm-primary: #8f4f9c;
-  --tm-primary-dark: #d9a8e3;
-  --tm-primary-light: #b57cc0;
-  --tm-primary-soft: #3a2340;
-  --tm-primary-softer: #2a1a2e;
-}
-:root[data-theme='dark'][data-accent='ember'] {
-  --tm-primary: #c0602e;
-  --tm-primary-dark: #f0b08a;
-  --tm-primary-light: #e08a5c;
-  --tm-primary-soft: #43261a;
-  --tm-primary-softer: #301c13;
+  --tm-hero: #111016;
+  --tm-hero-2: #2a2933;
+  --tm-side-bg: #111016;
+  --tm-detail: #7a6aae;
+  --tm-detail-2: #8f7fbf;
+
+  --tm-success: #7fd1a6;
+  --tm-success-bg: #1b3027;
+  --tm-success-ring: #2b4a3c;
+  --tm-warning: #e3c27f;
+  --tm-warning-bg: #332a18;
+  --tm-warning-ring: #4f4125;
+  --tm-danger: #ee9aa5;
+  --tm-danger-bg: #3a1e26;
+  --tm-danger-ring: #57303a;
+  --tm-info: #94b0e8;
+  --tm-info-bg: #1d2a45;
+  --tm-info-ring: #2f4166;
+  --tm-neutral: #b9b4d0;
+  --tm-neutral-bg: #2b2045;
+  --tm-neutral-ring: #3d3158;
+
+  --tm-shadow-xs: 0 1px 2px rgba(10, 9, 14, 0.4);
+  --tm-shadow-sm: 0 2px 10px rgba(10, 9, 14, 0.4);
+  --tm-shadow-md: 0 8px 24px rgba(10, 9, 14, 0.45);
+  --tm-shadow-lg: 0 20px 48px rgba(10, 9, 14, 0.55);
+  --tm-shadow-hero: 0 18px 44px rgba(10, 9, 14, 0.5);
+
+  --tm-glass-bg: rgba(34, 33, 43, 0.62);
+  --tm-glass-bg-strong: rgba(34, 33, 43, 0.94);
+  --tm-glass-border-strong: rgba(255, 255, 255, 0.12);
+  --tm-glass-shadow-strong: 0 24px 64px rgba(10, 9, 14, 0.7), 0 4px 14px rgba(10, 9, 14, 0.4);
+  --tm-glass-border: rgba(255, 255, 255, 0.09);
+  --tm-glass-shadow: 0 16px 48px rgba(10, 9, 14, 0.55);
+  --tm-scrim: rgba(10, 9, 14, 0.65);
 }
 
 /* Parts of the app that use fixed light colours rather than the tokens. */
@@ -239,7 +249,112 @@
 :root[data-theme='dark'] .border-red-200 { border-color: var(--tm-danger-ring); }
 :root[data-theme='dark'] .text-red-700, :root[data-theme='dark'] .text-red-600 { color: var(--tm-danger); }
 :root[data-theme='dark'] .bg-red-100 { background-color: var(--tm-danger-bg); }
-:root[data-theme='dark'] .text-black { color: var(--tm-ink); }
+
+/* Fills that turn light in dark mode (primary, danger) keep readable text: a hard-coded
+   `text-white` on them would be white-on-lavender. Unlayered, so it beats utilities. */
+:root[data-theme='dark'] [class*='bg-[var(--tm-primary)]'],
+:root[data-theme='dark'] [class*='bg-[var(--tm-danger)]'] {
+  color: var(--tm-on-primary);
+}
+
+/* ==========================================================================
+   Dark panels — charcoal in both modes: the header nav pill, the projects panel
+   and the phone tab bar. Re-points the tokens inside it so rows, the project tree,
+   badges and connector lines (all token-based) pick up the dark palette, with the
+   active item as a lavender pill with charcoal text.
+   ========================================================================== */
+.tm-sidebar {
+  background-color: var(--tm-side-bg);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 18px 44px rgba(34, 33, 43, 0.24);
+}
+
+/* Token re-pointing only, no background: for a column inside a charcoal panel (master-detail lists). */
+.tm-dark-scope,
+.tm-sidebar {
+  color-scheme: dark;
+  --tm-ink: #ffffff;
+  --tm-ink-soft: #e4e1ee;
+  --tm-ink-muted: #a9a6b8;
+  --tm-bg-sunken: #3e3d4a;
+  --tm-card-muted: #3e3d4a;
+  --tm-border: #4a4958;
+  --tm-border-strong: #5b5a6b;
+  --tm-solid: #c4b5e0;
+  --tm-solid-ink: #2a2933;
+  --tm-solid-accent: #2a2933;
+  --tm-solid-hover: #d5cbea;
+  --tm-primary-light: #c4b5e0;
+  /* Count badges */
+  --tm-accent: #3e3d4a;
+  --tm-accent-ink: #e4e1ee;
+  --tm-danger: #c2415a;
+  --tm-on-primary: #ffffff;
+  --tm-success: #7fd1a6;
+}
+
+/* ==========================================================================
+   Tasks list + detail panel (variant="dark" of MasterDetail). Light by default;
+   dark mode keeps the charcoal palette.
+   ========================================================================== */
+:root {
+  --tp-panel: #ffffff;
+  --tp-row-hover: #f3f1f6;
+  --tp-row-sel: #c4b5e0;
+  --tp-row-sel-ink: #2a2933;
+  --tp-muted: #7b7986;
+  --tp-detail: #f3f1f6;
+  --tp-glow: rgba(196, 181, 224, 0.35);
+  --tp-title: #2a2933;
+  --tp-text: #2a2933;
+  --tp-text-soft: #5b5a6b;
+  --tp-card: #ffffff;
+  --tp-card-border: #e7e2f2;
+  --tp-chip: #e7e2f2;
+  --tp-chip-ink: #2a2933;
+  --tp-track: #e7e2f2;
+  --tp-bar: #c4b5e0;
+  --tp-red: #c2415a;
+  --tp-red-on-sel: #b3372f;
+  --tp-outline: #2a2933;
+  --tp-outline-hover: rgba(42, 41, 51, 0.06);
+}
+:root[data-theme='dark'] {
+  --tp-panel: #2a2933;
+  --tp-row-hover: #3e3d4a;
+  --tp-muted: #a9a6b8;
+  --tp-detail: #22212b;
+  --tp-glow: rgba(196, 181, 224, 0.22);
+  --tp-title: #ffffff;
+  --tp-text: #ffffff;
+  --tp-text-soft: rgba(255, 255, 255, 0.8);
+  --tp-card: #2a2933;
+  --tp-card-border: transparent;
+  --tp-chip: #3e3d4a;
+  --tp-chip-ink: #eceaf4;
+  --tp-track: rgba(255, 255, 255, 0.1);
+  --tp-red: #f2a0a0;
+  --tp-outline: rgba(255, 255, 255, 0.7);
+  --tp-outline-hover: rgba(255, 255, 255, 0.1);
+}
+
+/* ==========================================================================
+   Chats page. Light by default; dark mode maps onto the existing dark tokens.
+   ========================================================================== */
+:root {
+  --tc-area: #f7f5fb;
+  --tc-mine-bg: #2a2933;
+  --tc-mine-ink: #ffffff;
+  --tc-other-bg: #ffffff;
+  --tc-other-border: #e7e2f2;
+  --tc-row-sel: #c4b5e0;
+}
+:root[data-theme='dark'] {
+  --tc-area: var(--tm-bg-sunken);
+  --tc-mine-bg: #3e3d4a;
+  --tc-other-bg: var(--tm-card);
+  --tc-other-border: var(--tm-border);
+}
 
 /* Compact spacing: everything sized in rem shrinks a little. */
 :root[data-density='compact'] { font-size: 14.5px; }

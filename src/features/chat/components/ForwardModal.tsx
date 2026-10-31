@@ -44,9 +44,9 @@ export const ForwardModal: React.FC<Props> = ({ message, onClose }) => {
   return (
     <Modal isOpen onClose={onClose} title="Forward message" maxWidth="md">
       <div className="space-y-4">
-        <p className="line-clamp-2 rounded-xl bg-[var(--tm-card-muted)] p-3 text-[13px] text-[var(--tm-ink-soft)]">{previewOf(message)}</p>
+        <p className="line-clamp-2 rounded-[var(--tm-radius-sm)] bg-[var(--tm-card-muted)] p-3.5 text-[13px] text-[var(--tm-ink-soft)]">{previewOf(message)}</p>
         <Input pill placeholder="Search groups" value={q} onChange={(e) => setQ(e.target.value)} />
-        <ul className="max-h-60 divide-y divide-[var(--tm-border)] overflow-y-auto rounded-xl border border-[var(--tm-border)]">
+        <ul className="max-h-60 divide-y divide-[var(--tm-border)] overflow-y-auto rounded-[var(--tm-radius-md)] border border-[var(--tm-border)]">
           {shown.length === 0 && <li className="p-3 text-[13px] text-[var(--tm-ink-muted)]">No groups found.</li>}
           {shown.map((g) => (
             <li key={g.id}>

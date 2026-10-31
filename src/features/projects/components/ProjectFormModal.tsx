@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { Check } from 'lucide-react';
 import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
-import { Input } from '../../../components/ui/Input';
-import { Select } from '../../../components/ui/Select';
+import { Input, Textarea } from '../../../components/ui/Input';
 import { useConfirm } from '../../../hooks/useConfirm';
 import { userService } from '../../../services';
 import { fetchCompanies, type ApiCompany } from '../../../services/http/mappers';
@@ -26,7 +26,9 @@ export const ProjectFormModal: React.FC<Props> = ({ isOpen, onClose, project, on
   const [error, setError] = useState<string | null>(null);
 
   const [name, setName] = useState('');
-  const [companyId, setCompanyId] = useState('');
+  const [companyIds, setCompanyIds] = useState<string[]>([]);
+  const [startDate, setStartDate] = useState('');
+  const [description, setDescription] = useState('');
   const [clientIds, setClientIds] = useState<string[]>([]);
   const [subName, setSubName] = useState('');
   const [heads, setHeads] = useState<string[]>([]);
@@ -36,6 +38,8 @@ export const ProjectFormModal: React.FC<Props> = ({ isOpen, onClose, project, on
     if (!isOpen) return;
     setError(null);
     setName(project?.name ?? '');
+    setStartDate(project?.start_date ?? '');
+    setDescription(project?.description ?? '');
     setClientIds(project?.client_ids ?? []);
     setSubName('');
     setHeads([]);
@@ -49,7 +53,7 @@ export const ProjectFormModal: React.FC<Props> = ({ isOpen, onClose, project, on
             .filter((u) => u.role === 'client' && u.active)
             .map((u) => ({ id: u.id, name: u.name, avatar_url: u.avatarUrl ?? null, role: 'client', company_id: u.companyId ?? null }))
         );
-        setCompanyId(project?.company_id ?? cs[0]?.id ?? '');
+        setCompanyIds(project?.company_ids ?? (cs[0] ? [cs[0].id] : []));
       })
       .catch((err) => setError(err.message));
   }, [isOpen, project]);
@@ -57,6 +61,7 @@ export const ProjectFormModal: React.FC<Props> = ({ isOpen, onClose, project, on
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return setError('Give the project a name.');
+    if (companyIds.length === 0) return setError('Pick at least one company.');
     if (!project && !subName.trim()) return setError('Name the first subfolder.');
     if (!project && heads.length === 0) return setError('Appoint at least one head for the first subfolder.');
     setError(null);
@@ -68,13 +73,23 @@ export const ProjectFormModal: React.FC<Props> = ({ isOpen, onClose, project, on
       confirmLabel: project ? 'Save' : 'Create project',
       action: async () => {
         saved = project
-          ? await projectApi.update(project.id, { name: name.trim(), company_id: companyId, client_ids: clientIds })
+          ? await projectApi.update(project.id, {
+            name: name.trim(),
+            company_id: companyIds[0],
+            company_ids: companyIds,
+            start_date: startDate || null,
+            description: description.trim(),
+            client_ids: clientIds
+          })
           : await projectApi.create({
-              name: name.trim(),
-              company_id: companyId,
-              client_ids: clientIds,
-              first_subfolder: { name: subName.trim(), head_ids: heads, member_ids: members }
-            });
+            name: name.trim(),
+            company_id: companyIds[0],
+            company_ids: companyIds,
+            start_date: startDate || null,
+            description: description.trim(),
+            client_ids: clientIds,
+            first_subfolder: { name: subName.trim(), head_ids: heads, member_ids: members }
+          });
       },
       successTitle: project ? 'Project updated' : 'Project created'
     });
@@ -94,26 +109,57 @@ export const ProjectFormModal: React.FC<Props> = ({ isOpen, onClose, project, on
     >
       <form onSubmit={submit} className="space-y-4">
         {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">
+          <div className="tm-error px-4 py-3 text-xs font-semibold">
             {error}
           </div>
         )}
         <Input label="Project name" placeholder="e.g. Acme website" value={name} onChange={(e) => setName(e.target.value)} required />
-        <Select
-          label="Company"
-          value={companyId}
-          onChange={(e) => setCompanyId(e.target.value)}
-          options={companies.map((c) => ({ value: c.id, label: c.name }))}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Input label="Start date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          <fieldset>
+            <legend className="mb-1.5 text-[13px] font-semibold text-[var(--tm-ink-soft)]">Company</legend>
+            <div className="flex flex-wrap gap-2">
+              {companies.map((c) => {
+                const on = companyIds.includes(c.id);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setCompanyIds((ids) => (on ? ids.filter((i) => i !== c.id) : [...ids, c.id]))}
+                    className={`inline-flex h-11 items-center gap-1.5 rounded-full border px-4 text-[13px] font-bold transition-colors ${on
+                        ? 'border-[var(--tm-primary-light)] bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)]'
+                        : 'border-[var(--tm-border)] bg-[var(--tm-card)] text-[var(--tm-ink-soft)] hover:border-[var(--tm-border-strong)]'
+                      }`}
+                  >
+                    {on && <Check className="h-3.5 w-3.5" />}
+                    {c.name}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-1.5 text-[12px] text-[var(--tm-ink-muted)]">Pick one, or both for a shared project.</p>
+          </fieldset>
+        </div>
+        <Textarea
+          label="Short description (optional)"
+          placeholder="What is this project about?"
+          rows={2}
+          maxLength={200}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          helperText={`${description.length}/200`}
         />
         {clientUsers.length > 0 && (
           <PeoplePicker label="Clients (optional)" people={clientUsers} value={clientIds} onChange={setClientIds} />
         )}
 
         {!project && (
-          <div className="space-y-4 rounded-[var(--tm-radius-lg)] bg-[var(--tm-card-muted)] p-4">
-            <h4 className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-[var(--tm-ink-muted)]">
-              First subfolder
-            </h4>
+          <div className="space-y-4 rounded-[var(--tm-radius-lg)] bg-[var(--tm-subfolder-bg)] p-5">
+            <div>
+              <h4 className="text-[14px] font-bold text-[var(--tm-ink)]">First subfolder</h4>
+              <p className="mt-0.5 text-[12px] text-[var(--tm-ink-muted)]">Where the work starts, and who leads it.</p>
+            </div>
             <Input label="Name" placeholder="e.g. Design" value={subName} onChange={(e) => setSubName(e.target.value)} />
             <PeoplePicker
               label="Heads"

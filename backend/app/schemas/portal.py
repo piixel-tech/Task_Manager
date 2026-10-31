@@ -34,12 +34,22 @@ class DeliverablesTotals(BaseModel):
     progress: int  # 0-100: how far every item has moved along the stages
 
 
+class ProjectProgress(BaseModel):
+    id: PydanticObjectId
+    name: str
+    total: int
+    done: int
+    progress: int  # 0-100
+
+
 class PortalSummary(BaseModel):
     month: str
     pending_approvals: int
     approvals: list[ApprovalItem]  # the newest few
     deliverables: DeliverablesTotals
     latest_requirements: list[RequirementOut]
+    stages: dict[str, int] = {}  # deliverables per stage across the client's projects
+    projects: list[ProjectProgress] = []
 
 
 class PortalDeliverables(BaseModel):

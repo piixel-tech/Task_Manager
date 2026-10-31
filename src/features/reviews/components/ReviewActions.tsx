@@ -77,7 +77,7 @@ export const ReviewActions: React.FC<Props> = ({ review, onDone, size = 'sm' }) 
       <Modal isOpen={asking} onClose={() => setAsking(false)} title="Request changes" maxWidth="lg">
         <form onSubmit={requestChanges} className="space-y-4">
           {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</div>
+            <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>
           )}
           <Textarea
             label="Comments (required)"

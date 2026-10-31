@@ -134,7 +134,7 @@ export const FocusMenu: React.FC = () => {
         <div
           role="dialog"
           aria-label="Focus mode"
-          className="absolute right-0 top-[calc(100%+8px)] z-50 w-72 rounded-[var(--tm-radius-lg)] border border-[var(--tm-border)] bg-[var(--tm-card)] p-4 shadow-soft-lg"
+          className="absolute right-0 top-[calc(100%+8px)] z-50 w-72 rounded-[var(--tm-radius-lg)] glass-strong p-4"
         >
           <h3 className="mb-2 flex items-center gap-2 text-[14px] font-extrabold text-[var(--tm-ink)]">
             <Moon className="h-4 w-4" /> Focus mode
@@ -149,7 +149,7 @@ export const FocusMenu: React.FC = () => {
 const MenuButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({ children, ...rest }) => (
   <button
     type="button"
-    className="flex w-full items-center rounded-xl px-3 py-2 text-left text-[13px] font-semibold text-[var(--tm-ink)] hover:bg-[var(--tm-bg-sunken)] disabled:opacity-50"
+    className="flex w-full items-center rounded-full px-3 py-2 text-left text-[13px] font-semibold text-[var(--tm-ink)] hover:bg-[var(--tm-bg-sunken)] disabled:opacity-50"
     {...rest}
   >
     {children}

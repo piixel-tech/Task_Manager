@@ -10,7 +10,7 @@ const toneStyles: Record<ChipTone, string> = {
   neutral:
     'bg-[var(--tm-neutral-bg)] text-[var(--tm-neutral)] ring-[var(--tm-neutral-ring)]',
   primary:
-    'bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)] ring-[color-mix(in_srgb,var(--tm-primary)_18%,transparent)]'
+    'bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)] ring-[color-mix(in_srgb,var(--tm-primary-light)_55%,transparent)]'
 };
 
 /**
@@ -89,8 +89,8 @@ export const StatusChip: React.FC<StatusChipProps> = ({
 
   const sizes =
     size === 'sm'
-      ? 'text-[11px] px-2.5 py-1 gap-1.5'
-      : 'text-xs px-3 py-1.5 gap-1.5';
+      ? 'text-[11px] px-2 py-0.5 gap-1'
+      : 'text-[11px] px-2.5 py-1 gap-1';
 
   return (
     <span

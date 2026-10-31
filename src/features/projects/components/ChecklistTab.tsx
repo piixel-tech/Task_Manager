@@ -1,11 +1,13 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, FileText, Link2, ListChecks, Paperclip, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { Card, CardContent } from '../../../components/ui/Card';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence } from 'motion/react';
+import { Check, ListChecks, Paperclip, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Modal } from '../../../components/ui/Modal';
 import { EmptyState } from '../../../components/ui/EmptyState';
-import { SkeletonGrid } from '../../../components/ui/Skeleton';
+import { FilterBar, FilterSearch } from '../../../components/ui/FilterBar';
+import { Stagger } from '../../../components/ui/Stagger';
+import { AuthorStamp, ComposerCard, FileChip, ItemCard, ItemCardSkeletons, ItemList } from '../../../components/ui/ItemCard';
 import { useAuthStore } from '../../../store/authStore';
 import { useConfirm } from '../../../hooks/useConfirm';
 import { toast } from '../../../store/useToastStore';
@@ -30,6 +32,7 @@ export const ChecklistTab: React.FC<{ subfolderId: string }> = ({ subfolderId })
   const uploaded = useRef<Set<string>>(new Set());
   const [attachTo, setAttachTo] = useState<ChecklistItem | null>(null);
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
+  const [search, setSearch] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -127,142 +130,142 @@ export const ChecklistTab: React.FC<{ subfolderId: string }> = ({ subfolderId })
 
   const open = (a: Asset) => assetApi.open(a).catch((err) => toast.error('Could not open the file', err.message));
 
+  const q = search.trim().toLowerCase();
+  const shown = useMemo(
+    () => (list ? list.items.filter((i) => !q || i.text.toLowerCase().includes(q) || i.attachments.some((f) => f.name.toLowerCase().includes(q))) : []),
+    [list, q]
+  );
+
   if (!list) {
-    return error ? (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</div>
-    ) : (
-      <SkeletonGrid count={2} />
-    );
+    return error ? <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div> : <ItemCardSkeletons count={3} />;
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {list.can_write ? (
-        <Card>
-          <CardContent className="pt-6">
-            <form onSubmit={add} className="space-y-3">
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <div className="flex-1">
-                  <Input placeholder="Add a checklist item…" value={text} onChange={(e) => setText(e.target.value)} maxLength={500} />
-                </div>
-                <Button type="submit" disabled={!text.trim()} leftIcon={<Plus className="h-4 w-4" />}>
-                  Add item
-                </Button>
+        <ComposerCard>
+          <form onSubmit={add} className="space-y-3">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="flex-1">
+                <Input placeholder="Add a checklist item…" value={text} onChange={(e) => setText(e.target.value)} maxLength={500} />
               </div>
-              <AssetPicker value={files} onChange={dropFile} onUploaded={(ids) => ids.forEach((id) => uploaded.current.add(id))} />
-              {files.length > 0 && !text.trim() && (
-                <button type="button" onClick={discardUploads} className="text-[12px] font-semibold text-[var(--tm-danger)] hover:underline">
-                  Discard attachments
-                </button>
-              )}
-            </form>
-          </CardContent>
-        </Card>
+              <Button type="submit" disabled={!text.trim()} leftIcon={<Plus className="h-4 w-4" />}>
+                Add item
+              </Button>
+            </div>
+            <AssetPicker value={files} onChange={dropFile} onUploaded={(ids) => ids.forEach((id) => uploaded.current.add(id))} />
+            {files.length > 0 && !text.trim() && (
+              <button type="button" onClick={discardUploads} className="text-[12px] font-semibold text-[var(--tm-danger)] hover:underline">
+                Discard attachments
+              </button>
+            )}
+          </form>
+        </ComposerCard>
       ) : (
         <p className="text-[13px] text-[var(--tm-ink-muted)]">Read-only. Only members of this subfolder can add items.</p>
       )}
 
+      {list.items.length >= 6 && (
+        <FilterBar activeCount={q ? 1 : 0} onClear={() => setSearch('')}>
+          <FilterSearch value={search} onChange={setSearch} placeholder="Search the checklist" />
+        </FilterBar>
+      )}
+
       {list.items.length === 0 ? (
         <EmptyState
-          icon={<ListChecks className="h-6 w-6 text-[var(--tm-primary)]" />}
+          icon={<ListChecks className="h-6 w-6 text-[var(--tm-primary-dark)]" />}
           title="The checklist is empty"
           description="Add the things this subfolder needs to get done or keep track of."
         />
+      ) : shown.length === 0 ? (
+        <EmptyState icon={<ListChecks className="h-6 w-6 text-[var(--tm-primary-dark)]" />} title="No items match" description="Try another search." />
       ) : (
-        <Card>
-          <CardContent className="space-y-1 pt-6">
-            <p className="pb-2 text-[12px] font-semibold text-[var(--tm-ink-muted)]">
-              {list.items.length} {list.items.length === 1 ? 'item' : 'items'}
-            </p>
-            <ul className="divide-y divide-[var(--tm-border)]">
-              {list.items.map((item) => (
-                <li key={item.id} className="flex gap-3 py-3.5">
-                  <div className="min-w-0 flex-1 space-y-1.5">
-                    {editing?.id === item.id ? (
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          saveEdit(item);
-                        }}
-                        className="flex items-center gap-2"
-                      >
-                        <div className="flex-1">
-                          <Input
-                            autoFocus
-                            aria-label="Item text"
-                            value={editing.text}
-                            maxLength={500}
-                            onChange={(e) => setEditing({ id: item.id, text: e.target.value })}
-                            onKeyDown={(e) => e.key === 'Escape' && setEditing(null)}
-                          />
-                        </div>
-                        <Button type="submit" size="sm" disabled={!editing.text.trim()} leftIcon={<Check className="h-4 w-4" />}>
-                          Save
-                        </Button>
-                        <Button type="button" variant="ghost" size="sm" aria-label="Cancel" onClick={() => setEditing(null)}>
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </form>
-                    ) : (
-                      <p className="text-[14px] font-semibold text-[var(--tm-ink)]">{item.text}</p>
-                    )}
-                    <p className="text-[11.5px] text-[var(--tm-ink-muted)]">
-                      Added by {item.created_by?.name ?? 'someone'} · {when(item.created_at)}
-                      {item.updated_at && ` · Edited ${when(item.updated_at)}`}
-                    </p>
+        <div>
+          <p className="mb-3 px-1 text-[12px] font-semibold text-[var(--tm-ink-muted)]">
+            {shown.length} {shown.length === 1 ? 'item' : 'items'}
+          </p>
+          <Stagger key={q}>
+            <ItemList label="Checklist items">
+              <AnimatePresence>
+                {shown.map((item) => (
+                  <ItemCard key={item.id} icon={<ListChecks className="h-[18px] w-[18px]" />}>
+                    <div className="flex items-start gap-3">
+                      <div className="min-w-0 flex-1">
+                        {editing?.id === item.id ? (
+                          <form
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              saveEdit(item);
+                            }}
+                            className="flex items-center gap-2"
+                          >
+                            <div className="flex-1">
+                              <Input
+                                autoFocus
+                                aria-label="Item text"
+                                value={editing.text}
+                                maxLength={500}
+                                onChange={(e) => setEditing({ id: item.id, text: e.target.value })}
+                                onKeyDown={(e) => e.key === 'Escape' && setEditing(null)}
+                              />
+                            </div>
+                            <Button type="submit" size="sm" disabled={!editing.text.trim()} leftIcon={<Check className="h-4 w-4" />}>
+                              Save
+                            </Button>
+                            <Button type="button" variant="ghost" size="sm" aria-label="Cancel" onClick={() => setEditing(null)}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </form>
+                        ) : (
+                          <p className="break-words text-[15px] font-semibold text-[var(--tm-ink)]">{item.text}</p>
+                        )}
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-0.5">
+                        {list.can_write && (
+                          <Button variant="ghost" size="sm" aria-label="Attach files" onClick={() => setAttachTo(item)}>
+                            <Paperclip className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {item.can_edit && editing?.id !== item.id && (
+                          <Button variant="ghost" size="sm" aria-label="Edit item" onClick={() => setEditing({ id: item.id, text: item.text })}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {item.can_delete && (
+                          <Button variant="ghost" size="sm" aria-label="Delete item" onClick={() => remove(item)}>
+                            <Trash2 className="h-4 w-4 text-[var(--tm-danger)]" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
 
                     {item.attachments.length > 0 && (
-                      <ul className="flex flex-wrap gap-2 pt-1">
+                      <ul className="mt-2.5 flex flex-wrap gap-2">
                         {item.attachments.map((f) => (
-                          <li key={f.id} className="flex items-center rounded-full bg-[var(--tm-card-muted)] text-[12px] font-semibold text-[var(--tm-ink)]">
-                            <button
-                              type="button"
-                              onClick={() => open(f)}
+                          <li key={f.id}>
+                            <FileChip
+                              name={f.name}
+                              kind={f.kind}
                               title={`Attached by ${f.owner?.name ?? 'someone'} · ${when(f.created_at)}`}
-                              className="flex items-center gap-2 rounded-full px-3 py-1.5 hover:bg-[var(--tm-bg-sunken)]"
-                            >
-                              {f.kind === 'link' ? <Link2 className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
-                              <span className="max-w-[180px] truncate">{f.name}</span>
-                              <span className="font-normal text-[var(--tm-ink-muted)]">{f.owner?.name.split(' ')[0]}</span>
-                            </button>
-                            {list.can_write && (f.owner_id === me?.id || list.can_manage) && (
-                              <button
-                                type="button"
-                                aria-label={`Remove ${f.name}`}
-                                onClick={() => detach(item, f)}
-                                className="pr-2.5 text-[var(--tm-ink-muted)] hover:text-[var(--tm-danger)]"
-                              >
-                                <X className="h-3.5 w-3.5" />
-                              </button>
-                            )}
+                              onOpen={() => open(f)}
+                              onRemove={list.can_write && (f.owner_id === me?.id || list.can_manage) ? () => detach(item, f) : undefined}
+                            />
                           </li>
                         ))}
                       </ul>
                     )}
-                  </div>
 
-                  <div className="flex shrink-0 items-start gap-1">
-                    {list.can_write && (
-                      <Button variant="ghost" size="sm" aria-label="Attach files" onClick={() => setAttachTo(item)}>
-                        <Paperclip className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {item.can_edit && editing?.id !== item.id && (
-                      <Button variant="ghost" size="sm" aria-label="Edit item" onClick={() => setEditing({ id: item.id, text: item.text })}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {item.can_delete && (
-                      <Button variant="ghost" size="sm" aria-label="Delete item" onClick={() => remove(item)}>
-                        <Trash2 className="h-4 w-4 text-[var(--tm-danger)]" />
-                      </Button>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+                    <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <AuthorStamp person={item.created_by} date={item.created_at} verb="Added by" />
+                      {item.updated_at && <span className="text-[12px] text-[var(--tm-ink-muted)]">Edited {when(item.updated_at)}</span>}
+                    </div>
+                  </ItemCard>
+                ))}
+              </AnimatePresence>
+            </ItemList>
+          </Stagger>
+        </div>
       )}
 
       <AttachModal item={attachTo} onClose={() => setAttachTo(null)} onDone={load} />

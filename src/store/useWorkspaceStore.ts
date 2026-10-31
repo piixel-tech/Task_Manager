@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { workspaceApi, type Workspace } from '../services/http/adminApi';
+import { socket } from '../services/socket';
 
 interface WorkspaceStore {
   workspace: Workspace | null;
@@ -19,3 +20,6 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
   },
   set: (workspace) => set({ workspace })
 }));
+
+// Holidays and weekly offs changed by an admin: every open calendar and dashboard follows at once.
+socket.on('workspace', () => void useWorkspaceStore.getState().load());

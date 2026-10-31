@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
+import { PageHeader } from '../../../components/ui/PageHeader';
 import { Sparkles, Clock, CheckCircle2 } from 'lucide-react';
 import { taskService, projectService } from '../../../services';
 import type { Task, Project } from '../../../types';
 import { statusApi, type StatusEntry } from '../../../services/http/calendarApi';
 import { useAuthStore } from '../../../store/authStore';
 import { Card, CardContent } from '../../../components/ui/Card';
+import { Skeleton, SkeletonGrid } from '../../../components/ui/Skeleton';
+import { FadeIn } from '../../../components/ui/FadeIn';
 
 export const MonthlyWrappedPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -44,8 +47,9 @@ export const MonthlyWrappedPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="p-12 text-center text-xs text-[var(--tm-ink-muted)] animate-pulse">
-        Unwrapping your monthly performance stats... ✨
+      <div className="max-w-4xl mx-auto space-y-6">
+        <Skeleton className="h-40 w-full" rounded="lg" />
+        <SkeletonGrid count={2} className="grid grid-cols-1 md:grid-cols-2 gap-4" />
       </div>
     );
   }
@@ -55,18 +59,20 @@ export const MonthlyWrappedPage: React.FC = () => {
   const leaveDays = statuses.filter((x) => x.status === 'leave').length;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <FadeIn className="max-w-4xl mx-auto space-y-6">
+      <PageHeader title="Monthly Wrapped" description="Your month in numbers." />
+
       {/* Header Banner */}
-      <div className="bg-[linear-gradient(135deg,var(--tm-primary)_0%,var(--tm-primary-dark)_70%)] text-white rounded-3xl p-8 shadow-2xl relative overflow-hidden text-center border border-[var(--tm-primary)]">
+      <div className="bg-[linear-gradient(135deg,var(--tm-detail)_0%,var(--tm-detail-2)_100%)] text-[var(--tm-detail-ink)] rounded-[var(--tm-radius-lg)] p-8 shadow-soft-lg relative overflow-hidden text-center">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(120,119,198,0.2),transparent)]" />
         <div className="relative z-10 space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-white/75 text-xs font-semibold backdrop-blur-md">
-            <Sparkles className="w-4 h-4 text-white/75" /> October 2026 Edition
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--tm-on-primary)]/10 text-[var(--tm-on-primary)]/75 text-xs font-semibold backdrop-blur-md">
+            <Sparkles className="w-4 h-4 text-[var(--tm-on-primary)]/75" /> October 2026 Edition
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
+          <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--tm-detail-ink)]">
             {user?.name}'s Monthly Wrapped 🎉
-          </h1>
-          <p className="text-xs text-white/75 max-w-xl mx-auto">
+          </h2>
+          <p className="text-xs text-[var(--tm-on-primary)]/75 max-w-xl mx-auto">
             A celebration of your hard work, completed tasks, and productivity milestones this month.
           </p>
         </div>
@@ -75,37 +81,37 @@ export const MonthlyWrappedPage: React.FC = () => {
       {/* Grid of Wrapped Cards (2 Cards) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Card 1: Days worked */}
-        <Card className="bg-[var(--tm-primary)] text-white border-none shadow-xl">
+        <Card className="bg-[var(--tm-hero)] text-[var(--tm-on-primary)] border-none shadow-soft-lg">
           <CardContent className="p-6 space-y-4">
-            <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center">
-              <Clock className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-[var(--tm-radius-md)] bg-[var(--tm-on-primary)]/20 flex items-center justify-center">
+              <Clock className="w-5 h-5 text-[var(--tm-on-primary)]" />
             </div>
             <div>
-              <div className="text-xs font-medium text-white/75 uppercase tracking-wider">Days Worked</div>
+              <div className="text-xs font-medium text-[var(--tm-on-primary)]/75 uppercase tracking-wider">Days Worked</div>
               <div className="text-3xl font-extrabold mt-1">{workedDays} days</div>
             </div>
-            <div className="text-xs text-white/75 bg-white/10 p-2.5 rounded-xl">
+            <div className="text-xs text-[var(--tm-on-primary)]/75 bg-[var(--tm-on-primary)]/10 p-2.5 rounded-[var(--tm-radius-sm)]">
               <strong>{leaveDays}</strong> day(s) on leave this month.
             </div>
           </CardContent>
         </Card>
 
         {/* Card 2: Tasks Completed */}
-        <Card className="bg-[var(--tm-success)] text-white border-none shadow-xl">
+        <Card className="bg-[var(--tm-success)] text-[var(--tm-on-primary)] border-none shadow-soft-lg">
           <CardContent className="p-6 space-y-4">
-            <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center">
-              <CheckCircle2 className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-[var(--tm-radius-md)] bg-[var(--tm-card)]/20 flex items-center justify-center">
+              <CheckCircle2 className="w-5 h-5 text-[var(--tm-on-primary)]" />
             </div>
             <div>
-              <div className="text-xs font-medium text-white/75 uppercase tracking-wider">Deliverables Completed</div>
+              <div className="text-xs font-medium text-[var(--tm-on-primary)]/75 uppercase tracking-wider">Deliverables Completed</div>
               <div className="text-3xl font-extrabold mt-1">{completedTasks.length} Tasks</div>
             </div>
-            <div className="text-xs text-white/75 bg-white/10 p-2.5 rounded-xl">
+            <div className="text-xs text-[var(--tm-on-primary)]/75 bg-[var(--tm-card)]/10 p-2.5 rounded-[var(--tm-radius-sm)]">
               Across <strong>{projects.length}</strong> active team projects this month.
             </div>
           </CardContent>
         </Card>
       </div>
-    </div>
+    </FadeIn>
   );
 };

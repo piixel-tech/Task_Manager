@@ -24,10 +24,10 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 }) => (
   <motion.div
     variants={fadeUp}
-    className={`hatch flex flex-col items-center justify-center rounded-[var(--tm-radius-xl)]
-      border border-dashed border-[var(--tm-primary)]/20 px-8 py-14 text-center ${className}`}
+    className={`flex flex-col items-center justify-center rounded-[var(--tm-radius-card)]
+      border border-dashed border-[var(--tm-border-strong)] bg-[var(--tm-card)] px-8 py-14 text-center shadow-soft-xs ${className}`}
   >
-    <div className="grid h-14 w-14 place-items-center rounded-[18px] bg-white text-[var(--tm-primary)] shadow-soft-sm">
+    <div className="grid h-14 w-14 place-items-center rounded-full bg-[var(--tm-solid)] text-[var(--tm-solid-accent)] shadow-soft-sm">
       {icon || <FolderOpen className="h-6 w-6" />}
     </div>
     <h4 className="mt-4 text-[17px] font-bold text-[var(--tm-ink)]">{title}</h4>

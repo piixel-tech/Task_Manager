@@ -50,10 +50,10 @@ export const routeVariants: Variants = {
   exit: { opacity: 0, y: -6, transition: { duration: dur.fast, ease: EASE_OUT } }
 };
 
-/** Modal / dialog scale-in behind a blurred backdrop. */
+/** Modal / dialog spring pop-in behind a blurred backdrop. */
 export const modalVariants: Variants = {
-  hidden: { opacity: 0, scale: 0.955, y: 10 },
-  show: { opacity: 1, scale: 1, y: 0, transition: { duration: dur.base, ease: EASE_OUT } },
+  hidden: { opacity: 0, scale: 0.92, y: 16 },
+  show: { opacity: 1, scale: 1, y: 0, transition: { type: 'spring', stiffness: 380, damping: 28, mass: 0.8 } },
   exit: { opacity: 0, scale: 0.97, y: 6, transition: { duration: dur.fast, ease: EASE_OUT } }
 };
 
@@ -68,6 +68,20 @@ export const drawerVariants: Variants = {
   hidden: { x: '100%' },
   show: { x: 0, transition: { duration: dur.slow, ease: EASE_OUT } },
   exit: { x: '100%', transition: { duration: dur.base, ease: EASE_OUT } }
+};
+
+/** Dropdowns and popovers (account menu, bell): a quick spring pop from their anchor. */
+export const popoverVariants: Variants = {
+  hidden: { opacity: 0, y: -10, scale: 0.94 },
+  show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 460, damping: 30, mass: 0.7 } },
+  exit: { opacity: 0, y: -6, scale: 0.97, transition: { duration: dur.fast, ease: EASE_OUT } }
+};
+
+/** Toasts slide in from the right edge. */
+export const toastVariants: Variants = {
+  hidden: { opacity: 0, x: 40, scale: 0.94 },
+  show: { opacity: 1, x: 0, scale: 1, transition: { type: 'spring', stiffness: 420, damping: 30, mass: 0.8 } },
+  exit: { opacity: 0, x: 40, scale: 0.96, transition: { duration: dur.fast, ease: EASE_OUT } }
 };
 
 /** Press + hover feedback shared by buttons and cards. */

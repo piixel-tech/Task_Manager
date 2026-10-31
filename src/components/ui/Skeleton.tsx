@@ -26,7 +26,7 @@ export const SkeletonCard: React.FC<{ lines?: number; className?: string }> = ({
   className = ''
 }) => (
   <div
-    className={`bg-[var(--tm-card)] border border-[var(--tm-border)] rounded-[var(--tm-radius-xl)] p-6 shadow-soft-xs ${className}`}
+    className={`bg-[var(--tm-card)] border border-[var(--tm-border)]/60 rounded-[var(--tm-radius-card)] p-7 shadow-soft-xs ${className}`}
   >
     <div className="flex items-center gap-3">
       <Skeleton className="h-10 w-10" rounded="full" />
@@ -46,7 +46,7 @@ export const SkeletonCard: React.FC<{ lines?: number; className?: string }> = ({
 /** Grid of skeleton cards for a page-level loading state. */
 export const SkeletonGrid: React.FC<{ count?: number; className?: string }> = ({
   count = 6,
-  className = 'grid gap-5 sm:grid-cols-2 xl:grid-cols-3'
+  className = 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3'
 }) => (
   <div className={className}>
     {Array.from({ length: count }).map((_, i) => (
@@ -61,7 +61,7 @@ export const SkeletonRows: React.FC<{ count?: number }> = ({ count = 5 }) => (
     {Array.from({ length: count }).map((_, i) => (
       <div
         key={i}
-        className="flex items-center gap-4 bg-[var(--tm-card)] border border-[var(--tm-border)] rounded-[var(--tm-radius-lg)] px-5 py-4"
+        className="flex items-center gap-4 bg-[var(--tm-card)] border border-[var(--tm-border)]/60 rounded-full px-6 py-4 shadow-soft-xs"
       >
         <Skeleton className="h-9 w-9" rounded="full" />
         <Skeleton className="h-3 w-1/4" />

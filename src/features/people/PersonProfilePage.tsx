@@ -1,8 +1,10 @@
+import { FadeIn } from '../../components/ui/FadeIn';
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { CalendarDays, Moon, Pencil } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
+import { SkeletonRows } from '../../components/ui/Skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { StatusChip } from '../../components/ui/StatusChip';
@@ -33,8 +35,8 @@ export const PersonProfilePage: React.FC = () => {
     };
   }, [userId]);
 
-  if (error) return <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</div>;
-  if (!person) return <p className="text-[13px] text-[var(--tm-ink-muted)]">Loading…</p>;
+  if (error) return <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>;
+  if (!person) return <SkeletonRows count={3} />;
 
   const base = basePath(me?.role);
   const isMe = me?.id === person.id;
@@ -44,7 +46,7 @@ export const PersonProfilePage: React.FC = () => {
   const calendarTo = me?.role === 'client' ? '/client/meetings' : `${base}/calendar/${person.id}`;
 
   return (
-    <>
+    <FadeIn>
       <PageHeader
         title={person.name}
         description={[person.title, person.company].filter(Boolean).join(' · ') || ROLE_LABEL[person.role]}
@@ -60,12 +62,14 @@ export const PersonProfilePage: React.FC = () => {
       />
 
       <Card>
-        <CardContent className="flex flex-wrap items-center gap-5 p-6">
-          <Avatar name={person.name} src={person.avatar_url ?? undefined} size="2xl" focus={person.in_focus} />
+        <CardContent className="flex flex-col items-center gap-5 p-8 text-center sm:flex-row sm:text-left">
+          <div className="rounded-full bg-[var(--tm-bg-sunken)] p-2.5">
+            <Avatar name={person.name} src={person.avatar_url ?? undefined} size="2xl" focus={person.in_focus} ring />
+          </div>
           <div className="min-w-0 space-y-2">
             <h2 className="text-xl font-extrabold text-[var(--tm-ink)]">{person.name}</h2>
             <p className="text-[13px] font-semibold text-[var(--tm-ink-muted)]">{person.title || ROLE_LABEL[person.role]}</p>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
               <StatusChip tone="neutral">{ROLE_LABEL[person.role]}</StatusChip>
               {person.in_focus && (
                 <StatusChip tone="primary">
@@ -123,6 +127,6 @@ export const PersonProfilePage: React.FC = () => {
           </CardContent>
         </Card>
       )}
-    </>
+    </FadeIn>
   );
 };

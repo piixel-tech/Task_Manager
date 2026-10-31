@@ -62,7 +62,7 @@ export const NewGroupModal: React.FC<Props> = ({ isOpen, onClose, onCreated, def
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="New group" description="You are added automatically." maxWidth="lg">
       <form onSubmit={submit} className="space-y-4">
-        {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</div>}
+        {error && <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>}
         <Input label="Group name" placeholder="e.g. Acme launch" maxLength={100} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
         <div>
           <p className="mb-1.5 text-[12.5px] font-bold text-[var(--tm-ink-soft)]">Add people</p>

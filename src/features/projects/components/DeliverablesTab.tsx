@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { Check, Layers, Plus, SlidersHorizontal, Trash2, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
@@ -7,7 +8,9 @@ import { Modal } from '../../../components/ui/Modal';
 import { Select } from '../../../components/ui/Select';
 import { ProgressBar } from '../../../components/ui/ProgressRing';
 import { EmptyState } from '../../../components/ui/EmptyState';
-import { SkeletonGrid } from '../../../components/ui/Skeleton';
+import { Stagger } from '../../../components/ui/Stagger';
+import { AuthorStamp, ComposerCard, ItemCard, ItemCardSkeletons, ItemList } from '../../../components/ui/ItemCard';
+import { useMotionPrefs } from '../../../components/ui/useMotionPrefs';
 import { useConfirm } from '../../../hooks/useConfirm';
 import { toast } from '../../../store/useToastStore';
 import { socket } from '../../../services/socket';
@@ -20,6 +23,7 @@ import {
   type Stage
 } from '../../../services/http/deliverableApi';
 import { formatDate } from '../../../utils/time';
+import { FadeIn } from '../../../components/ui/FadeIn';
 
 /** Where an item is along the stages: done stages get a green tick, the current one is highlighted, the rest are grey. */
 export const StageStepper: React.FC<{ stages: Stage[]; stage: Stage }> = ({ stages, stage }) => {
@@ -41,7 +45,7 @@ export const StageStepper: React.FC<{ stages: Stage[]; stage: Stage }> = ({ stag
               <span
                 className={`relative z-10 grid h-6 w-6 place-items-center rounded-full text-[11px] font-bold ${
                   state === 'done'
-                    ? 'bg-[var(--tm-success)] text-white'
+                    ? 'bg-[var(--tm-success)] text-[var(--tm-on-primary)]'
                     : state === 'current'
                       ? 'bg-[var(--tm-primary)] text-[var(--tm-on-primary)] ring-4 ring-[var(--tm-primary-soft)]'
                       : 'bg-[var(--tm-bg-sunken)] text-[var(--tm-ink-muted)]'
@@ -53,7 +57,7 @@ export const StageStepper: React.FC<{ stages: Stage[]; stage: Stage }> = ({ stag
               <span
                 className={`text-center text-[10.5px] leading-tight ${
                   state === 'current'
-                    ? 'font-extrabold text-[var(--tm-primary)]'
+                    ? 'font-extrabold text-[var(--tm-primary-dark)]'
                     : state === 'done'
                       ? 'font-semibold text-[var(--tm-ink-soft)]'
                       : 'text-[var(--tm-ink-muted)]'
@@ -149,30 +153,33 @@ export const DeliverablesTab: React.FC<{ subfolderId: string }> = ({ subfolderId
   const donePct = data && data.total ? Math.round((100 * data.done) / data.total) : 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="w-full sm:w-56">
-          <Input label="Month" type="month" value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} />
-        </div>
-        {data?.can_set_counts && (
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setSetting(true)} leftIcon={<SlidersHorizontal className="h-4 w-4" />}>
-              Set counts
-            </Button>
-            <Button onClick={() => setAdding('')} leftIcon={<Plus className="h-4 w-4" />}>
-              Add items
-            </Button>
+    <div className="space-y-5">
+      {/* Composer: month, and (heads and admins) the buttons that add or set items */}
+      <ComposerCard>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="w-full sm:w-56">
+            <Input label="Month" type="month" value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} />
           </div>
-        )}
-      </div>
+          {data?.can_set_counts && (
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => setSetting(true)} leftIcon={<SlidersHorizontal className="h-4 w-4" />}>
+                Set counts
+              </Button>
+              <Button onClick={() => setAdding('')} leftIcon={<Plus className="h-4 w-4" />}>
+                Add items
+              </Button>
+            </div>
+          )}
+        </div>
+      </ComposerCard>
 
-      {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</div>}
+      {error && <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>}
 
       {!data ? (
-        error ? null : <SkeletonGrid count={2} />
+        error ? null : <ItemCardSkeletons count={3} />
       ) : data.total === 0 ? (
         <EmptyState
-          icon={<Layers className="h-6 w-6 text-[var(--tm-primary)]" />}
+          icon={<Layers className="h-6 w-6 text-[var(--tm-primary-dark)]" />}
           title="No deliverables this month"
           description={
             data.can_set_counts
@@ -183,7 +190,7 @@ export const DeliverablesTab: React.FC<{ subfolderId: string }> = ({ subfolderId
           onAction={data.can_set_counts ? () => setSetting(true) : undefined}
         />
       ) : (
-        <>
+        <FadeIn className="space-y-5">
           <Card>
             <CardContent className="space-y-3 pt-6">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -240,45 +247,27 @@ export const DeliverablesTab: React.FC<{ subfolderId: string }> = ({ subfolderId
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <ul className="space-y-3">
-                    {items.map((i) => (
-                      <li key={i.id} className="space-y-3 rounded-[var(--tm-radius-md)] bg-[var(--tm-card-muted)] p-4">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="min-w-0">
-                            <span className="text-[13.5px] font-bold text-[var(--tm-ink)]">{i.title}</span>
-                            <p className="text-[11px] text-[var(--tm-ink-muted)]">
-                              {i.updated_by ? `${i.updated_by.name} · ` : ''}
-                              {formatDate(i.updated_at, 'MMM d, h:mm a')}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {data.can_set_stage && (
-                              <div className="w-44">
-                                <Select
-                                  aria-label={`Stage of ${i.title}`}
-                                  value={i.stage}
-                                  disabled={busyId === i.id}
-                                  onChange={(e) => move(i.id, e.target.value as Stage)}
-                                  options={data.stages.map((s) => ({ value: s, label: STAGE_LABEL[s] }))}
-                                />
-                              </div>
-                            )}
-                            {data.can_set_counts && (
-                              <Button variant="ghost" size="sm" aria-label={`Delete ${i.title}`} onClick={() => removeItem(i)}>
-                                <Trash2 className="h-4 w-4 text-[var(--tm-danger)]" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                        <StageStepper stages={data.stages} stage={i.stage} />
-                      </li>
-                    ))}
-                  </ul>
+                  <Stagger>
+                    <ItemList label={`${type} deliverables`}>
+                      <AnimatePresence>
+                        {items.map((i) => (
+                          <DeliverableCard
+                            key={i.id}
+                            item={i}
+                            data={data}
+                            busy={busyId === i.id}
+                            onMove={(stage) => move(i.id, stage)}
+                            onDelete={() => removeItem(i)}
+                          />
+                        ))}
+                      </AnimatePresence>
+                    </ItemList>
+                  </Stagger>
                 </CardContent>
               </Card>
             );
           })}
-        </>
+        </FadeIn>
       )}
 
       {data && <CountsModal isOpen={setting} onClose={() => setSetting(false)} subfolderId={subfolderId} month={month} data={data} onSaved={setData} />}
@@ -289,10 +278,77 @@ export const DeliverablesTab: React.FC<{ subfolderId: string }> = ({ subfolderId
           subfolderId={subfolderId}
           month={month}
           existingTypes={data.types.map((t) => t.type)}
+          items={data.items}
+          stages={data.stages}
+          canDelete={data.can_set_counts}
+          onRemove={removeItem}
           onSaved={setData}
         />
       )}
     </div>
+  );
+};
+
+/** One deliverable as a compact card: stage chip, who touched it last, the stage picker and (heads) the bin. */
+const DeliverableCard: React.FC<{
+  item: DeliverableItem;
+  data: Deliverables;
+  busy: boolean;
+  onMove: (stage: Stage) => void;
+  onDelete: () => void;
+}> = ({ item: i, data, busy, onMove, onDelete }) => {
+  const [showStages, setShowStages] = useState(false);
+  const finished = i.stage === data.stages[data.stages.length - 1];
+  return (
+    <ItemCard icon={finished ? <Check className="h-[18px] w-[18px]" strokeWidth={3} /> : <Layers className="h-[18px] w-[18px]" />} done={finished}>
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+        <div className="min-w-0">
+          <h4 className="truncate text-[15px] font-semibold text-[var(--tm-ink)]">{i.title}</h4>
+          <div className="mt-1.5">
+            {i.updated_by ? (
+              <AuthorStamp person={i.updated_by} date={i.updated_at} />
+            ) : (
+              <span className="text-[12px] text-[var(--tm-ink-muted)]">{formatDate(i.updated_at, 'MMM d, h:mm a')}</span>
+            )}
+          </div>
+        </div>
+        <span
+          className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-bold ${
+            finished ? 'bg-[var(--tm-success-bg)] text-[var(--tm-success)]' : 'bg-[var(--tm-bg-sunken)] text-[var(--tm-ink-soft)]'
+          }`}
+        >
+          {STAGE_LABEL[i.stage]}
+        </span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {data.can_set_stage && (
+          <div className="w-44">
+            <Select
+              aria-label={`Stage of ${i.title}`}
+              value={i.stage}
+              disabled={busy}
+              onChange={(e) => onMove(e.target.value as Stage)}
+              options={data.stages.map((s) => ({ value: s, label: STAGE_LABEL[s] }))}
+            />
+          </div>
+        )}
+        <Button variant="ghost" size="sm" aria-expanded={showStages} onClick={() => setShowStages((v) => !v)}>
+          {showStages ? 'Hide stages' : 'Show stages'}
+        </Button>
+        {data.can_set_counts && (
+          <Button variant="ghost" size="sm" className="ml-auto" aria-label={`Delete ${i.title}`} onClick={onDelete}>
+            <Trash2 className="h-4 w-4 text-[var(--tm-danger)]" />
+          </Button>
+        )}
+      </div>
+
+      {showStages && (
+        <div className="mt-3 border-t border-[var(--tm-border)] pt-3">
+          <StageStepper stages={data.stages} stage={i.stage} />
+        </div>
+      )}
+    </ItemCard>
   );
 };
 
@@ -303,13 +359,21 @@ const AddItemsModal: React.FC<{
   subfolderId: string;
   month: string;
   existingTypes: string[];
+  /** Everything already tracked this month, listed in the panel so it can be deleted from there. */
+  items: DeliverableItem[];
+  stages: Stage[];
+  canDelete: boolean;
+  onRemove: (item: DeliverableItem) => Promise<boolean>;
   onSaved: (d: Deliverables) => void;
-}> = ({ type, onClose, subfolderId, month, existingTypes, onSaved }) => {
+}> = ({ type, onClose, subfolderId, month, existingTypes, items, stages, canDelete, onRemove, onSaved }) => {
   const confirm = useConfirm();
+  const { reduced } = useMotionPrefs();
   const [name, setName] = useState('');
   const [count, setCount] = useState('1');
   const [error, setError] = useState<string | null>(null);
   const isOpen = type !== null;
+  // "Add more" to one type lists that type; "Add items" lists everything.
+  const listed = type ? items.filter((i) => i.type === type) : items;
 
   useEffect(() => {
     if (type === null) return;
@@ -341,7 +405,7 @@ const AddItemsModal: React.FC<{
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`Add deliverables for ${month}`} maxWidth="md">
       <form onSubmit={submit} className="space-y-4">
-        {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</div>}
+        {error && <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>}
         <div className="grid grid-cols-[1fr_110px] gap-3">
           <Input
             label="Type"
@@ -359,6 +423,51 @@ const AddItemsModal: React.FC<{
             <option key={t} value={t} />
           ))}
         </datalist>
+
+        <section aria-label="Existing items">
+          <h3 className="mb-2 flex items-center gap-2 text-[13px] font-extrabold text-[var(--tm-ink)]">
+            Existing items
+            <span className="rounded-full bg-[var(--tm-bg-sunken)] px-2 py-0.5 text-[11px] font-bold tabular-nums text-[var(--tm-ink-soft)]">{listed.length}</span>
+          </h3>
+          {listed.length === 0 ? (
+            <p className="rounded-[var(--tm-radius-md)] bg-[var(--tm-card-muted)] px-4 py-3 text-[12.5px] text-[var(--tm-ink-muted)]">Nothing here yet for {month}.</p>
+          ) : (
+            <ul className="max-h-60 overflow-y-auto rounded-[var(--tm-radius-md)] bg-[var(--tm-card-muted)] p-1.5">
+              <AnimatePresence initial={false}>
+                {listed.map((i) => (
+                  <motion.li
+                    key={i.id}
+                    layout={!reduced}
+                    exit={reduced ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, height: 0, transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] } }}
+                    className="overflow-hidden"
+                  >
+                    <div className="flex items-center gap-3 rounded-[var(--tm-radius-sm)] px-3 py-2 hover:bg-[var(--tm-card)]">
+                      <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[var(--tm-ink)]">{i.title}</span>
+                      <span
+                        className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                          i.stage === stages[stages.length - 1] ? 'bg-[var(--tm-success-bg)] text-[var(--tm-success)]' : 'bg-[var(--tm-bg-sunken)] text-[var(--tm-ink-soft)]'
+                        }`}
+                      >
+                        {STAGE_LABEL[i.stage]}
+                      </span>
+                      {canDelete && (
+                        <button
+                          type="button"
+                          aria-label={`Delete ${i.title}`}
+                          onClick={() => onRemove(i)}
+                          className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[var(--tm-danger)] transition-colors hover:bg-[var(--tm-danger-bg)]"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </motion.li>
+                ))}
+              </AnimatePresence>
+            </ul>
+          )}
+        </section>
+
         <div className="flex justify-end gap-3 border-t border-[var(--tm-border)] pt-5">
           <Button variant="outline" type="button" onClick={onClose}>
             Cancel
@@ -435,7 +544,7 @@ const CountsModal: React.FC<{
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`Deliverables for ${month}`} maxWidth="lg">
       <form onSubmit={submit} className="space-y-4">
-        {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</div>}
+        {error && <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>}
         <p className="text-[12.5px] text-[var(--tm-ink-muted)]">
           Lowering a count removes the highest numbers, but only ones still in Writing. To delete a single item or a whole type, use the bin
           icons on the tracker.

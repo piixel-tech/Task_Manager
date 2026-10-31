@@ -20,11 +20,11 @@ export const RequirementHistoryModal: React.FC<{ requirement: Requirement | null
   if (!requirement) return null;
   return (
     <Modal isOpen onClose={onClose} title="Version history" description={requirement.title} maxWidth="2xl">
-      {error && <p className="text-[13px] text-[var(--tm-danger)]">{error}</p>}
+      {error && <p className="tm-error px-4 py-3 text-[13px] font-semibold">{error}</p>}
       {!detail && !error && <SkeletonRows count={3} />}
       <ol className="space-y-4">
         {detail?.versions.map((v) => (
-          <li key={v.number} className="rounded-xl border border-[var(--tm-border)] p-4">
+          <li key={v.number} className="rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)] p-4">
             <div className="mb-2 flex flex-wrap items-center gap-2 text-[12px] text-[var(--tm-ink-muted)]">
               <span className="font-extrabold text-[var(--tm-ink)]">Version {v.number}</span>
               {v.current && <span className="rounded-full bg-[var(--tm-success-bg)] px-2 py-0.5 text-[10.5px] font-bold text-[var(--tm-success)]">Current</span>}

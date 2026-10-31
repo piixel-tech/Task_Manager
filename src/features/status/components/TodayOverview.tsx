@@ -2,10 +2,10 @@ import React, { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CalendarDays } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
+import { CountUp } from '../../../components/ui/CountUp';
 import { Avatar } from '../../../components/ui/Avatar';
 import { Badge } from '../../../components/ui/Badge';
 import { StatusChip } from '../../../components/ui/StatusChip';
-import { HeadBadge } from '../../../components/ui/HeadBadge';
 import { SkeletonRows } from '../../../components/ui/Skeleton';
 import { useAuthStore } from '../../../store/authStore';
 import { useAppStore } from '../../../store/useAppStore';
@@ -39,20 +39,20 @@ export const TodayOverview: React.FC = () => {
   const notSet = rows.filter((r) => r.status === null).length;
 
   return (
-    <Card>
+    <Card lift>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base font-extrabold">
-          <CalendarDays className="h-4 w-4 text-[var(--tm-primary)]" />
+          <CalendarDays className="h-4 w-4 text-[var(--tm-primary-dark)]" />
           Today overview
         </CardTitle>
         <div className="mt-2 flex flex-wrap gap-2">
           {counts.map((c) => (
             <StatusChip key={c.value} tone={c.tone} size="sm" dot>
-              {c.count} {c.label.toLowerCase()}
+              <CountUp value={c.count} /> {c.label.toLowerCase()}
             </StatusChip>
           ))}
           <StatusChip tone="neutral" size="sm" dot>
-            {notSet} not set
+            <CountUp value={notSet} /> not set
           </StatusChip>
         </div>
       </CardHeader>
@@ -63,7 +63,7 @@ export const TodayOverview: React.FC = () => {
         ) : rows.length === 0 ? (
           <p className="py-6 text-center text-xs text-[var(--tm-ink-muted)]">No team members yet.</p>
         ) : (
-          <ul className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+          <ul className="animate-fade-in grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
             {rows.map((r) => {
               const meta = statusMeta(r.status);
               const company = r.company_id ? companyNames[r.company_id] : undefined;
@@ -72,8 +72,8 @@ export const TodayOverview: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate(`${prefix}/calendar/${r.user_id}`)}
-                    className="flex w-full items-center justify-between gap-3 rounded-[var(--tm-radius-md)]
-                      bg-[var(--tm-card-muted)] px-3 py-2.5 text-left transition-colors hover:bg-[var(--tm-bg-sunken)]"
+                    className="flex w-full items-center justify-between gap-3 rounded-full
+                      bg-[var(--tm-card-muted)] py-2 pl-2 pr-3 text-left transition-all hover:-translate-y-px hover:bg-[var(--tm-bg-sunken)]"
                   >
                     <span className="flex min-w-0 items-center gap-3">
                       <Avatar name={r.name} src={r.avatar_url ?? undefined} size="md" />
@@ -87,7 +87,6 @@ export const TodayOverview: React.FC = () => {
                               {company}
                             </Badge>
                           )}
-                          {r.is_head && <HeadBadge />}
                         </span>
                       </span>
                     </span>

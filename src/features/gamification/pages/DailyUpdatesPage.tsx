@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Calendar, FileText, MessageSquare, Clock } from 'lucide-react';
+import { PageHeader } from '../../../components/ui/PageHeader';
+import { FilterBar, FilterDate } from '../../../components/ui/FilterBar';
+import { MessageSquare, Clock } from 'lucide-react';
 import { gamificationService, userService } from '../../../services';
 import type { DailyUpdate, User } from '../../../types';
 import { getTodayDateString, formatDate } from '../../../utils/time';
@@ -7,6 +9,8 @@ import { Card, CardContent, CardHeader } from '../../../components/ui/Card';
 import { UserName } from '../../../components/ui/UserName';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { Badge } from '../../../components/ui/Badge';
+import { SkeletonGrid } from '../../../components/ui/Skeleton';
+import { FadeIn } from '../../../components/ui/FadeIn';
 
 export const DailyUpdatesPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
@@ -39,32 +43,17 @@ export const DailyUpdatesPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-[27px] font-extrabold leading-tight tracking-[-0.03em] text-[var(--tm-ink)] flex items-center gap-2.5">
-            <FileText className="w-7 h-7 text-[var(--tm-primary)]" /> Daily Updates Feed
-          </h1>
-          <p className="text-[14px] leading-relaxed text-[var(--tm-ink-muted)] mt-1.5">
-            End-of-day task summaries submitted by employees for key deliverables & time logged.
-          </p>
-        </div>
+      <PageHeader
+        title="Daily Updates Feed"
+        description="End-of-day task summaries submitted by employees for key deliverables & time logged."
+      />
 
-        <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-[var(--tm-border)] shadow-sm text-xs">
-          <Calendar className="w-4 h-4 text-[var(--tm-primary)]" />
-          <span className="font-medium text-[var(--tm-ink-soft)]">Filter Date:</span>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="border-none font-semibold text-[var(--tm-ink)] focus:outline-none bg-transparent"
-          />
-        </div>
-      </div>
+      <FilterBar activeCount={selectedDate !== getTodayDateString() ? 1 : 0} onClear={() => setSelectedDate(getTodayDateString())}>
+        <FilterDate label="Date" value={selectedDate} active={selectedDate !== getTodayDateString()} onChange={(v) => v && setSelectedDate(v)} />
+      </FilterBar>
 
       {loading ? (
-        <div className="p-12 text-center text-xs text-[var(--tm-ink-muted)] animate-pulse">
-          Loading daily updates feed...
-        </div>
+        <SkeletonGrid count={4} className="grid grid-cols-1 md:grid-cols-2 gap-4" />
       ) : updates.length === 0 ? (
         <Card>
           <CardContent className="p-8">
@@ -76,12 +65,12 @@ export const DailyUpdatesPage: React.FC = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <FadeIn className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {employees.map((emp) => {
             const update = updateByUserId.get(emp.id);
 
             return (
-              <Card key={emp.id} className={update ? 'border-[var(--tm-primary-soft)] shadow-sm' : 'border-[var(--tm-border)] opacity-60'}>
+              <Card key={emp.id} className={update ? 'border-[var(--tm-primary-soft)] shadow-soft-sm' : 'border-[var(--tm-border)] opacity-60'}>
                 <CardHeader className="flex flex-row items-center justify-between pb-3">
                   <div className="flex items-center gap-3">
                     <UserName userId={emp.id} size="md" />
@@ -94,7 +83,7 @@ export const DailyUpdatesPage: React.FC = () => {
                 </CardHeader>
                 <CardContent className="pt-0">
                   {update ? (
-                    <div className="bg-[var(--tm-card-muted)] p-3.5 rounded-xl border border-[var(--tm-border)] space-y-2">
+                    <div className="bg-[var(--tm-card-muted)] p-3.5 rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)] space-y-2">
                       <p className="text-xs text-[var(--tm-ink)] font-medium whitespace-pre-wrap leading-relaxed">
                         {update.summary}
                       </p>
@@ -106,7 +95,7 @@ export const DailyUpdatesPage: React.FC = () => {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-xs text-[var(--tm-ink-muted)] italic p-3 text-center bg-[var(--tm-card-muted)] rounded-xl border border-[var(--tm-border)]">
+                    <p className="text-xs text-[var(--tm-ink-muted)] italic p-3 text-center bg-[var(--tm-card-muted)] rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)]">
                       Has not submitted daily update for this date.
                     </p>
                   )}
@@ -114,7 +103,7 @@ export const DailyUpdatesPage: React.FC = () => {
               </Card>
             );
           })}
-        </div>
+        </FadeIn>
       )}
     </div>
   );

@@ -60,8 +60,10 @@ export const ProfileSection: React.FC = () => {
         <CardDescription>This is what your colleagues see on your profile, in chats and on tasks.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="flex flex-wrap items-center gap-5">
-          <Avatar name={user.name} src={user.avatarUrl} size="2xl" />
+        <div className="flex flex-wrap items-center gap-5 rounded-[var(--tm-radius-lg)] bg-[var(--tm-card-muted)] p-5">
+          <div className="rounded-full bg-[var(--tm-bg-sunken)] p-2.5">
+            <Avatar name={user.name} src={user.avatarUrl} size="2xl" ring />
+          </div>
           <div className="space-y-2">
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="outline" leftIcon={<Camera className="h-4 w-4" />} onClick={() => setPicking(true)}>
@@ -83,17 +85,8 @@ export const ProfileSection: React.FC = () => {
           <Input label="Phone" type="tel" value={phone} maxLength={40} onChange={(e) => setPhone(e.target.value)} />
           <Input label="Email" value={user.loginId} disabled helperText="An admin changes this." />
           <div className="sm:col-span-2">
-            <label htmlFor="bio" className="mb-1.5 block text-[12.5px] font-bold text-[var(--tm-ink-soft)]">
-              About me
-            </label>
-            <textarea
-              id="bio"
-              value={bio}
-              rows={4}
-              maxLength={BIO_MAX}
-              onChange={(e) => setBio(e.target.value)}
-              className="w-full resize-y rounded-[var(--tm-radius-md)] border border-[var(--tm-border)] bg-[var(--tm-card)] p-3 text-[14px] text-[var(--tm-ink)] outline-none focus:border-[var(--tm-primary)]"
-            />
+
+
             <p className="mt-1 text-right text-[11.5px] text-[var(--tm-ink-muted)]">
               {bio.length}/{BIO_MAX}
             </p>

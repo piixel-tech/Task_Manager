@@ -47,7 +47,7 @@ export const ChangePasswordPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[var(--tm-bg)] flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="w-12 h-12 rounded-2xl bg-[var(--tm-warning-bg)] text-[var(--tm-warning)] flex items-center justify-center mx-auto mb-3 shadow-xs">
+        <div className="w-12 h-12 rounded-[var(--tm-radius-md)] bg-[var(--tm-warning-bg)] text-[var(--tm-warning)] flex items-center justify-center mx-auto mb-3 shadow-soft-xs">
           <ShieldAlert className="w-6 h-6" />
         </div>
         <h2 className="text-xl font-bold tracking-tight text-[var(--tm-ink)]">
@@ -59,11 +59,11 @@ export const ChangePasswordPage: React.FC = () => {
       </div>
 
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md px-4">
-        <Card className="shadow-lg border-[var(--tm-border)]">
+        <Card className="border-[var(--tm-border)]">
           <CardContent className="p-8">
             <form onSubmit={handleSubmit} className="space-y-4">
               {(validationError || error) && (
-                <div className="p-3 rounded-lg bg-[var(--tm-danger-bg)] border border-[var(--tm-danger-ring)] text-[var(--tm-danger)] text-xs font-medium">
+                <div className="tm-error px-4 py-3 text-xs font-semibold">
                   {validationError || error}
                 </div>
               )}
@@ -98,7 +98,7 @@ export const ChangePasswordPage: React.FC = () => {
                 required
               />
 
-              <div className="text-xs text-[var(--tm-ink-muted)] space-y-1 bg-[var(--tm-card-muted)] p-3 rounded-lg border border-[var(--tm-border)]">
+              <div className="text-xs text-[var(--tm-ink-muted)] space-y-1 bg-[var(--tm-card-muted)] p-3 rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)]">
                 <div className="flex items-center gap-1.5 text-[var(--tm-ink-soft)] font-medium">
                   <CheckCircle2 className="w-3.5 h-3.5 text-[var(--tm-success)]" /> Password requirements:
                 </div>

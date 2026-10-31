@@ -47,7 +47,7 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
   const { reduced } = useMotionPrefs();
   const uid = useId().replace(/:/g, '');
   const pct = Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
-  const strokeColor = onDark ? '#ffffff' : toneVar[tone];
+  const strokeColor = onDark ? 'var(--tm-on-primary)' : toneVar[tone];
 
   const r = (size - thickness) / 2;
   const c = 2 * Math.PI * r;
@@ -136,7 +136,7 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
         {showValue && (
           <span
             className={`text-[22px] font-extrabold leading-none tabular-nums ${
-              onDark ? 'text-white' : 'text-[var(--tm-ink)]'
+              onDark ? 'text-[var(--tm-on-primary)]' : 'text-[var(--tm-ink)]'
             }`}
           >
             <CountUp value={Math.round(pct)} suffix="%" />
@@ -145,7 +145,7 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
         {label && (
           <span
             className={`mt-1 text-[11px] font-semibold uppercase tracking-wider ${
-              onDark ? 'text-white/70' : 'text-[var(--tm-ink-muted)]'
+              onDark ? 'text-[var(--tm-on-primary)]/70' : 'text-[var(--tm-ink-muted)]'
             }`}
           >
             {label}
@@ -153,7 +153,7 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
         )}
         {sublabel && (
           <span
-            className={`text-[11px] ${onDark ? 'text-white/70' : 'text-[var(--tm-ink-muted)]'}`}
+            className={`text-[11px] ${onDark ? 'text-[var(--tm-on-primary)]/70' : 'text-[var(--tm-ink-muted)]'}`}
           >
             {sublabel}
           </span>

@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { Send } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Select } from '../../../components/ui/Select';
 import { RichEditor, type MentionPerson, type RichEditorHandle } from '../../../components/editor/RichEditor';
@@ -54,8 +55,18 @@ export const EntryComposer: React.FC<Props> = ({ kind, people, parentId, placeho
     setFiles(next);
   };
 
+  const canPost = !(empty && files.length === 0);
+
+  // Ctrl+Enter (Cmd+Enter on a Mac) posts from anywhere in the composer.
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+      e.preventDefault();
+      if (canPost) submit();
+    }
+  };
+
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2.5" onKeyDown={onKeyDown}>
       <RichEditor ref={editor} people={people} placeholder={placeholder} onChange={({ empty: e }) => setEmpty(e)} maxHeightClass={compact ? 'max-h-28' : 'max-h-48'} label={noun} />
       {files.length > 0 || !compact ? <AssetPicker value={files} onChange={changeFiles} onUploaded={(ids) => ids.forEach((id) => uploaded.current.add(id))} /> : null}
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -64,15 +75,15 @@ export const EntryComposer: React.FC<Props> = ({ kind, people, parentId, placeho
             <Select label="Assign to (optional)" value={assignee} onChange={(e) => setAssignee(e.target.value)} options={[{ value: '', label: 'No one' }, ...people.map((p) => ({ value: p.id, label: p.name }))]} />
           </div>
         ) : (
-          <span />
+          <span className="text-[11.5px] text-[var(--tm-ink-muted)]">{compact ? '' : 'Ctrl + Enter to post'}</span>
         )}
-        <div className="flex gap-2">
+        <div className="ml-auto flex gap-2">
           {onCancel && (
             <Button size="sm" variant="outline" onClick={onCancel}>
               Cancel
             </Button>
           )}
-          <Button size="sm" disabled={empty && files.length === 0} onClick={submit}>
+          <Button size={compact ? 'sm' : 'md'} disabled={!canPost} onClick={submit} rightIcon={compact ? undefined : <Send className="h-4 w-4" />}>
             Post
           </Button>
         </div>

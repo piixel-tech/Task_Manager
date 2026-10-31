@@ -1,11 +1,10 @@
 import React from 'react';
-import { Check, Monitor, Moon, Sun } from 'lucide-react';
+import { Monitor, Moon, Sun } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Switch } from '../../../components/ui/Switch';
 import { ChangePasswordCard } from '../../../components/settings/ChangePasswordCard';
 import type { NotifPrefs, UserSettings } from '../../../services/http/accountApi';
 import { useSettingsStore } from '../../../store/useSettingsStore';
-import { ACCENTS, useThemeStore } from '../../../store/useThemeStore';
 import { FocusControls } from '../../focus/FocusMenu';
 import { ShortcutList } from '../../shortcuts/ShortcutList';
 
@@ -31,7 +30,7 @@ export const NotificationsSection: React.FC = () => {
       </CardHeader>
       <CardContent className="space-y-1">
         {KINDS.map((k) => (
-          <div key={k.key} className="flex items-center justify-between gap-4 rounded-xl px-1 py-3">
+          <div key={k.key} className="flex items-center justify-between gap-4 rounded-[var(--tm-radius-sm)] px-1 py-3">
             <div className="min-w-0">
               <p className="text-[14px] font-bold text-[var(--tm-ink)]">{k.label}</p>
               <p className="text-[12.5px] text-[var(--tm-ink-muted)]">{k.note}</p>
@@ -39,7 +38,7 @@ export const NotificationsSection: React.FC = () => {
             <Switch label={k.label} checked={settings.notif_prefs[k.key]} onChange={(on) => void update({ notif_prefs: { [k.key]: on } })} />
           </div>
         ))}
-        <div className="flex items-center justify-between gap-4 rounded-xl border-t border-[var(--tm-border)] px-1 pt-4">
+        <div className="flex items-center justify-between gap-4 rounded-[var(--tm-radius-sm)] border-t border-[var(--tm-border)] px-1 pt-4">
           <div>
             <p className="text-[14px] font-bold text-[var(--tm-ink)]">Sound effects</p>
             <p className="text-[12.5px] text-[var(--tm-ink-muted)]">Soft sounds, for example when a task you worked on is approved.</p>
@@ -67,7 +66,7 @@ const Choice: React.FC<{ selected: boolean; onClick: () => void; children: React
     type="button"
     aria-pressed={selected}
     onClick={onClick}
-    className={`flex flex-col items-center gap-1.5 rounded-2xl border p-4 text-center transition-colors ${
+    className={`flex flex-col items-center gap-1.5 rounded-[var(--tm-radius-md)] border p-4 text-center transition-colors ${
       selected ? 'border-[var(--tm-primary)] bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)]' : 'border-[var(--tm-border)] bg-[var(--tm-card)] text-[var(--tm-ink-soft)] hover:border-[var(--tm-border-strong)]'
     }`}
   >
@@ -78,7 +77,6 @@ const Choice: React.FC<{ selected: boolean; onClick: () => void; children: React
 export const AppearanceSection: React.FC = () => {
   const settings = useSettingsStore((s) => s.settings);
   const update = useSettingsStore((s) => s.update);
-  const { accent, setAccent } = useThemeStore();
   return (
     <div className="space-y-6">
       <Card>
@@ -109,25 +107,6 @@ export const AppearanceSection: React.FC = () => {
               <Choice key={d.id} selected={settings.density === d.id} onClick={() => void update({ density: d.id })}>
                 <span className="text-[13px] font-bold">{d.label}</span>
                 <span className="text-[12px] font-medium text-[var(--tm-ink-muted)]">{d.note}</span>
-              </Choice>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Accent colour</CardTitle>
-          <CardDescription>Remembered on this device.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {ACCENTS.map((a) => (
-              <Choice key={a.id} selected={a.id === accent} onClick={() => setAccent(a.id)}>
-                <span className="grid h-8 w-8 place-items-center rounded-full text-white" style={{ background: a.swatch }}>
-                  {a.id === accent && <Check className="h-4 w-4" />}
-                </span>
-                <span className="text-[13px] font-bold">{a.label}</span>
               </Choice>
             ))}
           </div>
@@ -181,7 +160,7 @@ export const HelpSection: React.FC = () => (
     </CardHeader>
     <CardContent className="space-y-2">
       {HELP.map((h) => (
-        <details key={h.q} className="group rounded-xl border border-[var(--tm-border)] px-4 py-3">
+        <details key={h.q} className="group rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)] px-4 py-3">
           <summary className="cursor-pointer text-[14px] font-bold text-[var(--tm-ink)]">{h.q}</summary>
           <p className="mt-2 text-[13.5px] leading-relaxed text-[var(--tm-ink-soft)]">{h.a}</p>
         </details>

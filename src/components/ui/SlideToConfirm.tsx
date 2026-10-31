@@ -112,7 +112,7 @@ export const SlideToConfirm: React.FC<SlideToConfirmProps> = ({
           animate={{ opacity: 1 }}
           transition={{ duration: reduced ? 0 : 0.2, ease: EASE_OUT }}
           className="pointer-events-none absolute inset-0 flex items-center justify-center
-            pr-12 text-[13px] font-bold uppercase tracking-[0.1em] text-white"
+            pr-12 text-[13px] font-bold uppercase tracking-[0.1em] text-[var(--tm-on-primary)]"
         >
           {confirmedLabel}
         </motion.span>

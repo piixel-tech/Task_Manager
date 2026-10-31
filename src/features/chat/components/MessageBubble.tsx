@@ -59,10 +59,10 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
   return (
     <div id={`msg-${m.id}`} className={`group/msg flex items-end gap-2 ${mine ? 'flex-row-reverse' : ''}`}>
       {!mine && (
-        <div className="w-7 shrink-0">
+        <div className="w-8 shrink-0">
           {showSender && (
             <PersonLink userId={m.sender?.id}>
-              <Avatar name={m.sender?.name ?? '?'} src={m.sender?.avatar_url ?? undefined} size="xs" focus={senderFocus != null} />
+              <Avatar name={m.sender?.name ?? '?'} src={m.sender?.avatar_url ?? undefined} size="sm" focus={senderFocus != null} />
             </PersonLink>
           )}
         </div>
@@ -70,14 +70,15 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
 
       <div className={`relative flex max-w-[82%] flex-col sm:max-w-[70%] ${mine ? 'items-end' : 'items-start'}`}>
         <div
-          className={`relative rounded-2xl px-3.5 py-2 shadow-soft-xs transition-shadow ${
+          data-own={mine ? 'true' : undefined}
+          className={`tm-msg-in relative rounded-[18px] px-3.5 py-2 shadow-soft-xs transition-shadow ${
             flash ? 'ring-2 ring-[var(--tm-primary)]' : mentionsMe ? 'ring-1 ring-[var(--tm-warning)]' : ''
           } ${
             m.deleted
               ? 'border border-dashed border-[var(--tm-border-strong)] bg-transparent'
               : mine
-                ? 'rounded-br-md bg-[var(--tm-primary-soft)] text-[var(--tm-ink)]'
-                : 'rounded-bl-md bg-[var(--tm-card)] text-[var(--tm-ink)]'
+                ? 'rounded-br-[6px] bg-[var(--tc-mine-bg)] text-[var(--tc-mine-ink)] [--tm-ink:#ffffff] [--tm-ink-soft:#e4e1ee] [--tm-ink-muted:#b9b6c6] [--tm-primary-dark:#c4b5e0] [--tm-card-muted:rgba(255,255,255,0.12)] [--tm-bg-sunken:rgba(255,255,255,0.14)]'
+                : 'rounded-bl-[6px] border border-[var(--tc-other-border)] bg-[var(--tc-other-bg)] text-[var(--tm-ink)]'
           }`}
         >
           {showSender && !mine && !m.deleted && (
@@ -101,7 +102,7 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
               {m.reply && (
                 <a
                   href={`#msg-${m.reply.id}`}
-                  className="mb-1.5 block rounded-lg border-l-4 border-[var(--tm-primary)] bg-black/5 px-2.5 py-1.5 text-[12px] dark:bg-white/10"
+                  className="mb-1.5 block rounded-[var(--tm-radius-sm)] border-l-4 border-[var(--tm-primary)] bg-[var(--tm-card-muted)] px-3 py-2 text-[12px]"
                 >
                   <span className="block font-bold text-[var(--tm-primary-dark)]">{m.reply.sender?.id === meId ? 'You' : (m.reply.sender?.name ?? 'Former member')}</span>
                   <span className={`line-clamp-2 ${m.reply.deleted ? 'italic' : ''} text-[var(--tm-ink-soft)]`}>{m.reply.preview}</span>
@@ -109,7 +110,7 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
               )}
 
               {m.type === 'image' && m.file && (
-                <button type="button" onClick={() => setZoom(true)} aria-label="Open photo" className="mb-1 block overflow-hidden rounded-xl">
+                <button type="button" onClick={() => setZoom(true)} aria-label="Open photo" className="mb-1 block overflow-hidden rounded-[var(--tm-radius-md)]">
                   <AuthImage url={m.file.url} alt={m.body || 'Photo'} className="max-h-72 w-full max-w-xs object-cover" />
                 </button>
               )}
@@ -123,9 +124,9 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
                 <button
                   type="button"
                   onClick={open}
-                  className="mb-1 flex w-full max-w-xs items-center gap-2.5 rounded-xl bg-black/5 p-2.5 text-left hover:bg-black/10 dark:bg-white/10"
+                  className="mb-1 flex w-full max-w-xs items-center gap-2.5 rounded-[var(--tm-radius-sm)] bg-[var(--tm-card-muted)] p-3 text-left hover:bg-[var(--tm-bg-sunken)]"
                 >
-                  <FileText className="h-6 w-6 shrink-0 text-[var(--tm-primary)]" />
+                  <FileText className="h-6 w-6 shrink-0 text-[var(--tm-primary-dark)]" />
                   <span className="min-w-0">
                     <span className="block truncate text-[13px] font-bold">{m.file.name}</span>
                     <span className="text-[11px] text-[var(--tm-ink-muted)]">{(m.file.size / 1024).toFixed(m.file.size > 1024 * 100 ? 0 : 1)} KB · tap to download</span>
@@ -155,7 +156,7 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
             {pinned && <Pin className="h-3 w-3" aria-label="Pinned" />}
             {clock(m.created_at)}
             {mine && !m.deleted && (
-              <button type="button" onClick={() => onInfo(m)} aria-label="Message info" className="rounded hover:bg-black/5">
+              <button type="button" onClick={() => onInfo(m)} aria-label="Message info" className="rounded-full hover:bg-[var(--tm-bg-sunken)]">
                 <Ticks status={status} />
               </button>
             )}
@@ -201,7 +202,7 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
             <button type="button" aria-label="Close menu" className="fixed inset-0 z-30 cursor-default" onClick={() => setMenu(false)} />
             <div
               role="menu"
-              className={`absolute top-8 z-40 w-56 rounded-2xl border border-[var(--tm-border)] bg-[var(--tm-card)] p-1.5 shadow-soft-lg ${mine ? 'right-0' : 'left-0'}`}
+              className={`absolute top-8 z-40 w-56 rounded-[var(--tm-radius-md)] glass-strong p-1.5 ${mine ? 'right-0' : 'left-0'}`}
             >
               <div className="flex justify-between px-1 pb-1.5" role="group" aria-label="React">
                 {REACTIONS.map((e) => (
@@ -228,7 +229,7 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
 
       {m.type === 'image' && m.file && (
         <Modal isOpen={zoom} onClose={() => setZoom(false)} title={m.body || 'Photo'} maxWidth="2xl">
-          <AuthImage url={m.file.url} alt={m.body || 'Photo'} className="max-h-[70vh] w-full rounded-lg object-contain" />
+          <AuthImage url={m.file.url} alt={m.body || 'Photo'} className="max-h-[70vh] w-full rounded-[var(--tm-radius-md)] object-contain" />
         </Modal>
       )}
     </div>
@@ -240,7 +241,7 @@ const MenuItem: React.FC<{ icon: React.ReactNode; label: string; onClick: () => 
     type="button"
     role="menuitem"
     onClick={onClick}
-    className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-[13px] font-semibold hover:bg-[var(--tm-bg-sunken)] ${
+    className={`flex w-full items-center gap-2.5 rounded-full px-3 py-2 text-left text-[13px] font-semibold hover:bg-[var(--tm-bg-sunken)] ${
       danger ? 'text-[var(--tm-danger)]' : 'text-[var(--tm-ink)]'
     }`}
   >

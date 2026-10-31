@@ -28,7 +28,7 @@ export const ChangeRequestBox: React.FC<{ task: Task; compact?: boolean }> = ({ 
 
   return (
     <div
-      className={`rounded-xl border-l-4 border border-[var(--tm-warning-ring)] border-l-[var(--tm-warning)] bg-[var(--tm-warning-bg)] ${
+      className={`rounded-[var(--tm-radius-sm)] border-l-4 border border-[var(--tm-warning-ring)] border-l-[var(--tm-warning)] bg-[var(--tm-warning-bg)] ${
         compact ? 'p-3' : 'p-4'
       } space-y-1.5`}
     >
@@ -120,7 +120,7 @@ export const ReviewHistoryTimeline: React.FC<{ task: Task }> = ({ task }) => {
               )}
 
               {event.message && (
-                <p className="rounded-lg border border-[var(--tm-warning-ring)] bg-[var(--tm-warning-bg)] p-2.5 text-xs font-medium leading-relaxed text-[var(--tm-warning)]">
+                <p className="rounded-[var(--tm-radius-sm)] border border-[var(--tm-warning-ring)] bg-[var(--tm-warning-bg)] p-2.5 text-xs font-medium leading-relaxed text-[var(--tm-warning)]">
                   “{event.message}”
                 </p>
               )}

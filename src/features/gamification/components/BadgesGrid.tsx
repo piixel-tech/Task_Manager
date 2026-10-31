@@ -19,28 +19,28 @@ const ALL_BADGE_TYPES: { type: BadgeType; title: string; description: string; ic
     title: 'Fastest Delivery',
     description: 'Delivered a critical task significantly ahead of deadline',
     icon: <Zap className="w-5 h-5" />,
-    color: 'from-[var(--tm-warning)] to-[var(--tm-warning)] text-white bg-[var(--tm-warning-bg)] border-[var(--tm-warning-ring)]'
+    color: 'from-[var(--tm-warning)] to-[var(--tm-warning)] text-[var(--tm-on-primary)] bg-[var(--tm-warning-bg)] border-[var(--tm-warning-ring)]'
   },
   {
     type: 'client_favourite',
     title: 'Client Favourite',
     description: 'Awarded by management for stellar client communication',
     icon: <Heart className="w-5 h-5 text-[var(--tm-danger)]" />,
-    color: 'from-[var(--tm-danger)] to-[var(--tm-danger)] text-white bg-[var(--tm-danger-bg)] border-[var(--tm-danger-ring)]'
+    color: 'from-[var(--tm-danger)] to-[var(--tm-danger)] text-[var(--tm-on-primary)] bg-[var(--tm-danger-bg)] border-[var(--tm-danger-ring)]'
   },
   {
     type: 'helped_teammate',
     title: 'Helped a Teammate',
     description: 'Stepped in and completed an assigned task for a peer',
-    icon: <Award className="w-5 h-5 text-[var(--tm-primary)]" />,
-    color: 'from-[var(--tm-primary)] to-[var(--tm-primary)] text-white bg-[var(--tm-primary-softer)] border-[var(--tm-primary-soft)]'
+    icon: <Award className="w-5 h-5 text-[var(--tm-primary-dark)]" />,
+    color: 'from-[var(--tm-primary)] to-[var(--tm-primary)] text-[var(--tm-on-primary)] bg-[var(--tm-primary-softer)] border-[var(--tm-primary-soft)]'
   },
   {
     type: 'zero_revisions',
     title: 'Zero Revisions',
     description: 'Completed work with perfect quality on first submission',
     icon: <ShieldCheck className="w-5 h-5 text-[var(--tm-success)]" />,
-    color: 'from-[var(--tm-success)] to-[var(--tm-success)] text-white bg-[var(--tm-success-bg)] border-[var(--tm-success-ring)]'
+    color: 'from-[var(--tm-success)] to-[var(--tm-success)] text-[var(--tm-on-primary)] bg-[var(--tm-success-bg)] border-[var(--tm-success-ring)]'
   }
 ];
 
@@ -101,7 +101,7 @@ export const BadgesGrid: React.FC<BadgesGridProps> = ({ targetUserId, showAwardB
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-bold text-[var(--tm-ink)] flex items-center gap-2">
-            <Award className="w-4 h-4 text-[var(--tm-primary)]" /> Unlocked Achievement Badges
+            <Award className="w-4 h-4 text-[var(--tm-primary-dark)]" /> Unlocked Achievement Badges
           </h3>
           <p className="text-xs text-[var(--tm-ink-muted)]">Collect badges by completing tasks cleanly and helping your team.</p>
         </div>
@@ -125,14 +125,14 @@ export const BadgesGrid: React.FC<BadgesGridProps> = ({ targetUserId, showAwardB
           return (
             <div
               key={b.type}
-              className={`p-4 rounded-2xl border transition-all relative overflow-hidden ${
+              className={`p-4 rounded-[var(--tm-radius-md)] border transition-all relative overflow-hidden ${
                 isUnlocked
-                  ? 'bg-white border-[var(--tm-border)] shadow-sm'
+                  ? 'bg-[var(--tm-card)] border-[var(--tm-border)] shadow-soft-sm'
                   : 'bg-[var(--tm-card-muted)] border-[var(--tm-border)] opacity-60 grayscale'
               }`}
             >
               <div className="flex items-start justify-between mb-2">
-                <div className={`p-2.5 rounded-xl bg-gradient-to-br ${b.color} shadow-sm`}>
+                <div className={`p-2.5 rounded-[var(--tm-radius-sm)] bg-gradient-to-br ${b.color} shadow-soft-sm`}>
                   {b.icon}
                 </div>
                 {isUnlocked ? (
@@ -149,7 +149,7 @@ export const BadgesGrid: React.FC<BadgesGridProps> = ({ targetUserId, showAwardB
               <p className="text-[11px] text-[var(--tm-ink-muted)] mt-1">{b.description}</p>
 
               {userBadge?.note && (
-                <div className="mt-2 text-[10px] bg-[var(--tm-primary-softer)] text-[var(--tm-primary-dark)] p-2 rounded-lg border border-[var(--tm-primary-soft)] italic">
+                <div className="mt-2 text-[10px] bg-[var(--tm-primary-softer)] text-[var(--tm-primary-dark)] p-2 rounded-[var(--tm-radius-sm)] border border-[var(--tm-primary-soft)] italic">
                   "{userBadge.note}"
                 </div>
               )}
@@ -186,7 +186,7 @@ export const BadgesGrid: React.FC<BadgesGridProps> = ({ targetUserId, showAwardB
               value={awardNote}
               onChange={(e) => setAwardNote(e.target.value)}
               placeholder="e.g., Outstanding client presentation and clear communication."
-              className="w-full px-3 py-2 border border-[var(--tm-border-strong)] rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--tm-primary)] focus:border-[var(--tm-primary)]"
+              className="w-full px-3 py-2 border border-[var(--tm-border-strong)] rounded-[var(--tm-radius-sm)] focus:outline-none focus:ring-2 focus:ring-[var(--tm-primary)] focus:border-[var(--tm-primary)]"
             />
           </div>
 

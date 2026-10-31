@@ -40,7 +40,7 @@ def rows_of(response):
 # --- Workspace ------------------------------------------------------------------------------------------------------------
 async def test_workspace_defaults_and_who_may_change_it(client, team):
     w = (await client.get("/workspace", headers=team.mia.headers)).json()
-    assert w == {"name": "Task Manager", "logo_url": None, "work_start": "09:00", "work_end": "18:00", "holidays": []}
+    assert w == {"name": "Task Manager", "logo_url": None, "work_start": "09:00", "work_end": "18:00", "holidays": [], "weekly_off": [6]}
     assert (await client.get("/workspace", headers=team.cleo.headers)).status_code == 200  # clients read it too
     assert (await client.get("/workspace")).status_code == 401
     assert (await client.put("/workspace", json={"name": "X"}, headers=team.mia.headers)).status_code == 403
@@ -90,7 +90,7 @@ async def test_holidays(client, team):
     assert len((await client.get("/workspace", headers=h)).json()["holidays"]) == 1
 
 
-async def test_bookable_hours_and_holidays_follow_the_workspace(client, team):
+async def test_bookable_all_day_and_holidays_follow_the_workspace(client, team):
     day = today_local() + timedelta(days=3)
 
     def local_hours(slots):
@@ -101,17 +101,14 @@ async def test_bookable_hours_and_holidays_follow_the_workspace(client, team):
         assert r.status_code == 200, r.text
         return r.json()
 
-    assert local_hours((await slots())["slots"])[0] == "09:00"
+    all_day = local_hours((await slots())["slots"])
+    assert all_day[0] == "00:00" and all_day[-1] == "23:30" and len(all_day) == 48  # no after-hours limit
     await client.put("/workspace", json={"work_start": "10:00", "work_end": "12:00"}, headers=team.admin.headers)
-    assert local_hours((await slots())["slots"]) == ["10:00", "10:30", "11:00", "11:30"]
+    assert local_hours((await slots())["slots"]) == all_day  # the office hours setting no longer limits bookings
 
-    await client.post("/workspace/holidays", json={"date": day.isoformat(), "name": "Founders Day", "type": "optional"}, headers=team.admin.headers)
-    assert len((await slots())["slots"]) == 4  # an optional holiday doesn't close the office
-    listed = (await client.get("/workspace", headers=team.admin.headers)).json()["holidays"]
-    await client.delete(f"/workspace/holidays/{listed[0]['id']}", headers=team.admin.headers)
+    # holidays are shown on calendars, not enforced: bookings stay open on them
     await client.post("/workspace/holidays", json={"date": day.isoformat(), "name": "Founders Day", "type": "company"}, headers=team.admin.headers)
-    closed = await slots()
-    assert closed["slots"] == [] and closed["note"] == "Founders Day is a holiday"
+    assert len((await slots())["slots"]) == 48
 
 
 # --- Companies --------------------------------------------------------------------------------------------------------------------
@@ -384,3 +381,78 @@ async def test_restoring_a_task_relinks_its_chat_chip(client, team, live):
     await client.post(f"/trash/{item['id']}/restore", headers=team.admin.headers)
     assert str((await ChatMessage.get(PydanticObjectId(m["id"]))).task_id) == task["id"]  # the "Task created" chip is back
     assert live.events("chat:message_update")[-1][1]["task"]["id"] == task["id"]
+
+
+async def test_holidays_take_single_dates_ranges_and_companies(client, team):
+    h = team.admin.headers
+    d = [today_local() + timedelta(days=n) for n in (4, 5, 6, 10)]
+    iso = [x.isoformat() for x in d]
+    company = (await client.post("/companies", json={"name": "Hols Co"}, headers=h)).json()["id"]
+
+    r = await client.post(
+        "/workspace/holidays",
+        json={"dates": [iso[0], iso[3], iso[0]], "ranges": [{"start": iso[1], "end": iso[2]}], "name": "Diwali", "type": "company", "company_ids": [company]},
+        headers=h,
+    )
+    assert r.status_code == 201
+    listed = r.json()["holidays"]
+    assert [(x["date"], x["end_date"]) for x in listed] == [(iso[0], None), (iso[1], iso[2]), (iso[3], None)]
+    assert all(x["name"] == "Diwali" and x["company_ids"] == [company] for x in listed)
+
+    # entries already listed are skipped; nothing new is a conflict; bad input is rejected
+    r = await client.post("/workspace/holidays", json={"dates": [iso[0]], "ranges": [{"start": iso[1], "end": iso[2]}], "name": "Diwali", "company_ids": [company]}, headers=h)
+    assert r.status_code == 409
+    assert (await client.post("/workspace/holidays", json={"name": "No date"}, headers=h)).status_code == 422
+    assert (await client.post("/workspace/holidays", json={"dates": ["nope"], "name": "Bad"}, headers=h)).status_code == 422
+    assert (await client.post("/workspace/holidays", json={"ranges": [{"start": iso[2], "end": iso[1]}], "name": "Bad"}, headers=h)).status_code == 422
+    assert (await client.post("/workspace/holidays", json={"dates": [iso[0]], "name": "Bad", "company_ids": ["64b000000000000000000000"]}, headers=h)).status_code == 422
+    assert (await client.post("/workspace/holidays", json={"dates": [iso[0]], "name": "X"}, headers=team.mia.headers)).status_code == 403
+
+    # no company listed = both companies; the calendar side never blocks a booking
+    both = (await client.post("/workspace/holidays", json={"dates": [iso[0]], "name": "Founders Day"}, headers=h)).json()["holidays"]
+    assert [x for x in both if x["name"] == "Founders Day"][0]["company_ids"] == []
+    av = (await client.get("/bookings/availability", params={"host_user_id": team.mia.id, "date": iso[0]}, headers=team.max.headers)).json()
+    assert len(av["slots"]) == 48
+
+
+async def test_holiday_edit_and_delete(client, team):
+    h = team.admin.headers
+    day = today_local() + timedelta(days=7)
+    created = (await client.post("/workspace/holidays", json={"dates": [day.isoformat()], "name": "Trip"}, headers=h)).json()["holidays"][0]
+    hid = created["id"]
+    end = (day + timedelta(days=2)).isoformat()
+    r = await client.patch(f"/workspace/holidays/{hid}", json={"name": "Team trip", "end_date": end, "type": "optional"}, headers=h)
+    assert r.status_code == 200
+    got = r.json()["holidays"][0]
+    assert (got["name"], got["end_date"], got["type"]) == ("Team trip", end, "optional")
+    r = await client.patch(f"/workspace/holidays/{hid}", json={"end_date": ""}, headers=h)
+    assert r.json()["holidays"][0]["end_date"] is None
+    assert (await client.patch(f"/workspace/holidays/{hid}", json={"end_date": (day - timedelta(days=1)).isoformat()}, headers=h)).status_code == 422
+    assert (await client.patch("/workspace/holidays/nope", json={"name": "x"}, headers=h)).status_code == 404
+    assert (await client.patch(f"/workspace/holidays/{hid}", json={"name": "x"}, headers=team.mia.headers)).status_code == 403
+    assert (await client.delete(f"/workspace/holidays/{hid}", headers=h)).json()["holidays"] == []
+
+
+async def test_weekly_off_defaults_to_sunday_and_is_validated(client, team):
+    h = team.admin.headers
+    assert (await client.get("/workspace", headers=team.mia.headers)).json()["weekly_off"] == [6]
+    r = await client.put("/workspace", json={"weekly_off": [5, 6, 5]}, headers=h)
+    assert r.status_code == 200 and r.json()["weekly_off"] == [5, 6]
+    assert (await client.put("/workspace", json={"weekly_off": [7]}, headers=h)).status_code == 422
+    assert (await client.put("/workspace", json={"weekly_off": [0]}, headers=team.mia.headers)).status_code == 403
+    assert (await client.put("/workspace", json={"weekly_off": []}, headers=h)).json()["weekly_off"] == []
+
+
+async def test_workspace_changes_reach_everyone_live(client, team, monkeypatch):
+    sent = []
+
+    async def fake(user_ids, event, data):
+        sent.append((set(user_ids), event))
+
+    monkeypatch.setattr("app.routers.workspace.manager.send_to_users", fake)
+    await client.put("/workspace", json={"weekly_off": [6]}, headers=team.admin.headers)
+    day = (today_local() + timedelta(days=9)).isoformat()
+    hid = (await client.post("/workspace/holidays", json={"dates": [day], "name": "Live"}, headers=team.admin.headers)).json()["holidays"][0]["id"]
+    await client.patch(f"/workspace/holidays/{hid}", json={"name": "Live 2"}, headers=team.admin.headers)
+    await client.delete(f"/workspace/holidays/{hid}", headers=team.admin.headers)
+    assert [e for _, e in sent] == ["workspace"] * 4 and team.mia.user.id in sent[0][0]

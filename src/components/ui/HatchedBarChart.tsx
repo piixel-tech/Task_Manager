@@ -50,23 +50,19 @@ const ChartTooltip: React.FC<TipProps> = ({ active, payload, unit }) => {
 
   return (
     <div
-      className="rounded-[14px] border border-[var(--tm-border)] bg-white px-3.5 py-2.5 shadow-soft"
+      className="rounded-[var(--tm-radius-md)] bg-[var(--tm-accent)] px-4 py-2.5 text-[var(--tm-accent-ink)] shadow-soft-lg"
       role="tooltip"
     >
-      <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--tm-ink-muted)]">
+      <div className="text-[10.5px] font-bold uppercase tracking-[0.08em] opacity-70">
         {d.label}
       </div>
-      <div className="mt-1 flex items-center gap-2">
-        <span
-          className={`h-2.5 w-2.5 rounded-[3px] ${d.hatched ? 'hatch' : ''}`}
-          style={d.hatched ? undefined : { background: 'var(--tm-primary)' }}
-        />
-        <span className="text-[15px] font-bold tabular-nums text-[var(--tm-ink)]">
+      <div className="mt-0.5">
+        <span className="text-[17px] font-extrabold tabular-nums">
           {d.value.toLocaleString()}
           {unit}
         </span>
       </div>
-      {d.note && <div className="mt-1 text-[11px] text-[var(--tm-ink-muted)]">{d.note}</div>}
+      {d.note && <div className="mt-0.5 text-[11px] opacity-70">{d.note}</div>}
     </div>
   );
 };
@@ -163,13 +159,13 @@ export const HatchedBarChart: React.FC<HatchedBarChartProps> = ({
 
             <Tooltip
               content={<ChartTooltip unit={unit} />}
-              cursor={{ fill: 'var(--tm-bg-sunken)', radius: 8, opacity: 0.6 }}
+              cursor={false}
             />
 
             <Bar
               dataKey="plot"
-              radius={[4, 4, 0, 0]}
-              maxBarSize={38}
+              radius={[12, 12, 12, 12]}
+              maxBarSize={34}
               isAnimationActive={!reduced}
               animationDuration={850}
               animationEasing="ease-out"

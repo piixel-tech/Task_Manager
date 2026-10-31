@@ -20,7 +20,7 @@ export const PeoplePickerList: React.FC<Props> = ({ people, selected, onChange, 
   return (
     <div className="space-y-2">
       <Input pill placeholder="Search people" value={q} onChange={(e) => setQ(e.target.value)} leftIcon={<Search className="h-4 w-4" />} />
-      <ul className="max-h-52 divide-y divide-[var(--tm-border)] overflow-y-auto rounded-xl border border-[var(--tm-border)]">
+      <ul className="max-h-52 divide-y divide-[var(--tm-border)] overflow-y-auto rounded-[var(--tm-radius-md)] border border-[var(--tm-border)]">
         {shown.length === 0 && <li className="p-3 text-[13px] text-[var(--tm-ink-muted)]">{emptyText}</li>}
         {shown.map((p) => (
           <li key={p.id}>

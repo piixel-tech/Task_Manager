@@ -21,8 +21,8 @@
   }
 
   ::selection {
-    background-color: var(--tm-primary);
-    color: #fff;
+    background-color: var(--tm-primary-soft);
+    color: var(--tm-ink);
   }
 
   h1,
@@ -36,6 +36,7 @@
   :focus-visible {
     outline: 2px solid var(--tm-primary-light);
     outline-offset: 2px;
+    border-radius: inherit;
   }
 }
 
@@ -50,13 +51,13 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #d4d9d5;
+  background: var(--tm-border-strong);
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #b6bfb9;
+  background: var(--tm-ink-muted);
   background-clip: content-box;
 }
 
@@ -84,8 +85,8 @@
 @utility hatch-neutral {
   background-image: repeating-linear-gradient(
     45deg,
-    rgba(22, 33, 28, 0.1) 0,
-    rgba(22, 33, 28, 0.1) 2px,
+    rgba(36, 26, 51, 0.1) 0,
+    rgba(36, 26, 51, 0.1) 2px,
     transparent 2px,
     transparent 6px
   );
@@ -123,12 +124,63 @@
   background-image: linear-gradient(
     90deg,
     var(--tm-bg-sunken) 25%,
-    #f6f7f6 37%,
+    var(--tm-card-muted) 37%,
     var(--tm-bg-sunken) 63%
   );
   background-size: 200% 100%;
   animation: tm-shimmer 1.4s linear infinite;
   border-radius: var(--tm-radius-sm);
+}
+
+/* ==========================================================================
+   Inline notices — error / warning boxes share one token-based look
+   ========================================================================== */
+.tm-error,
+.tm-warn {
+  border: 1px solid var(--tm-danger-ring);
+  background-color: var(--tm-danger-bg);
+  color: var(--tm-danger);
+  border-radius: var(--tm-radius-md);
+}
+.tm-warn {
+  border-color: var(--tm-warning-ring);
+  background-color: var(--tm-warning-bg);
+  color: var(--tm-warning);
+}
+
+/* ==========================================================================
+   Micro-animations — message pop-in, hover lift, press
+   ========================================================================== */
+@keyframes tm-msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.tm-msg-in {
+  animation: tm-msg-in 240ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
+  transform-origin: bottom left;
+}
+.tm-msg-in[data-own='true'] {
+  transform-origin: bottom right;
+}
+
+.tm-lift {
+  transition: transform var(--tm-dur-fast) var(--tm-ease), box-shadow var(--tm-dur-fast) var(--tm-ease);
+}
+.tm-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--tm-shadow-lg);
+}
+.tm-press {
+  transition: transform var(--tm-dur-fast) var(--tm-ease);
+}
+.tm-press:active {
+  transform: scale(0.94);
 }
 
 /* ==========================================================================
@@ -147,6 +199,93 @@
 
 .animate-fade-in {
   animation: fadeIn var(--tm-dur) var(--tm-ease) forwards;
+}
+
+/* ==========================================================================
+   Glass — overlays only: sidebar, top bar, modals, popovers, dropdowns, toasts.
+   Task lists, tables and cards stay solid for readability.
+   ========================================================================== */
+@utility glass {
+  background-color: var(--tm-glass-bg);
+  -webkit-backdrop-filter: blur(var(--tm-glass-blur)) saturate(1.4);
+  backdrop-filter: blur(var(--tm-glass-blur)) saturate(1.4);
+  border: 1px solid var(--tm-glass-border);
+  box-shadow: var(--tm-glass-shadow);
+}
+
+@utility glass-strong {
+  background-color: var(--tm-glass-bg-strong);
+  -webkit-backdrop-filter: blur(var(--tm-glass-blur-strong)) saturate(1.4);
+  backdrop-filter: blur(var(--tm-glass-blur-strong)) saturate(1.4);
+  border: 1px solid var(--tm-glass-border-strong);
+  box-shadow: var(--tm-glass-shadow-strong);
+}
+
+/* ==========================================================================
+   Checkboxes — every native checkbox gets the round, violet, "pop on check" look
+   ========================================================================== */
+@keyframes tm-pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.22); }
+  100% { transform: scale(1); }
+}
+
+input[type='checkbox']:not(.tm-native) {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-grid;
+  place-content: center;
+  flex-shrink: 0;
+  width: 1.2rem;
+  height: 1.2rem;
+  margin: 0;
+  border: 2px solid var(--tm-border-strong);
+  border-radius: 0.5rem;
+  background-color: var(--tm-card);
+  cursor: pointer;
+  transition: background-color var(--tm-dur-fast) var(--tm-ease), border-color var(--tm-dur-fast) var(--tm-ease);
+}
+input[type='checkbox']:not(.tm-native)::after {
+  content: '';
+  width: 0.34rem;
+  height: 0.64rem;
+  margin-top: -0.12rem;
+  border: solid var(--tm-accent-ink);
+  border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg) scale(0);
+  transition: transform var(--tm-dur-fast) var(--tm-ease);
+}
+input[type='checkbox']:not(.tm-native):hover {
+  border-color: var(--tm-ink-muted);
+}
+input[type='checkbox']:not(.tm-native):checked {
+  background-color: var(--tm-accent);
+  border-color: var(--tm-accent);
+  animation: tm-pop 260ms var(--tm-ease);
+}
+input[type='checkbox']:not(.tm-native):checked::after {
+  transform: rotate(45deg) scale(1);
+}
+input[type='checkbox']:not(.tm-native):disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   Drag and drop feedback — put `tm-drag` (or data-dragging) on the thing being
+   dragged, `tm-drop` on a valid target while something hovers over it.
+   ========================================================================== */
+.tm-drag,
+[data-dragging='true'] {
+  transform: scale(1.03) rotate(-0.6deg);
+  box-shadow: var(--tm-shadow-lg), var(--tm-glow);
+  cursor: grabbing;
+  z-index: 50;
+}
+.tm-drop {
+  outline: 2px dashed var(--tm-primary-light);
+  outline-offset: 2px;
+  background-color: color-mix(in srgb, var(--tm-primary-light) 14%, transparent);
 }
 
 /* ==========================================================================

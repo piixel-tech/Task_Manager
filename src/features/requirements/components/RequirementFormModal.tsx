@@ -80,7 +80,7 @@ export const RequirementFormModal: React.FC<Props> = ({ isOpen, onClose, project
   return (
     <Modal isOpen={isOpen} onClose={close} title={requirement ? 'Edit requirement' : 'New requirement'} maxWidth="lg">
       <form onSubmit={submit} className="space-y-4">
-        {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</div>}
+        {error && <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>}
         <Input label="Title" value={title} maxLength={200} placeholder="e.g. Logo must work on dark backgrounds" onChange={(e) => setTitle(e.target.value)} autoFocus />
         <div>
           <label htmlFor="req-details" className="mb-1.5 block text-[12.5px] font-bold text-[var(--tm-ink-soft)]">

@@ -28,6 +28,12 @@ export interface Project {
   id: string;
   name: string;
   company_id: string;
+  /** Every company the project belongs to (the main one first). */
+  company_ids: string[];
+  /** YYYY-MM-DD, optional. */
+  start_date: string | null;
+  /** Short description, up to 200 characters. */
+  description: string;
   client_ids: string[];
   created_by: string;
   created_at: string;
@@ -50,6 +56,9 @@ export interface SubfolderInput {
 export interface ProjectInput {
   name: string;
   company_id: string;
+  company_ids?: string[];
+  start_date?: string | null;
+  description?: string;
   client_ids: string[];
   first_subfolder: SubfolderInput;
 }
@@ -67,7 +76,7 @@ export const projectApi = {
   get: (id: string) => call<ProjectDetail>(() => api.get(`/projects/${id}`), 'Could not load the project'),
   create: (input: ProjectInput) =>
     call<ProjectDetail>(() => api.post('/projects', input), 'Could not create the project'),
-  update: (id: string, input: Partial<Pick<ProjectInput, 'name' | 'company_id' | 'client_ids'>>) =>
+  update: (id: string, input: Partial<Pick<ProjectInput, 'name' | 'company_id' | 'company_ids' | 'start_date' | 'description' | 'client_ids'>>) =>
     call<ProjectDetail>(() => api.patch(`/projects/${id}`, input), 'Could not save the project'),
   remove: (id: string) => call<void>(() => api.delete(`/projects/${id}`), 'Could not delete the project'),
 

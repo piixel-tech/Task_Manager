@@ -224,9 +224,9 @@ export const Composer: React.FC<Props> = ({ group, meId, replyTo, onCancelReply,
   const presets = menu ? scheduleOptions() : [];
 
   return (
-    <div className="border-t border-[var(--tm-border)] bg-[var(--tm-card)] p-3">
+    <div className="bg-[var(--tm-card)] px-4 pb-4 pt-3">
       {replyTo && (
-        <div className="mb-2 flex items-start gap-2 rounded-xl border-l-4 border-[var(--tm-primary)] bg-[var(--tm-card-muted)] px-3 py-2">
+        <div className="mb-2 flex items-start gap-2 rounded-[var(--tm-radius-sm)] border-l-4 border-[var(--tm-primary)] bg-[var(--tm-card-muted)] px-3.5 py-2.5">
           <div className="min-w-0 flex-1 text-[12.5px]">
             <p className="font-bold text-[var(--tm-primary-dark)]">Replying to {replyTo.sender?.id === meId ? 'yourself' : (replyTo.sender?.name ?? 'a former member')}</p>
             <p className="line-clamp-1 text-[var(--tm-ink-soft)]">{previewOf(replyTo)}</p>
@@ -242,7 +242,7 @@ export const Composer: React.FC<Props> = ({ group, meId, replyTo, onCancelReply,
           {attachments.map((a) => (
             <li key={a.id} className="flex max-w-[14rem] items-center gap-2 rounded-full bg-[var(--tm-primary-soft)] py-1 pl-3 pr-1.5 text-[12.5px] font-semibold text-[var(--tm-primary-dark)]">
               <span className="truncate">{a.name}</span>
-              <button type="button" aria-label={`Remove ${a.name}`} onClick={() => dropAttachment(a)} className="grid h-5 w-5 shrink-0 place-items-center rounded-full hover:bg-black/10">
+              <button type="button" aria-label={`Remove ${a.name}`} onClick={() => dropAttachment(a)} className="grid h-5 w-5 shrink-0 place-items-center rounded-full hover:bg-[var(--tm-bg-sunken)]">
                 <X className="h-3 w-3" />
               </button>
             </li>
@@ -287,7 +287,7 @@ export const Composer: React.FC<Props> = ({ group, meId, replyTo, onCancelReply,
             trailing={
               canSend ? (
                 <div className="relative flex items-center">
-                  <Button type="button" size="sm" aria-label="Send" isLoading={busy} onClick={send} className="rounded-r-none">
+                  <Button type="button" size="sm" aria-label="Send" isLoading={busy} onClick={send} className="!rounded-full !bg-[#C4B5E0] !text-[#2A2933] hover:!bg-[#D2C6E9]">
                     <Send className="h-4 w-4" />
                   </Button>
                   <Button
@@ -297,14 +297,14 @@ export const Composer: React.FC<Props> = ({ group, meId, replyTo, onCancelReply,
                     aria-expanded={menu}
                     disabled={busy}
                     onClick={() => setMenu((m) => !m)}
-                    className="rounded-l-none border-l border-white/30 px-2"
+                    className="ml-1 !rounded-full !bg-[#C4B5E0] !text-[#2A2933] px-2 hover:!bg-[#D2C6E9]"
                   >
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                   {menu && (
                     <>
                       <button type="button" aria-label="Close menu" className="fixed inset-0 z-30 cursor-default" onClick={() => setMenu(false)} />
-                      <div role="menu" className="absolute bottom-full right-0 z-40 mb-2 w-64 rounded-2xl border border-[var(--tm-border)] bg-[var(--tm-card)] p-1.5 shadow-soft-lg">
+                      <div role="menu" className="glass-strong absolute bottom-full right-0 z-40 mb-2 w-64 rounded-[var(--tm-radius-md)] p-2">
                         <p className="px-3 pb-1 pt-1.5 text-[11px] font-extrabold uppercase tracking-wide text-[var(--tm-ink-muted)]">Send later</p>
                         {presets.map((p) => (
                           <button
@@ -315,7 +315,7 @@ export const Composer: React.FC<Props> = ({ group, meId, replyTo, onCancelReply,
                               setMenu(false);
                               void schedule(p.when);
                             }}
-                            className="flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-[13px] font-semibold text-[var(--tm-ink)] hover:bg-[var(--tm-bg-sunken)]"
+                            className="flex w-full items-center justify-between gap-2 rounded-full px-3.5 py-2 text-left text-[13px] font-semibold text-[var(--tm-ink)] hover:bg-[var(--tm-bg-sunken)]"
                           >
                             {p.label}
                             <span className="text-[11.5px] font-medium text-[var(--tm-ink-muted)]">{p.hint}</span>
@@ -329,7 +329,7 @@ export const Composer: React.FC<Props> = ({ group, meId, replyTo, onCancelReply,
                             setCustomWhen(toLocalInput(new Date(Date.now() + 3_600_000)));
                             setCustom(true);
                           }}
-                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[13px] font-semibold text-[var(--tm-ink)] hover:bg-[var(--tm-bg-sunken)]"
+                          className="flex w-full items-center gap-2 rounded-full px-3.5 py-2 text-left text-[13px] font-semibold text-[var(--tm-ink)] hover:bg-[var(--tm-bg-sunken)]"
                         >
                           <CalendarClock className="h-4 w-4" /> Custom date and time…
                         </button>

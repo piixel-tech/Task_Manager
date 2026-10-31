@@ -15,7 +15,7 @@ export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElemen
 }
 
 export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
-  ({ label, options, error, helperText, className = '', id, pill = false, ...props }, ref) => {
+  ({ label, options, error, helperText, className = '', id, pill: _pill = false, ...props }, ref) => {
     const selectId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
 
     return (
@@ -23,7 +23,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
         {label && (
           <label
             htmlFor={selectId}
-            className="block text-[12px] font-semibold text-[var(--tm-ink-soft)]"
+            className="block pl-1 text-[12px] font-semibold text-[var(--tm-ink-soft)]"
           >
             {label}
           </label>
@@ -32,10 +32,9 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           <select
             ref={ref}
             id={selectId}
-            className={`w-full appearance-none border bg-[var(--tm-card)] py-3 pl-4 pr-11
-              text-[14px] font-medium text-[var(--tm-ink)] outline-none transition-colors
-              duration-[var(--tm-dur-fast)]
-              ${pill ? 'rounded-full' : 'rounded-[var(--tm-radius-md)]'}
+            className={`w-full appearance-none rounded-full border bg-[var(--tm-card)] py-3 pl-5 pr-11
+              text-[14px] font-medium text-[var(--tm-ink)] outline-none transition-[border-color,box-shadow]
+              duration-[var(--tm-dur-fast)] focus:shadow-glow
               ${
                 error
                   ? 'border-[var(--tm-danger)]'

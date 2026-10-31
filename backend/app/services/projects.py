@@ -59,6 +59,16 @@ async def check_company(company_id: PydanticObjectId) -> None:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Company not found")
 
 
+def companies_of(project: Project) -> list[PydanticObjectId]:
+    """Every company the project belongs to, the main one first. Older projects have just their one."""
+    return unique([project.company_id, *project.extra_company_ids])
+
+
+async def check_companies(ids: Iterable[PydanticObjectId]) -> None:
+    for cid in unique(ids):
+        await check_company(cid)
+
+
 def with_heads_as_members(head_ids: list[PydanticObjectId], member_ids: list[PydanticObjectId]) -> list[PydanticObjectId]:
     """Invariant: every head is also a member."""
     return unique([*head_ids, *member_ids])
@@ -119,6 +129,9 @@ def project_out(project: Project, siblings: list[Subfolder], viewer: User) -> Pr
         id=project.id,
         name=project.name,
         company_id=project.company_id,
+        company_ids=companies_of(project),
+        start_date=project.start_date,
+        description=project.description,
         client_ids=project.client_ids,
         created_by=project.created_by,
         created_at=project.created_at,

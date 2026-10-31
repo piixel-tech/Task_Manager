@@ -27,7 +27,7 @@ export const GroupList: React.FC<Props> = ({ groups, loaded, activeId, meId, onS
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 border-b border-[var(--tm-border)] p-3">
+      <div className="flex items-center gap-2 pb-3">
         <div className="flex-1">
           <Input pill placeholder="Find a chat" value={q} onChange={(e) => setQ(e.target.value)} leftIcon={<Search className="h-4 w-4" />} />
         </div>
@@ -69,7 +69,7 @@ export const GroupList: React.FC<Props> = ({ groups, loaded, activeId, meId, onS
             )}
           </div>
         ) : (
-          <ul>
+          <ul className="animate-fade-in space-y-1.5">
             {shown.map((g) => {
               const last = g.last_message;
               return (
@@ -78,18 +78,20 @@ export const GroupList: React.FC<Props> = ({ groups, loaded, activeId, meId, onS
                     type="button"
                     onClick={() => onSelect(g.id)}
                     aria-current={g.id === activeId}
-                    className={`flex w-full items-center gap-3 border-b border-[var(--tm-border)] px-3.5 py-3 text-left transition-colors ${
-                      g.id === activeId ? 'bg-[var(--tm-primary-soft)]' : 'hover:bg-[var(--tm-card-muted)]'
+                    className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors ${
+                      g.id === activeId
+                        ? 'bg-[var(--tc-row-sel)] [--tm-ink:#2a2933] [--tm-ink-muted:#4f4d5c] [--tm-primary-dark:#2a2933] [--tm-solid:#2a2933] [--tm-solid-ink:#ffffff]'
+                        : 'hover:bg-[var(--tp-row-hover)]'
                     }`}
                   >
-                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)]">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)]">
                       <Users className="h-5 w-5" />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline justify-between gap-2">
                         <span className="truncate text-[14px] font-bold text-[var(--tm-ink)]">{g.name}</span>
                         {last && (
-                          <span className={`shrink-0 text-[11px] ${g.unread_count ? 'font-bold text-[var(--tm-primary)]' : 'text-[var(--tm-ink-muted)]'}`}>
+                          <span className={`shrink-0 text-[11px] ${g.unread_count ? 'font-bold text-[var(--tm-primary-dark)]' : 'text-[var(--tm-ink-muted)]'}`}>
                             {listTime(last.at)}
                           </span>
                         )}
@@ -100,7 +102,7 @@ export const GroupList: React.FC<Props> = ({ groups, loaded, activeId, meId, onS
                         </span>
                         {g.unread_count > 0 && (
                           <span
-                            className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-[var(--tm-primary)] px-1.5 text-[11px] font-extrabold text-[var(--tm-on-primary)]"
+                            className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-[var(--tm-danger)] px-1.5 text-[11px] font-extrabold text-white"
                             aria-label={`${g.unread_count} unread`}
                           >
                             {g.unread_count > 99 ? '99+' : g.unread_count}

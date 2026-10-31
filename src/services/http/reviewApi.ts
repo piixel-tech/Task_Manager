@@ -40,6 +40,9 @@ async function call<T>(fn: () => Promise<{ data: T }>, fallback: string): Promis
   }
 }
 
+/** Tells the nav badges to recount after this person decides a review. */
+const changed = <T,>(p: Promise<T>) => p.then((r) => (window.dispatchEvent(new Event('tm:nav-counts')), r));
+
 export const reviewApi = {
   approvers: (taskId: string) =>
     call<UserBrief[]>(() => api.get(`/tasks/${taskId}/approvers`), 'Could not load the approvers'),
@@ -51,7 +54,7 @@ export const reviewApi = {
     call<Review[]>(() => api.get('/reviews', { params: { decision } }), 'Could not load reviews'),
   pendingCount: async () => (await call<{ count: number }>(() => api.get('/reviews/pending-count'), 'Could not load')).count,
   approve: (id: string, comments?: string) =>
-    call<Review>(() => api.post(`/reviews/${id}/approve`, { comments: comments || null }), 'Could not approve the task'),
+    changed(call<Review>(() => api.post(`/reviews/${id}/approve`, { comments: comments || null }), 'Could not approve the task')),
   requestChanges: (id: string, comments: string) =>
-    call<Review>(() => api.post(`/reviews/${id}/request-changes`, { comments }), 'Could not request changes')
+    changed(call<Review>(() => api.post(`/reviews/${id}/request-changes`, { comments }), 'Could not request changes'))
 };

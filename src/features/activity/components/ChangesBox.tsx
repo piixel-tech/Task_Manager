@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Card, CardContent } from '../../../components/ui/Card';
+import { MessageSquareDiff } from 'lucide-react';
+import { EmptyState } from '../../../components/ui/EmptyState';
+import { FilterBar } from '../../../components/ui/FilterBar';
+import { ComposerCard, ItemCardSkeletons } from '../../../components/ui/ItemCard';
+import { PillTabs } from '../../../components/ui/PillTabs';
+import { Stagger, StaggerItem } from '../../../components/ui/Stagger';
 import { useAuthStore } from '../../../store/authStore';
 import { activityApi, type ActivityInput } from '../../../services/http/activityApi';
 import { threads, useActivity, useProjectPeople } from '../useActivity';
@@ -43,27 +48,58 @@ export const ChangesBox: React.FC<Props> = ({ subfolderId, projectId, onCount })
   const shown = showResolved ? all : all.filter((t) => !t.entry.resolved);
 
   return (
-    <Card>
-      <CardContent className="space-y-4 pt-6">
-        <p className="text-[13px] text-[var(--tm-ink-soft)]">Changes that affect the whole subfolder rather than one task. A head ticks each one off when it is done.</p>
+    <div className="space-y-5">
+      {/* Composer first, so posting is the obvious thing to do */}
+      <ComposerCard>
+        <p className="text-[13px] text-[var(--tm-ink-soft)]">
+          Changes that affect the whole subfolder rather than one task. A head ticks each one off when it is done.
+        </p>
         <EntryComposer kind="change_request" people={people} placeholder="Describe the change" onPost={post} />
-        <label className="flex items-center gap-2 text-[12.5px] font-semibold text-[var(--tm-ink-soft)]">
-          <input type="checkbox" checked={showResolved} onChange={(e) => setShowResolved(e.target.checked)} className="h-4 w-4 accent-[var(--tm-primary)]" />
-          Show resolved
-        </label>
-        {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</p>}
-        {!list ? null : shown.length === 0 ? (
-          <p className="py-4 text-center text-[13px] text-[var(--tm-ink-muted)]">{all.length === 0 ? 'No mid-way changes yet.' : 'Everything is resolved.'}</p>
-        ) : (
-          <ul className="space-y-3">
-            {shown.map((t) => (
-              <li key={t.entry.id}>
-                <Entry entry={t.entry} replies={t.replies} meId={me.id} people={people} highlight={t.entry.id === wanted} onUpdated={update} onReload={reload} onReply={post} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
+      </ComposerCard>
+
+      {all.length > 0 && (
+        <FilterBar>
+          <PillTabs
+            size="sm"
+            activeTab={showResolved ? 'all' : 'open'}
+            onChange={(id) => setShowResolved(id === 'all')}
+            tabs={[
+              { id: 'all', label: 'All', count: all.length },
+              { id: 'open', label: 'Open', count: all.filter((t) => !t.entry.resolved).length }
+            ]}
+          />
+        </FilterBar>
+      )}
+
+      {error && <p className="tm-error px-4 py-3 text-xs font-semibold">{error}</p>}
+
+      {!list ? (
+        error ? null : <ItemCardSkeletons count={3} />
+      ) : shown.length === 0 ? (
+        <EmptyState
+          icon={<MessageSquareDiff className="h-6 w-6 text-[var(--tm-primary-dark)]" />}
+          title={all.length === 0 ? 'No mid-way changes yet' : 'Everything is resolved'}
+          description={all.length === 0 ? 'Post a change above when something shifts for the whole subfolder.' : 'Switch to All to see the resolved ones.'}
+        />
+      ) : (
+        <Stagger key={showResolved ? 'all' : 'open'} className="space-y-3" role="list">
+          {shown.map((t) => (
+            <StaggerItem key={t.entry.id} role="listitem">
+              <Entry
+                entry={t.entry}
+                replies={t.replies}
+                meId={me.id}
+                people={people}
+                highlight={t.entry.id === wanted}
+                onUpdated={update}
+                onReload={reload}
+                onReply={post}
+                icon={<MessageSquareDiff className="h-[18px] w-[18px]" />}
+              />
+            </StaggerItem>
+          ))}
+        </Stagger>
+      )}
+    </div>
   );
 };

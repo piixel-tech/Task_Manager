@@ -56,14 +56,14 @@ export const LoginPage: React.FC = () => {
         />
         <CurvePattern opacity={0.18} />
 
-        <div className="relative flex h-full flex-col justify-between p-12 text-white">
+        <div className="relative flex h-full flex-col justify-between p-12 text-[var(--tm-on-primary)]">
           <div className="flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-[14px] bg-white/15 text-[18px] font-extrabold backdrop-blur-sm">
+            <div className="grid h-11 w-11 place-items-center rounded-[14px] bg-[var(--tm-on-primary)]/15 text-[18px] font-extrabold backdrop-blur-sm">
               P
             </div>
             <div className="leading-tight">
               <div className="text-[15.5px] font-extrabold tracking-[-0.02em]">Task Manager</div>
-              <div className="text-[11.5px] text-white/65">Piixel &amp; Unwork</div>
+              <div className="text-[11.5px] text-[var(--tm-on-primary)]/65">Piixel &amp; Unwork</div>
             </div>
           </div>
 
@@ -71,7 +71,7 @@ export const LoginPage: React.FC = () => {
             <h1 className="max-w-md text-[38px] font-extrabold leading-[1.1] tracking-[-0.03em]">
               One workspace for design, engineering and growth.
             </h1>
-            <p className="mt-5 max-w-sm text-[14.5px] leading-relaxed text-white/70">
+            <p className="mt-5 max-w-sm text-[14.5px] leading-relaxed text-[var(--tm-on-primary)]/70">
               Daily status, tasks, projects and team chat — tracked together, across both companies.
             </p>
 
@@ -83,13 +83,13 @@ export const LoginPage: React.FC = () => {
               ].map(([title, sub]) => (
                 <div key={title} className="max-w-[140px]">
                   <div className="text-[13.5px] font-bold">{title}</div>
-                  <div className="mt-1 text-[11.5px] leading-snug text-white/55">{sub}</div>
+                  <div className="mt-1 text-[11.5px] leading-snug text-[var(--tm-on-primary)]/55">{sub}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          <p className="text-[11.5px] text-white/45">v2.5.0 · Secure workspace access</p>
+          <p className="text-[11.5px] text-[var(--tm-on-primary)]/45">v2.5.0 · Secure workspace access</p>
         </div>
       </aside>
 
@@ -98,7 +98,7 @@ export const LoginPage: React.FC = () => {
         <Stagger className="w-full max-w-[420px] space-y-6">
           <StaggerItem className="text-center lg:text-left">
             <div className="mb-6 inline-flex items-center gap-3 lg:hidden">
-              <div className="grid h-11 w-11 place-items-center rounded-[14px] bg-[var(--tm-primary)] text-[18px] font-extrabold text-white shadow-soft-sm">
+              <div className="grid h-11 w-11 place-items-center rounded-[14px] bg-[var(--tm-solid)] text-[18px] font-extrabold text-[var(--tm-solid-ink)] shadow-soft-sm">
                 P
               </div>
               <div className="text-left leading-tight">

@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { backdropVariants, drawerVariants } from './motion';
@@ -47,7 +48,8 @@ export const Drawer: React.FC<DrawerProps> = ({
     };
   }, [isOpen, onClose]);
 
-  return (
+  // Rendered on <body> so no parent panel (stacking context, dark scope) can trap or recolour it.
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[60] flex justify-end" role="dialog" aria-modal="true">
@@ -57,7 +59,7 @@ export const Drawer: React.FC<DrawerProps> = ({
             animate="show"
             exit="exit"
             onClick={onClose}
-            className="absolute inset-0 bg-[rgba(22,33,28,0.32)] backdrop-blur-[3px]"
+            className="absolute inset-0 bg-[var(--tm-scrim)] backdrop-blur-[6px]"
           />
 
           <motion.aside
@@ -71,8 +73,7 @@ export const Drawer: React.FC<DrawerProps> = ({
             onDragEnd={(_, info) => {
               if (info.offset.x > 120 || info.velocity.x > 520) onClose();
             }}
-            className={`relative flex h-full w-full ${widths[width]} flex-col
-              bg-[var(--tm-card)] shadow-soft-lg
+            className={`glass-strong relative flex h-full w-full ${widths[width]} flex-col
               sm:my-3 sm:mr-3 sm:h-[calc(100%-1.5rem)] sm:rounded-[var(--tm-radius-xl)]`}
           >
             {(title || description) && (
@@ -90,9 +91,9 @@ export const Drawer: React.FC<DrawerProps> = ({
                 <button
                   onClick={onClose}
                   aria-label="Close panel"
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full
-                    text-[var(--tm-ink-muted)] transition-colors hover:bg-[var(--tm-bg-sunken)]
-                    hover:text-[var(--tm-ink)]"
+                  className="grid h-10 w-10 shrink-0 place-items-center rounded-full
+                    bg-[var(--tm-solid)] text-[var(--tm-solid-ink)] transition-colors
+                    hover:bg-[var(--tm-solid-hover)]"
                 >
                   <X className="h-[18px] w-[18px]" />
                 </button>
@@ -107,6 +108,7 @@ export const Drawer: React.FC<DrawerProps> = ({
           </motion.aside>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };

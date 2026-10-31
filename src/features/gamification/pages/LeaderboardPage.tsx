@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Trophy } from 'lucide-react';
+import { PageHeader } from '../../../components/ui/PageHeader';
 import { userService, taskService } from '../../../services';
 import type { User, Task } from '../../../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
@@ -39,23 +39,16 @@ export const LeaderboardPage: React.FC = () => {
     <div className="space-y-6">
       <TeamMonthlyGoalBar />
 
-      <div>
-        <div className="flex items-center gap-2">
-          <Trophy className="w-6 h-6 text-[var(--tm-warning)]" />
-          <h1 className="text-[27px] font-extrabold leading-tight tracking-[-0.03em] text-[var(--tm-ink)]">
-            Team Productivity Leaderboard
-          </h1>
-        </div>
-        <p className="text-[14px] leading-relaxed text-[var(--tm-ink-muted)] mt-1.5">
-          Gamified task achievement points, output milestones, and streaks for Piixel & Unwork.
-        </p>
-      </div>
+      <PageHeader
+        title="Team Productivity Leaderboard"
+        description="Gamified task achievement points, output milestones, and streaks for Piixel & Unwork."
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
         {leaderboard.slice(0, 3).map((item, idx) => {
           const ranks = ['🥇 1st Place', '🥈 2nd Place', '🥉 3rd Place'];
           const borders = [
-            'border-[var(--tm-warning-ring)] bg-gradient-to-br from-[var(--tm-warning-bg)] to-white shadow-md',
+            'border-[var(--tm-warning-ring)] bg-gradient-to-br from-[var(--tm-warning-bg)] to-[var(--tm-card)] shadow-soft-sm',
             'border-[var(--tm-border-strong)] bg-gradient-to-br from-[var(--tm-card-muted)] to-white',
             'border-[var(--tm-warning-ring)] bg-gradient-to-br from-[var(--tm-warning-bg)] to-white'
           ];
@@ -110,7 +103,7 @@ export const LeaderboardPage: React.FC = () => {
                       {item.completedCount}
                     </td>
                     <td className="px-6 py-4 text-[var(--tm-ink-soft)]">{item.hoursLogged} hours</td>
-                    <td className="px-6 py-4 text-right font-black text-[var(--tm-primary)] text-base">
+                    <td className="px-6 py-4 text-right font-black text-[var(--tm-primary-dark)] text-base">
                       {item.points} pts
                     </td>
                   </tr>

@@ -37,6 +37,6 @@ export const AuthImage: React.FC<Props> = ({ url, alt = '', className = '', ...r
       </div>
     );
   }
-  if (!src) return <div className={`animate-pulse bg-[var(--tm-card-muted)] ${className}`} aria-hidden />;
+  if (!src) return <div className={`skeleton ${className}`} aria-hidden />;
   return <img src={src} alt={alt} className={className} {...rest} />;
 };

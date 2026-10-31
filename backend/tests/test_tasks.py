@@ -428,3 +428,38 @@ async def test_dev_endpoint_runs_the_job_for_admins_only(client, team):
     future = await client.post(f"/tasks/reminders/run?today={day(1)}", headers=team.admin.headers)
     assert future.json() == {"day": day(1), "sent": 1}
     assert (await client.post("/tasks/reminders/run?today=nope", headers=team.admin.headers)).status_code == 422
+
+
+# --- "New for me" badge: tasks handed over by someone else, until the assignee opens them -----------------
+async def unseen(client, who):
+    r = await client.get("/tasks/unseen-count", headers=who.headers)
+    assert r.status_code == 200
+    return r.json()["count"]
+
+
+async def test_unseen_counts_tasks_assigned_by_others_and_clears_per_task(client, team):
+    first = await make_task(client, team)
+    second = await make_task(client, team)
+    assert await unseen(client, team.mia) == 2
+    assert await unseen(client, team.hana) == 0  # the assigner has nothing new
+
+    r = await client.post(f"/tasks/{first['id']}/seen", headers=team.mia.headers)
+    assert r.status_code == 204
+    assert await unseen(client, team.mia) == 1
+    await client.post(f"/tasks/{first['id']}/seen", headers=team.mia.headers)  # idempotent
+    assert await unseen(client, team.mia) == 1
+    await client.post(f"/tasks/{second['id']}/seen", headers=team.hana.headers)  # not the assignee: no-op
+    assert await unseen(client, team.mia) == 1
+
+
+async def test_self_assigned_tasks_are_not_unseen(client, team):
+    assert (await create(client, team.mia, team.design, team.mia)).status_code == 201
+    assert await unseen(client, team.mia) == 0
+
+
+async def test_reassigning_marks_it_unseen_for_the_new_assignee(client, team):
+    t = await make_task(client, team)
+    await client.post(f"/tasks/{t['id']}/seen", headers=team.mia.headers)
+    r = await client.patch(f"/tasks/{t['id']}", json={"assignee_id": team.max.id}, headers=team.hana.headers)
+    assert r.status_code == 200, r.text
+    assert await unseen(client, team.max) == 1 and await unseen(client, team.mia) == 0

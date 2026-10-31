@@ -12,9 +12,14 @@ async function call<T>(fn: () => Promise<{ data: T }>, fallback: string): Promis
 // --- Workspace ----------------------------------------------------------------------------------------
 export interface Holiday {
   id: string;
+  /** First day (YYYY-MM-DD). */
   date: string;
+  /** Last day of a range; null for a single day. */
+  end_date: string | null;
   name: string;
   type: 'national' | 'company' | 'optional';
+  /** Companies it applies to; empty means every company. */
+  company_ids: string[];
 }
 
 export interface Workspace {
@@ -23,14 +28,18 @@ export interface Workspace {
   work_start: string;
   work_end: string;
   holidays: Holiday[];
+  /** Weekdays off every week, Monday = 0 .. Sunday = 6. */
+  weekly_off: number[];
 }
 
 export const workspaceApi = {
   get: () => call<Workspace>(() => api.get('/workspace'), 'Could not load the workspace settings'),
-  update: (input: { name?: string; work_start?: string; work_end?: string; logo_file_id?: string; remove_logo?: boolean }) =>
+  update: (input: { name?: string; work_start?: string; work_end?: string; logo_file_id?: string; remove_logo?: boolean; weekly_off?: number[] }) =>
     call<Workspace>(() => api.put('/workspace', input), 'Could not save the workspace settings'),
-  addHoliday: (input: { date: string; name: string; type: Holiday['type'] }) =>
+  addHoliday: (input: { dates?: string[]; ranges?: { start: string; end: string }[]; name: string; type: Holiday['type']; company_ids: string[] }) =>
     call<Workspace>(() => api.post('/workspace/holidays', input), 'Could not add the holiday'),
+  editHoliday: (id: string, input: { name?: string; type?: Holiday['type']; company_ids?: string[]; date?: string; end_date?: string }) =>
+    call<Workspace>(() => api.patch(`/workspace/holidays/${id}`, input), 'Could not save the holiday'),
   removeHoliday: (id: string) => call<Workspace>(() => api.delete(`/workspace/holidays/${id}`), 'Could not remove the holiday')
 };
 

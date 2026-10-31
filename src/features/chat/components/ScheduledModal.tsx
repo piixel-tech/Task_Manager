@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { CalendarClock, FileText, Pencil, X } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
+import { Skeleton } from '../../../components/ui/Skeleton';
 import { Input } from '../../../components/ui/Input';
 import { Modal } from '../../../components/ui/Modal';
 import { RichEditor, type RichEditorHandle } from '../../../components/editor/RichEditor';
@@ -88,9 +89,9 @@ export const ScheduledModal: React.FC<Props> = ({ group, onClose, onChanged }) =
 
   return (
     <Modal isOpen={!!group} onClose={onClose} title="Scheduled messages" description={group ? `Waiting to be sent to “${group.name}”, from you.` : undefined} maxWidth="lg">
-      {error && <p className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</p>}
+      {error && <p className="mb-3 tm-error px-4 py-3 text-xs font-semibold">{error}</p>}
       {items === null ? (
-        error ? null : <p className="py-6 text-center text-[13px] text-[var(--tm-ink-muted)]">Loading…</p>
+        error ? null : <div className="space-y-2 py-4" role="status" aria-label="Loading"><Skeleton className="h-12 w-full" rounded="lg" /><Skeleton className="h-12 w-full" rounded="lg" /></div>
       ) : items.length === 0 ? (
         <div className="py-8 text-center text-[13px] text-[var(--tm-ink-muted)]">
           <CalendarClock className="mx-auto mb-2 h-6 w-6" />
@@ -113,7 +114,7 @@ export const ScheduledModal: React.FC<Props> = ({ group, onClose, onChanged }) =
       ) : (
         <ul className="space-y-3">
           {items.map((s) => (
-            <li key={s.id} className="rounded-2xl border border-[var(--tm-border)] p-3.5">
+            <li key={s.id} className="rounded-[var(--tm-radius-md)] border border-[var(--tm-border)] p-3.5">
               <p className="mb-1.5 flex items-center gap-1.5 text-[12px] font-bold text-[var(--tm-primary-dark)]">
                 <CalendarClock className="h-3.5 w-3.5" />
                 {whenLabel(new Date(s.send_at))}

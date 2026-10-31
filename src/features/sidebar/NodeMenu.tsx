@@ -68,7 +68,7 @@ export const NodeMenu: React.FC<Props> = ({ anchor, title, actions, onClose }) =
         role="menu"
         aria-label={title}
         style={{ left: pos?.left ?? -9999, top: pos?.top ?? -9999, width: WIDTH }}
-        className="fixed z-[71] rounded-2xl border border-[var(--tm-border)] bg-[var(--tm-card)] p-1.5 text-[var(--tm-ink)] shadow-soft-lg"
+        className="fixed z-[71] rounded-[var(--tm-radius-md)] glass-strong p-1.5 text-[var(--tm-ink)]"
       >
         <p className="truncate px-3 pb-1 pt-1.5 text-[11px] font-extrabold uppercase tracking-wide text-[var(--tm-ink-muted)]">{title}</p>
         {actions.map((a) => (
@@ -80,7 +80,7 @@ export const NodeMenu: React.FC<Props> = ({ anchor, title, actions, onClose }) =
               onClose();
               a.onSelect();
             }}
-            className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-[13px] font-semibold outline-none hover:bg-[var(--tm-bg-sunken)] focus-visible:bg-[var(--tm-bg-sunken)] ${
+            className={`flex w-full items-center gap-2.5 rounded-full px-3 py-2 text-left text-[13px] font-semibold outline-none hover:bg-[var(--tm-bg-sunken)] focus-visible:bg-[var(--tm-bg-sunken)] ${
               a.danger ? 'text-[var(--tm-danger)]' : 'text-[var(--tm-ink)]'
             }`}
           >

@@ -79,7 +79,7 @@ export const SubfolderFormModal: React.FC<Props> = ({ isOpen, onClose, projectId
     >
       <form onSubmit={submit} className="space-y-4">
         {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">
+          <div className="tm-error px-4 py-3 text-xs font-semibold">
             {error}
           </div>
         )}

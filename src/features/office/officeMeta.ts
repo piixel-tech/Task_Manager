@@ -4,16 +4,16 @@ export interface CategoryMeta {
   value: OfficeCategory;
   label: string;
   emoji: string;
-  /** Used for the card tint, border and emoji bubble. */
+  /** Theme token for the category chip text and icon (lavender shades only). */
   accent: string;
 }
 
 export const CATEGORIES: CategoryMeta[] = [
-  { value: 'pantry', label: 'Pantry', emoji: '☕', accent: '#d97706' },
-  { value: 'electricity', label: 'Electricity', emoji: '💡', accent: '#eab308' },
-  { value: 'facilities', label: 'AC/Facilities', emoji: '❄️', accent: '#0ea5e9' },
-  { value: 'it', label: 'IT/Internet', emoji: '💻', accent: '#8b5cf6' },
-  { value: 'general', label: 'General', emoji: '📢', accent: '#10b981' }
+  { value: 'pantry', label: 'Pantry', emoji: '☕', accent: 'var(--tm-primary-dark)' },
+  { value: 'electricity', label: 'Electricity', emoji: '💡', accent: 'var(--tm-primary-dark)' },
+  { value: 'facilities', label: 'AC/Facilities', emoji: '❄️', accent: 'var(--tm-primary-dark)' },
+  { value: 'it', label: 'IT/Internet', emoji: '💻', accent: 'var(--tm-primary-dark)' },
+  { value: 'general', label: 'General', emoji: '📢', accent: 'var(--tm-primary-dark)' }
 ];
 
 export const categoryMeta = (value: OfficeCategory): CategoryMeta => CATEGORIES.find((c) => c.value === value) ?? CATEGORIES[4];
@@ -34,8 +34,8 @@ export function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-/** Tint a surface with the category colour; works in light and dark because it mixes with the card colour. */
-export const tint = (accent: string, amount = 8) => ({
-  background: `color-mix(in srgb, ${accent} ${amount}%, var(--tm-card))`,
-  borderColor: `color-mix(in srgb, ${accent} 35%, var(--tm-border))`
+/** Selected-state surface for category pickers: the lavender tint and its border, in light and dark. */
+export const tint = (_accent?: string, _amount?: number) => ({
+  background: 'var(--tm-primary-soft)',
+  borderColor: 'var(--tm-primary-light)'
 });

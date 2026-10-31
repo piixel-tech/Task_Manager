@@ -131,18 +131,18 @@ def starts(data):
     return [datetime.fromisoformat(s["start"]).astimezone(tz()).strftime("%H:%M") for s in data["slots"]]
 
 
-async def test_free_slots_cover_working_hours_in_half_hour_steps(client, team):
+async def test_free_slots_cover_the_whole_day_in_half_hour_steps(client, team):
     await join_project(team)
     data = await slots(client, team.cleo, team.hana, tomorrow())
     got = starts(data)
-    assert got[0] == f"{settings.WORK_START_HOUR:02d}:00" and got[-1] == f"{settings.WORK_END_HOUR - 1:02d}:30"
-    assert len(got) == (settings.WORK_END_HOUR - settings.WORK_START_HOUR) * 2 and data["note"] is None and data["minutes"] == 30
+    assert got[0] == "00:00" and got[-1] == "23:30"  # no after-hours limit
+    assert len(got) == 48 and data["note"] is None and data["minutes"] == 30
     first = data["slots"][0]
     assert datetime.fromisoformat(first["end"]) - datetime.fromisoformat(first["start"]) == timedelta(minutes=30)
 
     hour = await slots(client, team.cleo, team.hana, tomorrow(), minutes=60)
-    assert starts(hour)[-1] == f"{settings.WORK_END_HOUR - 1:02d}:00"  # a one-hour meeting must finish by closing time
-    assert len(hour["slots"]) == (settings.WORK_END_HOUR - settings.WORK_START_HOUR) * 2 - 1
+    assert starts(hour)[-1] == "23:00"  # a one-hour meeting must finish by midnight
+    assert len(hour["slots"]) == 47
 
 
 async def test_booked_time_is_not_offered_and_a_booking_made_from_a_slot_works(client, team):
@@ -156,7 +156,7 @@ async def test_booked_time_is_not_offered_and_a_booking_made_from_a_slot_works(c
     half = starts(await slots(client, team.cleo, team.hana, day))
     assert "09:00" in half and "09:30" not in half and "10:00" not in half and "10:30" in half  # 09:00-09:30 just touches the booking
     hour = starts(await slots(client, team.cleo, team.hana, day, minutes=60))
-    assert "09:00" not in hour and "10:00" not in hour and "10:30" in hour and "08:30" not in hour
+    assert "09:00" not in hour and "10:00" not in hour and "10:30" in hour and "08:30" in hour
     # anyone allowed to see the calendar sees the same free time
     assert starts(await slots(client, team.mia, team.hana, day)) == half
 
@@ -178,12 +178,16 @@ async def test_no_slots_on_leave_in_the_past_or_when_fully_booked(client, team):
 
     later = day + timedelta(days=1)
     await client.post("/bookings", json={
-        "host_user_id": team.mia.id, "start": local(later, settings.WORK_START_HOUR).isoformat(),
-        "end": local(later, settings.WORK_START_HOUR + 8).isoformat(), "title": "All day", "note": "",
+        "host_user_id": team.mia.id, "start": local(later, 0).isoformat(),
+        "end": local(later, 8).isoformat(), "title": "Night", "note": "",
     }, headers=team.cleo.headers)
     await client.post("/bookings", json={
-        "host_user_id": team.mia.id, "start": local(later, settings.WORK_START_HOUR + 8).isoformat(),
-        "end": local(later, settings.WORK_END_HOUR).isoformat(), "title": "Rest", "note": "",
+        "host_user_id": team.mia.id, "start": local(later, 8).isoformat(),
+        "end": local(later, 16).isoformat(), "title": "Day", "note": "",
+    }, headers=team.cleo.headers)
+    await client.post("/bookings", json={
+        "host_user_id": team.mia.id, "start": local(later, 16).isoformat(),
+        "end": local(later, 23, 59).isoformat(), "title": "Evening", "note": "",
     }, headers=team.cleo.headers)
     full = await slots(client, team.cleo, team.mia, later)
     assert full["slots"] == [] and full["note"]

@@ -5,6 +5,8 @@ import { Button } from '../../../components/ui/Button';
 import { useAuthStore } from '../../../store/authStore';
 import { useDailyStatusStore } from '../../../store/useDailyStatusStore';
 import { socket } from '../../../services/socket';
+import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
+import { dayOffOn, ymdOf } from '../../workspace/dayOff';
 import { DAY_STATUSES, type DayStatus } from '../statusMeta';
 
 /**
@@ -34,7 +36,10 @@ export const DailyStatusGate: React.FC = () => {
     };
   }, [isStaff, loadMine, loadOverview, reset]);
 
-  const needsAnswer = isStaff && mineLoaded && today?.status === null && !skipped;
+  // Holidays and weekly offs are not working days: nobody is asked how they are working.
+  const workspace = useWorkspaceStore((s) => s.workspace);
+  const offToday = !!dayOffOn(workspace, ymdOf(new Date()), user?.companyId);
+  const needsAnswer = isStaff && mineLoaded && today?.status === null && !skipped && !offToday;
   const open = needsAnswer || editing;
 
   // Start from the current answer each time the popup opens.
@@ -46,6 +51,9 @@ export const DailyStatusGate: React.FC = () => {
   }, [open, today?.status]);
 
   if (!isStaff) return null;
+
+  const choiceIndex = DAY_STATUSES.findIndex((s) => s.value === choice);
+  const choiceMeta = choiceIndex >= 0 ? DAY_STATUSES[choiceIndex] : null;
 
   const save = async () => {
     if (!choice) return;
@@ -73,7 +81,40 @@ export const DailyStatusGate: React.FC = () => {
       description="Everyone on the team can see this on the dashboard and your calendar."
       maxWidth="md"
     >
-      <div className="space-y-2.5">
+      {/* Radial dial: one quarter of the ticked ring lights up in the chosen status colour. */}
+      <div className="relative mx-auto mb-5 h-44 w-44" aria-hidden="true">
+        <svg viewBox="0 0 200 200" className="h-full w-full">
+          {Array.from({ length: 60 }, (_, i) => {
+            const quarter = Math.floor(i / 15);
+            const lit = choiceIndex === quarter;
+            const a = (i / 60) * Math.PI * 2 - Math.PI / 2;
+            const r1 = lit ? 78 : 84;
+            return (
+              <line
+                key={i}
+                x1={100 + Math.cos(a) * r1}
+                y1={100 + Math.sin(a) * r1}
+                x2={100 + Math.cos(a) * 96}
+                y2={100 + Math.sin(a) * 96}
+                strokeWidth={lit ? 3 : 2}
+                strokeLinecap="round"
+                style={{
+                  stroke: lit ? DAY_STATUSES[quarter].color : 'var(--tm-border-strong)',
+                  transition: 'stroke 200ms ease-out'
+                }}
+              />
+            );
+          })}
+        </svg>
+        <div className="absolute inset-[22%] flex flex-col items-center justify-center rounded-full bg-[var(--tm-card)] text-center shadow-soft-sm">
+          <span className="text-[15px] font-extrabold leading-tight text-[var(--tm-ink)]">
+            {choiceMeta ? choiceMeta.label : 'Pick one'}
+          </span>
+          {choiceMeta && <span className="mt-0.5 px-2 text-[10.5px] leading-tight text-[var(--tm-ink-muted)]">{choiceMeta.hint}</span>}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2.5">
         {DAY_STATUSES.map((s) => {
           const selected = choice === s.value;
           return (
@@ -81,28 +122,26 @@ export const DailyStatusGate: React.FC = () => {
               key={s.value}
               type="button"
               onClick={() => setChoice(s.value)}
-              className={`flex w-full items-center justify-between gap-3 rounded-[var(--tm-radius-md)] border px-4 py-3
-                text-left transition-colors ${
+              aria-pressed={selected}
+              className={`flex items-center justify-between gap-2 rounded-full px-4 py-3 text-left transition-all duration-200
+                hover:-translate-y-px focus-visible:outline-none focus-visible:shadow-glow ${
                   selected
-                    ? 'border-[var(--tm-primary)] bg-[var(--tm-primary-softer)]'
-                    : 'border-[var(--tm-border)] bg-[var(--tm-card)] hover:border-[var(--tm-border-strong)]'
+                    ? 'bg-[var(--tm-solid)] text-[var(--tm-solid-ink)] shadow-soft-sm'
+                    : 'bg-[var(--tm-card-muted)] text-[var(--tm-ink)] hover:bg-[var(--tm-bg-sunken)]'
                 }`}
             >
-              <span className="flex items-center gap-3">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
-                <span className="leading-tight">
-                  <span className="block text-[14px] font-bold text-[var(--tm-ink)]">{s.label}</span>
-                  <span className="block text-[12px] text-[var(--tm-ink-muted)]">{s.hint}</span>
-                </span>
+              <span className="flex items-center gap-2.5">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: s.color }} />
+                <span className="text-[13.5px] font-bold">{s.label}</span>
               </span>
-              {selected && <Check className="h-4 w-4 text-[var(--tm-primary)]" />}
+              {selected && <Check className="h-4 w-4 text-[var(--tm-accent)]" />}
             </button>
           );
         })}
       </div>
 
       {error && (
-        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">
+        <div className="mt-4 tm-error px-4 py-3 text-xs font-semibold">
           {error}
         </div>
       )}

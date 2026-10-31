@@ -1,14 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { ChevronDown, LogOut, Shield } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, LogOut, Shield } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useFocusOf } from '../../store/useFocusStore';
 import { basePath, profilePath, settingsGroupsFor } from '../../features/settings/settingsMenu';
 import { UserAvatar } from '../ui/UserAvatar';
 import { Badge } from '../ui/Badge';
 import { useMotionPrefs } from '../ui/useMotionPrefs';
-import { EASE_OUT } from '../ui/motion';
+import { popoverVariants } from '../ui/motion';
 
 /** The avatar button and its menu, shared by every role's top bar. What it lists comes from `settingsMenu`, so roles never drift apart. */
 export const AccountMenu: React.FC = () => {
@@ -41,38 +41,37 @@ export const AccountMenu: React.FC = () => {
         aria-expanded={open}
         aria-label="Account menu"
         className="flex items-center gap-2.5 rounded-full border border-[var(--tm-border)]
-          bg-[var(--tm-card)] py-1.5 pl-1.5 pr-3 transition-colors
-          hover:border-[var(--tm-border-strong)]"
+          bg-[var(--tm-card)] p-1.5 2xl:pr-3 transition-[border-color,box-shadow]
+          hover:border-[var(--tm-border-strong)] hover:shadow-soft-sm"
       >
         <UserAvatar userId={user.id} size="md" focus={focusEnds != null} />
-        <span className="hidden text-left leading-tight sm:block">
+        <span className="hidden text-left leading-tight 2xl:block">
           <span className="block text-[13px] font-bold text-[var(--tm-ink)]">{user.nickname || user.name}</span>
-          <span className="block text-[11.5px] text-[var(--tm-ink-muted)]">{user.jobTitle}</span>
+          <span className="block text-[11.5px] text-[var(--tm-ink-muted)]">{user.jobTitle !== user.role ? user.jobTitle : ""}</span>
         </span>
-        <ChevronDown className="hidden h-4 w-4 text-[var(--tm-ink-muted)] sm:block" />
+        <ChevronDown className="hidden h-4 w-4 text-[var(--tm-ink-muted)] 2xl:block" />
       </button>
 
       <AnimatePresence>
         {open && (
           <motion.div
             role="menu"
-            initial={{ opacity: 0, y: -8, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.98 }}
-            transition={{ duration: reduced ? 0 : 0.2, ease: EASE_OUT }}
-            className="absolute right-0 top-[calc(100%+8px)] z-50 w-72 overflow-hidden
-              rounded-[var(--tm-radius-lg)] border border-[var(--tm-border)]
-              bg-[var(--tm-card)] shadow-soft-lg"
+            variants={popoverVariants}
+            initial={reduced ? 'show' : 'hidden'}
+            animate="show"
+            exit={reduced ? 'show' : 'exit'}
+            className="glass-strong absolute right-0 top-[calc(100%+10px)] z-50 w-72 origin-top-right overflow-hidden
+              rounded-[var(--tm-radius-lg)]"
           >
             <Link
               to={profilePath(user.role, user.id)}
               onClick={() => setOpen(false)}
-              className="flex items-center gap-3 border-b border-[var(--tm-border)] px-5 py-4 transition-colors hover:bg-[var(--tm-bg-sunken)]"
+              className="m-2 flex items-center gap-4 rounded-[var(--tm-radius-lg)] bg-[var(--tm-card)] px-4 py-4 shadow-soft-xs transition-all hover:-translate-y-px hover:shadow-soft-sm"
             >
-              <UserAvatar userId={user.id} size="lg" />
-              <div className="min-w-0 leading-tight">
+              <UserAvatar userId={user.id} size="xl" ring />
+              <div className="min-w-0 flex-1 leading-tight">
                 <div className="truncate text-[14px] font-bold text-[var(--tm-ink)]">{user.name}</div>
-                <div className="truncate text-[12px] text-[var(--tm-ink-muted)]">{user.jobTitle}</div>
+                <div className="truncate text-[12px] text-[var(--tm-ink-muted)]">{user.jobTitle !== user.role ? user.jobTitle : ""}</div>
                 <div className="mt-1.5 flex items-center gap-1.5">
                   {isAdmin && (
                     <Badge variant={user.company === 'piixel' ? 'piixel' : 'unwork'} size="sm" className="capitalize">
@@ -86,9 +85,15 @@ export const AccountMenu: React.FC = () => {
                   )}
                 </div>
               </div>
+              <span
+                aria-hidden="true"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--tm-solid)] text-[var(--tm-solid-ink)]"
+              >
+                <ArrowUpRight className="h-4 w-4" />
+              </span>
             </Link>
 
-            <div className="max-h-[min(70vh,34rem)] overflow-y-auto p-2">
+            <div className="max-h-[min(70vh,34rem)] overflow-y-auto p-2 pt-0">
               {groups.map((g, i) => (
                 <React.Fragment key={g.title}>
                   <p

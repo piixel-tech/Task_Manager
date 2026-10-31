@@ -22,6 +22,7 @@ class Task(Document):
     source_message_id: PydanticObjectId | None = None
     assignee_id: PydanticObjectId
     created_by: PydanticObjectId
+    start_date: str | None = None  # YYYY-MM-DD, optional
     due_date: str | None = None  # YYYY-MM-DD
     priority: Priority = "medium"
     status: TaskStatus = "todo"
@@ -29,6 +30,7 @@ class Task(Document):
     asset_ids: list[PydanticObjectId] = Field(default_factory=list)
     total_seconds: int = 0  # finished timer sessions; a running one is added on read
     last_reminded_on: str | None = None  # YYYY-MM-DD of the last due-date reminder
+    assignee_seen: bool = True  # False from a hand-over by someone else until the assignee opens the task
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:

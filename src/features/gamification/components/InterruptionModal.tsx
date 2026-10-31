@@ -37,7 +37,7 @@ export const InterruptionModal: React.FC<InterruptionModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onSkip} title="Pause Task - Add Interruption Log">
       <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-        <div className="bg-[var(--tm-card-muted)] p-3.5 rounded-xl border border-[var(--tm-border)]">
+        <div className="bg-[var(--tm-card-muted)] p-3.5 rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)]">
           <div className="text-[var(--tm-ink-muted)] font-semibold text-[10px] uppercase">Pausing Task</div>
           <div className="text-sm font-bold text-[var(--tm-ink)]">{taskTitle}</div>
         </div>
@@ -50,10 +50,10 @@ export const InterruptionModal: React.FC<InterruptionModalProps> = ({
                 type="button"
                 key={reason}
                 onClick={() => setSelectedReason(reason)}
-                className={`p-2.5 rounded-xl border text-left font-medium transition-all ${
+                className={`p-2.5 rounded-[var(--tm-radius-sm)] border text-left font-medium transition-all ${
                   selectedReason === reason
-                    ? 'border-[var(--tm-primary)] bg-[var(--tm-primary-softer)] text-[var(--tm-primary-dark)] shadow-sm'
-                    : 'border-[var(--tm-border)] bg-white text-[var(--tm-ink-soft)] hover:bg-[var(--tm-card-muted)]'
+                    ? 'border-[var(--tm-primary)] bg-[var(--tm-primary-softer)] text-[var(--tm-primary-dark)] shadow-soft-sm'
+                    : 'border-[var(--tm-border)] bg-[var(--tm-card)] text-[var(--tm-ink-soft)] hover:bg-[var(--tm-card-muted)]'
                 }`}
               >
                 {reason}
@@ -69,7 +69,7 @@ export const InterruptionModal: React.FC<InterruptionModalProps> = ({
             value={customNote}
             onChange={(e) => setCustomNote(e.target.value)}
             placeholder="e.g., Fixing critical production issue on Client portal"
-            className="w-full px-3 py-2 border border-[var(--tm-border-strong)] rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--tm-primary)] focus:border-[var(--tm-primary)]"
+            className="w-full px-3 py-2 border border-[var(--tm-border-strong)] rounded-[var(--tm-radius-sm)] focus:outline-none focus:ring-2 focus:ring-[var(--tm-primary)] focus:border-[var(--tm-primary)]"
           />
         </div>
 

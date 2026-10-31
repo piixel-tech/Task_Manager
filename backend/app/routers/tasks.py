@@ -122,11 +122,13 @@ async def create_task(body: TaskCreate, user: User = Depends(get_current_user)) 
         description_html=is_html,
         assignee_id=body.assignee_id,
         created_by=user.id,
+        start_date=body.start_date,
         due_date=body.due_date,
         priority=body.priority,
         asset_ids=asset_ids,
         source_group_id=group.id if group else None,
         source_message_id=source.id if source else None,
+        assignee_seen=body.assignee_id == user.id,
     )
     await task.insert()
 
@@ -154,6 +156,18 @@ async def create_task(body: TaskCreate, user: User = Depends(get_current_user)) 
     return await _one(task, user)
 
 
+@router.get("/unseen-count")
+async def unseen_count(user: User = Depends(get_current_user)) -> dict[str, int]:
+    """Tasks someone else handed to you that you haven't opened yet (the nav badge)."""
+    return {"count": await Task.find({"assignee_id": user.id, "assignee_seen": False}).count()}
+
+
+@router.post("/{task_id}/seen", status_code=status.HTTP_204_NO_CONTENT)
+async def mark_seen(task_id: PydanticObjectId, user: User = Depends(get_current_user)) -> None:
+    """The assignee opened the task. Anyone else is a no-op."""
+    await Task.find({"_id": task_id, "assignee_id": user.id, "assignee_seen": False}).update({"$set": {"assignee_seen": True}})
+
+
 @router.get("/{task_id}", response_model=TaskOut)
 async def get_task(task_id: PydanticObjectId, user: User = Depends(get_current_user)) -> TaskOut:
     task = await get_task_or_404(task_id)
@@ -179,6 +193,7 @@ async def update_task(task_id: PydanticObjectId, body: TaskUpdate, user: User = 
         require(user, "task.assign", sub, target_id=changes["assignee_id"])
         new_assignee = await check_assignee(changes["assignee_id"])
         task.assignee_id = changes["assignee_id"]
+        task.assignee_seen = task.assignee_id == user.id
         changed.append("assignee")
     if "asset_ids" in changes and changes["asset_ids"] is not None:
         new_ids = list(dict.fromkeys(changes["asset_ids"]))
@@ -198,6 +213,10 @@ async def update_task(task_id: PydanticObjectId, body: TaskUpdate, user: User = 
         if changes.get(field) is not None and changes[field] != getattr(task, field):
             setattr(task, field, changes[field])
             changed.append(label)
+    if "start_date" in changes and (changes["start_date"] or None) != task.start_date:
+        await log_task(task, user, f"changed the start date from {task.start_date or 'none'} to {changes['start_date'] or 'none'}")
+        task.start_date = changes["start_date"] or None
+        changed.append("start date")
     if "due_date" in changes and (changes["due_date"] or None) != task.due_date:
         await log_task(task, user, f"changed the due date from {task.due_date or 'none'} to {changes['due_date'] or 'none'}")
         task.due_date = changes["due_date"]

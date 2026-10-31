@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { backdropVariants, modalVariants } from './motion';
@@ -27,7 +28,7 @@ const widthClasses = {
   '3xl': 'max-w-3xl'
 };
 
-/** Centred dialog: blurred backdrop, scale-in panel, 24px radius. */
+/** Centred dialog: blurred backdrop, glass panel that springs in, 32px radius. */
 export const Modal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
@@ -55,7 +56,8 @@ export const Modal: React.FC<ModalProps> = ({
     };
   }, [isOpen, onClose, dismissible]);
 
-  return (
+  // Rendered on <body> so no parent panel (stacking context, dark scope) can trap or recolour it.
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6">
@@ -65,7 +67,7 @@ export const Modal: React.FC<ModalProps> = ({
             animate="show"
             exit="exit"
             onClick={dismissible ? onClose : undefined}
-            className="absolute inset-0 bg-[rgba(22,33,28,0.34)] backdrop-blur-[4px]"
+            className="absolute inset-0 bg-[var(--tm-scrim)] backdrop-blur-[6px]"
           />
 
           <motion.div
@@ -76,12 +78,12 @@ export const Modal: React.FC<ModalProps> = ({
             initial={reduced ? 'show' : 'hidden'}
             animate="show"
             exit={reduced ? 'show' : 'exit'}
-            className={`relative z-10 flex w-full flex-col overflow-hidden
-              rounded-[var(--tm-radius-xl)] bg-[var(--tm-card)] shadow-soft-lg
+            className={`glass-strong relative z-10 flex w-full flex-col overflow-hidden
+              rounded-[var(--tm-radius-xl)]
               ${widthClasses[maxWidth]} max-h-[calc(100vh-3rem)]`}
           >
             {(title || !hideClose) && (
-              <div className="flex items-start justify-between gap-4 px-6 pt-6 pb-4">
+              <div className="flex items-start justify-between gap-4 px-7 pt-7 pb-4">
                 <div className="min-w-0">
                   {title && (
                     <h3 className="text-[19px] font-bold tracking-[-0.02em] text-[var(--tm-ink)]">
@@ -98,9 +100,9 @@ export const Modal: React.FC<ModalProps> = ({
                   <button
                     onClick={onClose}
                     aria-label="Close dialog"
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full
-                      text-[var(--tm-ink-muted)] transition-colors
-                      hover:bg-[var(--tm-bg-sunken)] hover:text-[var(--tm-ink)]"
+                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full
+                      bg-[var(--tm-solid)] text-[var(--tm-solid-ink)] transition-colors
+                      hover:bg-[var(--tm-solid-hover)]"
                   >
                     <X className="h-[18px] w-[18px]" />
                   </button>
@@ -108,16 +110,17 @@ export const Modal: React.FC<ModalProps> = ({
               </div>
             )}
 
-            <div className="flex-1 overflow-y-auto px-6 pb-6">{children}</div>
+            <div className="flex-1 overflow-y-auto px-7 pb-7">{children}</div>
 
             {footer && (
-              <div className="flex items-center justify-end gap-3 border-t border-[var(--tm-border)] px-6 py-4">
+              <div className="flex items-center justify-end gap-3 border-t border-[var(--tm-border)] px-7 py-4">
                 {footer}
               </div>
             )}
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };

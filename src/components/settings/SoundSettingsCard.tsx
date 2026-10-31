@@ -1,6 +1,5 @@
 import React from 'react';
 import { Volume2, VolumeX, Sparkles } from 'lucide-react';
-import { motion } from 'motion/react';
 import {
   Card,
   CardContent,
@@ -9,8 +8,7 @@ import {
   CardTitle
 } from '../ui/Card';
 import { Button } from '../ui/Button';
-import { useMotionPrefs } from '../ui/useMotionPrefs';
-import { spring } from '../ui/motion';
+import { Switch } from '../ui/Switch';
 import {
   useSoundPreference,
   playDingSound
@@ -18,7 +16,6 @@ import {
 
 export const SoundSettingsCard: React.FC = () => {
   const { soundEnabled, setSoundEnabled } = useSoundPreference();
-  const { reduced } = useMotionPrefs();
 
   const handleToggle = () => {
     const next = !soundEnabled;
@@ -35,9 +32,9 @@ export const SoundSettingsCard: React.FC = () => {
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3.5">
             <span
-              className={`grid h-11 w-11 shrink-0 place-items-center rounded-[14px] transition-colors ${
+              className={`grid h-11 w-11 shrink-0 place-items-center rounded-[var(--tm-radius-sm)] transition-colors ${
                 soundEnabled
-                  ? 'bg-[var(--tm-primary-soft)] text-[var(--tm-primary)]'
+                  ? 'bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)]'
                   : 'bg-[var(--tm-bg-sunken)] text-[var(--tm-ink-muted)]'
               }`}
             >
@@ -56,25 +53,7 @@ export const SoundSettingsCard: React.FC = () => {
             </div>
           </div>
 
-          {/* Toggle Switch */}
-          <button
-            type="button"
-            role="switch"
-            aria-checked={soundEnabled}
-            onClick={handleToggle}
-            className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-              soundEnabled ? 'bg-[var(--tm-primary)]' : 'bg-[var(--tm-border-strong)]'
-            }`}
-          >
-            <span className="sr-only">Toggle sound effects</span>
-            <motion.span
-              layout
-              transition={reduced ? { duration: 0 } : spring}
-              className={`pointer-events-none inline-block h-6 w-6 rounded-full bg-white shadow-md transform transition-transform ${
-                soundEnabled ? 'translate-x-5' : 'translate-x-0'
-              }`}
-            />
-          </button>
+          <Switch checked={soundEnabled} onChange={handleToggle} label="Toggle sound effects" />
         </div>
       </CardHeader>
 

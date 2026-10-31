@@ -16,7 +16,7 @@ def _clean_date(value: str | None) -> str | None:
     try:
         return date.fromisoformat(value).isoformat()
     except ValueError:
-        raise ValueError("due_date must be YYYY-MM-DD")
+        raise ValueError("dates must be YYYY-MM-DD")
 
 
 class TaskCreate(BaseModel):
@@ -26,6 +26,7 @@ class TaskCreate(BaseModel):
     html: bool = False  # description is HTML from the rich editor
     from_message_id: PydanticObjectId | None = None  # created from this chat message
     assignee_id: PydanticObjectId
+    start_date: str | None = None
     due_date: str | None = None
     priority: Priority = "medium"
     asset_ids: list[PydanticObjectId] = Field(default_factory=list, max_length=MAX_ASSETS)
@@ -38,7 +39,7 @@ class TaskCreate(BaseModel):
             raise ValueError("must not be empty")
         return v
 
-    @field_validator("due_date")
+    @field_validator("start_date", "due_date")
     @classmethod
     def _due(cls, v: str | None) -> str | None:
         return _clean_date(v)
@@ -49,6 +50,7 @@ class TaskUpdate(BaseModel):
     description: str | None = None
     html: bool = False  # the new description is HTML from the rich editor
     assignee_id: PydanticObjectId | None = None
+    start_date: str | None = None  # send "" to clear
     due_date: str | None = None  # send "" to clear
     priority: Priority | None = None
     asset_ids: list[PydanticObjectId] | None = Field(default=None, max_length=MAX_ASSETS)
@@ -63,7 +65,7 @@ class TaskUpdate(BaseModel):
             raise ValueError("must not be empty")
         return v
 
-    @field_validator("due_date")
+    @field_validator("start_date", "due_date")
     @classmethod
     def _due(cls, v: str | None) -> str | None:
         return _clean_date(v) if v is not None else None
@@ -93,6 +95,7 @@ class TaskOut(BaseModel):
     unresolved_changes: int = 0  # open mid-way changes, for the badge on task cards
     assignee: UserBrief | None
     created_by: UserBrief | None
+    start_date: str | None = None
     due_date: str | None
     priority: Priority
     status: TaskStatus

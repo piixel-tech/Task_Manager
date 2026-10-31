@@ -4,8 +4,7 @@ import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { useConfirm } from '../../../hooks/useConfirm';
 import { assetApi, type Asset } from '../../../services/http/taskApi';
-import { officeApi, type OfficeCategory, type OfficePost } from '../../../services/http/officeApi';
-import { CATEGORIES, tint } from '../officeMeta';
+import { officeApi, type OfficePost } from '../../../services/http/officeApi';
 
 const MAX_PHOTO_MB = 10;
 
@@ -15,11 +14,10 @@ interface Props {
   onPosted: (post: OfficePost) => void;
 }
 
-/** Post an issue or notice: pick a category, say what is going on, optionally add a photo. */
+/** Post an issue or notice: say what is going on, optionally add a photo. */
 export const NewPostModal: React.FC<Props> = ({ isOpen, onClose, onPosted }) => {
   const confirm = useConfirm();
   const input = useRef<HTMLInputElement>(null);
-  const [category, setCategory] = useState<OfficeCategory>('general');
   const [text, setText] = useState('');
   const [photo, setPhoto] = useState<{ asset: Asset; preview: string } | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -34,7 +32,6 @@ export const NewPostModal: React.FC<Props> = ({ isOpen, onClose, onPosted }) => 
   // Start fresh every time it opens.
   useEffect(() => {
     if (!isOpen) return;
-    setCategory('general');
     setText('');
     setPhoto(null);
     setError(null);
@@ -69,14 +66,13 @@ export const NewPostModal: React.FC<Props> = ({ isOpen, onClose, onPosted }) => 
     const body = text.trim();
     if (!body) return setError('Say what is going on.');
     setError(null);
-    const meta = CATEGORIES.find((c) => c.value === category)!;
     let created: OfficePost | null = null;
     const ok = await confirm({
       title: 'Post to the office board?',
-      message: `${meta.emoji} ${meta.label}: everyone on the team is notified straight away.`,
+      message: 'Everyone on the team is notified straight away.',
       confirmLabel: 'Post',
       action: async () => {
-        created = await officeApi.create(body, category, photo?.asset.id ?? null);
+        created = await officeApi.create(body, photo?.asset.id ?? null);
       },
       successTitle: 'Posted to the office board'
     });
@@ -91,31 +87,7 @@ export const NewPostModal: React.FC<Props> = ({ isOpen, onClose, onPosted }) => 
   return (
     <Modal isOpen={isOpen} onClose={close} title="New office post" description="Broken coffee machine? AC acting up? Tell the team." maxWidth="lg">
       <form onSubmit={submit} className="space-y-5">
-        {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</div>}
-
-        <fieldset>
-          <legend className="mb-2 text-[12.5px] font-bold text-[var(--tm-ink-soft)]">Category</legend>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {CATEGORIES.map((c) => {
-              const active = c.value === category;
-              return (
-                <button
-                  key={c.value}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => setCategory(c.value)}
-                  style={active ? tint(c.accent, 16) : undefined}
-                  className={`flex flex-col items-center gap-1 rounded-2xl border px-2 py-3 text-[12px] font-bold transition-transform hover:scale-[1.03] ${
-                    active ? 'text-[var(--tm-ink)]' : 'border-[var(--tm-border)] text-[var(--tm-ink-soft)]'
-                  }`}
-                >
-                  <span className="text-2xl">{c.emoji}</span>
-                  {c.label}
-                </button>
-              );
-            })}
-          </div>
-        </fieldset>
+        {error && <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>}
 
         <div>
           <label htmlFor="office-text" className="mb-1.5 block text-[12.5px] font-bold text-[var(--tm-ink-soft)]">
@@ -137,7 +109,7 @@ export const NewPostModal: React.FC<Props> = ({ isOpen, onClose, onPosted }) => 
           <input ref={input} type="file" accept="image/*" hidden onChange={(e) => pick(e.target.files?.[0])} />
           {photo ? (
             <div className="relative inline-block">
-              <img src={photo.preview} alt="Selected photo" className="h-32 rounded-xl border border-[var(--tm-border)] object-cover" />
+              <img src={photo.preview} alt="Selected photo" className="h-32 rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)] object-cover" />
               <button
                 type="button"
                 aria-label="Remove photo"

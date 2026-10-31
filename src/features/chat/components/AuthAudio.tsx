@@ -26,6 +26,6 @@ export const AuthAudio: React.FC<{ url: string; className?: string }> = ({ url, 
   }, [url]);
 
   if (failed) return <p className="text-[12px] text-[var(--tm-ink-muted)]">Voice note unavailable</p>;
-  if (!src) return <div className={`h-10 w-60 animate-pulse rounded-full bg-[var(--tm-card-muted)] ${className}`} aria-label="Loading voice note" />;
+  if (!src) return <div className={`h-10 w-60 skeleton rounded-full ${className}`} aria-label="Loading voice note" />;
   return <audio controls preload="metadata" src={src} className={`h-10 max-w-full ${className}`} />;
 };

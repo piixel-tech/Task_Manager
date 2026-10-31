@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en" data-accent="forest">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#1F5F3F" />
+    <meta name="theme-color" content="#F6F5F9" />
     <title>Task Manager - Piixel &amp; Unwork</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -13,11 +13,10 @@
       rel="stylesheet"
     />
     <script>
-      // Apply the saved accent before first paint so there is no colour flash.
+      // One accent for everyone; drop any accent saved by an older version.
       try {
-        var a = localStorage.getItem('tm.accent');
-        if (a) document.documentElement.setAttribute('data-accent', a);
-        // Same for light / dark ("system" follows the device) and compact spacing.
+        localStorage.removeItem('tm.accent');
+        // Apply light / dark ("system" follows the device) and compact spacing.
         var m = localStorage.getItem('tm.mode') || 'system';
         var dark = m === 'dark' || (m === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
         document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');

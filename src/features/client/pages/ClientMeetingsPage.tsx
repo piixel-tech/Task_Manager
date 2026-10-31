@@ -4,7 +4,6 @@ import { Avatar } from '../../../components/ui/Avatar';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { EmptyState } from '../../../components/ui/EmptyState';
-import { HeadBadge } from '../../../components/ui/HeadBadge';
 import { Input } from '../../../components/ui/Input';
 import { Modal } from '../../../components/ui/Modal';
 import { PageHeader } from '../../../components/ui/PageHeader';
@@ -98,14 +97,14 @@ export const ClientMeetingsPage: React.FC = () => {
   return (
     <>
       <PageHeader title="Book a meeting" description="Choose someone from your project team and a time that suits you." />
-      {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</div>}
+      {error && <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>}
 
       {!projects ? (
         error ? null : <SkeletonGrid count={2} />
       ) : projects.length === 0 ? (
-        <EmptyState icon={<CalendarClock className="h-6 w-6 text-[var(--tm-primary)]" />} title="No project yet" description="Once you are added to a project you can book time with its team here." />
+        <EmptyState icon={<CalendarClock className="h-6 w-6 text-[var(--tm-primary-dark)]" />} title="No project yet" description="Once you are added to a project you can book time with its team here." />
       ) : (
-        <div className="space-y-6">
+        <div className="animate-fade-in space-y-6">
           {projects.length > 1 && (
             <div className="sm:w-72">
               <Select label="Project" value={projectId} onChange={(e) => setProjectId(e.target.value)} options={projects.map((p) => ({ value: p.id, label: p.name }))} />
@@ -115,20 +114,19 @@ export const ClientMeetingsPage: React.FC = () => {
           <section aria-label="Team">
             <h2 className="mb-3 text-[13px] font-extrabold uppercase tracking-wide text-[var(--tm-ink-muted)]">1 · Who</h2>
             <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {project?.team.map(({ user, is_head }) => (
+              {project?.team.map(({ user }) => (
                 <li key={user.id}>
                   <button
                     type="button"
                     aria-pressed={host?.id === user.id}
                     onClick={() => setHost(user)}
-                    className={`flex w-full items-center gap-3 rounded-2xl border p-3.5 text-left transition-colors ${
+                    className={`flex w-full items-center gap-3 rounded-[var(--tm-radius-md)] border p-3.5 text-left transition-colors ${
                       host?.id === user.id ? 'border-[var(--tm-primary)] bg-[var(--tm-primary-soft)]' : 'border-[var(--tm-border)] bg-[var(--tm-card)] hover:bg-[var(--tm-card-muted)]'
                     }`}
                   >
                     <Avatar name={user.name} src={user.avatar_url ?? undefined} size="md" />
                     <span className="min-w-0">
                       <span className="block truncate text-[14px] font-bold text-[var(--tm-ink)]">{user.name}</span>
-                      {is_head && <HeadBadge />}
                     </span>
                   </button>
                 </li>
@@ -149,7 +147,7 @@ export const ClientMeetingsPage: React.FC = () => {
                 {loadingSlots && !avail ? (
                   <p className="text-[13px] text-[var(--tm-ink-muted)]">Looking for free times…</p>
                 ) : avail && avail.slots.length === 0 ? (
-                  <p className="rounded-xl bg-[var(--tm-card-muted)] p-4 text-[13.5px] text-[var(--tm-ink-soft)]">{avail.note ?? 'No free times that day.'} Try another day.</p>
+                  <p className="rounded-[var(--tm-radius-sm)] bg-[var(--tm-card-muted)] p-4 text-[13.5px] text-[var(--tm-ink-soft)]">{avail.note ?? 'No free times that day.'} Try another day.</p>
                 ) : (
                   <div className="flex flex-wrap gap-2" role="group" aria-label="Free times">
                     {avail?.slots.map((s) => (

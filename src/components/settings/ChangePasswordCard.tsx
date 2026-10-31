@@ -96,7 +96,7 @@ export const ChangePasswordCard: React.FC = () => {
     <Card>
       <CardHeader>
         <div className="flex items-start gap-3.5">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] bg-[var(--tm-primary-soft)] text-[var(--tm-primary)]">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)]">
             <KeyRound className="h-5 w-5" />
           </span>
           <div>
@@ -111,14 +111,14 @@ export const ChangePasswordCard: React.FC = () => {
       <CardContent className="p-6">
         <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
           {error && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-[var(--tm-danger-bg)] border border-[var(--tm-danger-ring)] text-[var(--tm-danger)] text-xs font-medium">
+            <div className="flex items-center gap-2 p-3 rounded-[var(--tm-radius-sm)] bg-[var(--tm-danger-bg)] border border-[var(--tm-danger-ring)] text-[var(--tm-danger)] text-xs font-medium">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
           {success && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-[var(--tm-success-bg)] border border-[var(--tm-success-ring)] text-[var(--tm-success)] text-xs font-medium">
+            <div className="flex items-center gap-2 p-3 rounded-[var(--tm-radius-sm)] bg-[var(--tm-success-bg)] border border-[var(--tm-success-ring)] text-[var(--tm-success)] text-xs font-medium">
               <Check className="w-4 h-4 shrink-0" />
               <span>{success}</span>
             </div>

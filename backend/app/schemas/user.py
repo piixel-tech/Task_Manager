@@ -46,6 +46,7 @@ class UserCreate(BaseModel):
     role: Role
     company_id: PydanticObjectId | None = None
     avatar_url: str | None = None
+    title: str = Field(default="", max_length=80)  # job role shown under their name
 
 
 class UserUpdate(BaseModel):
@@ -56,6 +57,7 @@ class UserUpdate(BaseModel):
     company_id: PydanticObjectId | None = None
     avatar_url: str | None = None
     is_active: bool | None = None
+    title: str | None = Field(default=None, max_length=80)
 
 
 class CompanyOut(BaseModel):

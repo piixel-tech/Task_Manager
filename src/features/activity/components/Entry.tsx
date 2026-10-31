@@ -24,12 +24,14 @@ interface Props {
   /** Reload the list (after a delete or a reply). */
   onReload: () => void;
   onReply: (input: ActivityInput) => Promise<void>;
+  /** Show a round icon tile on the left (used where entries are listed as cards). */
+  icon?: React.ReactNode;
 }
 
 const noun = (e: ActivityEntry) => (e.kind === 'change_request' ? 'mid-way change' : 'comment');
 
 /** One mid-way change or comment: text, files, reactions, replies, and the Resolved tick. */
-export const Entry: React.FC<Props> = ({ entry: e, replies, meId, people, highlight, onUpdated, onReload, onReply }) => {
+export const Entry: React.FC<Props> = ({ entry: e, replies, meId, people, highlight, onUpdated, onReload, onReply, icon }) => {
   const confirm = useConfirm();
   const [replying, setReplying] = useState(false);
   const [picker, setPicker] = useState(false);
@@ -67,7 +69,13 @@ export const Entry: React.FC<Props> = ({ entry: e, replies, meId, people, highli
   const open = (f: ActivityEntry['files'][number]) => assetApi.open(f).catch((err) => toast.error('Could not open the file', err.message));
 
   return (
-    <article id={`entry-${e.id}`} className={`rounded-2xl border p-3.5 transition-shadow ${highlight ? 'border-[var(--tm-primary)] shadow-soft-md' : 'border-[var(--tm-border)]'} ${e.resolved ? 'bg-[var(--tm-card-muted)]' : 'bg-[var(--tm-card)]'}`}>
+    <article id={`entry-${e.id}`} className={`rounded-[var(--tm-radius-md)] border p-3.5 transition-shadow ${highlight ? 'border-[var(--tm-primary)] shadow-soft-md' : 'border-[var(--tm-border)]'} ${e.resolved ? 'bg-[var(--tm-card-muted)]' : 'bg-[var(--tm-card)]'} ${icon ? 'flex gap-3.5 p-4' : ''}`}>
+      {icon && (
+        <span aria-hidden className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)]">
+          {icon}
+        </span>
+      )}
+      <div className={icon ? 'min-w-0 flex-1' : ''}>
       <Header entry={e} />
 
       <div className={e.resolved ? 'opacity-70' : ''}>
@@ -175,6 +183,7 @@ export const Entry: React.FC<Props> = ({ entry: e, replies, meId, people, highli
           <EntryComposer kind={e.kind as 'change_request' | 'comment'} people={people} parentId={e.id} placeholder="Write a reply" compact onPost={onReply} onCancel={() => setReplying(false)} />
         </div>
       )}
+      </div>
     </article>
   );
 };

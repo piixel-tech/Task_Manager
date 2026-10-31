@@ -1,7 +1,8 @@
+import { formatDate } from '../../../utils/time';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, FolderKanban, Layers, Plus } from 'lucide-react';
-import { Card, CardContent } from '../../../components/ui/Card';
+import { FolderKanban, Plus } from 'lucide-react';
+import { FolderCard } from '../../../components/ui/FolderCard';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
 import { PageHeader } from '../../../components/ui/PageHeader';
@@ -45,7 +46,7 @@ export const ProjectsPage: React.FC = () => {
 
   const companyName = (id: string) => companies.find((c) => c.id === id)?.name ?? '';
   const visible = projects.filter(
-    (p) => !isAdmin || companyFilter === 'all' || companyName(p.company_id).toLowerCase() === companyFilter
+    (p) => !isAdmin || companyFilter === 'all' || p.company_ids.some((id) => companyName(id).toLowerCase() === companyFilter)
   );
 
   return (
@@ -67,14 +68,14 @@ export const ProjectsPage: React.FC = () => {
       />
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</div>
+        <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>
       )}
 
       {loading ? (
         <SkeletonGrid count={3} />
       ) : visible.length === 0 ? (
         <EmptyState
-          icon={<FolderKanban className="h-6 w-6 text-[var(--tm-primary)]" />}
+          icon={<FolderKanban className="h-6 w-6 text-[var(--tm-primary-dark)]" />}
           title="No projects yet"
           description={
             isAdmin ? 'Create the first project and appoint a head for its first subfolder.' : 'You have not been added to a project yet.'
@@ -83,31 +84,33 @@ export const ProjectsPage: React.FC = () => {
           onAction={isAdmin ? () => setCreating(true) : undefined}
         />
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {visible.map((p) => {
-            const company = companyName(p.company_id).toLowerCase();
-            return (
-              <Card key={p.id} interactive animate={false} onClick={() => navigate(`${prefix}/projects/${p.id}`)}>
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-3">
-                    <h3 className="text-[16px] font-bold leading-snug text-[var(--tm-ink)]">{p.name}</h3>
-                    {company && (
-                      <Badge variant={company === 'unwork' ? 'unwork' : 'piixel'} size="sm" className="capitalize">
-                        {company}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="mt-5 flex items-center justify-between text-[12.5px] font-semibold text-[var(--tm-ink-soft)]">
-                    <span className="flex items-center gap-1.5">
-                      <Layers className="h-4 w-4 text-[var(--tm-primary)]" />
-                      {p.subfolder_count} subfolder{p.subfolder_count === 1 ? '' : 's'}
-                    </span>
-                    <ArrowRight className="h-4 w-4 text-[var(--tm-ink-muted)]" />
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+        <div className="animate-fade-in">
+          <h2 className="mb-3 text-[20px] font-bold text-[var(--tm-ink)]">Folders</h2>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+            {visible.map((p) => {
+              const companyNames = p.company_ids.map((id) => companyName(id).toLowerCase()).filter(Boolean);
+              return (
+                <FolderCard
+                  key={p.id}
+                  title={p.name}
+                  subtitle={`${p.subfolder_count} subfolder${p.subfolder_count === 1 ? '' : 's'}`}
+                  tooltip={[p.description, p.start_date && `Starts ${formatDate(`${p.start_date}T00:00:00`, 'MMM d, yyyy')}`].filter(Boolean).join(' · ')}
+                  badge={
+                    companyNames.length > 0 && (
+                      <span className="flex flex-wrap justify-end gap-1">
+                        {companyNames.map((company) => (
+                          <Badge key={company} variant={company === 'unwork' ? 'unwork' : 'piixel'} size="sm" className="capitalize">
+                            {company}
+                          </Badge>
+                        ))}
+                      </span>
+                    )
+                  }
+                  onClick={() => navigate(`${prefix}/projects/${p.id}`)}
+                />
+              );
+            })}
+          </div>
         </div>
       )}
 

@@ -17,6 +17,8 @@ export interface PillTabsProps {
   size?: 'sm' | 'md';
   /** `track` draws a sunken rail behind the pills; `bare` sits on the canvas. */
   variant?: 'track' | 'bare';
+  /** Show the count badge even when it is 0 (default: hidden at 0). */
+  showZero?: boolean;
   className?: string;
 }
 
@@ -30,6 +32,7 @@ export const PillTabs: React.FC<PillTabsProps> = ({
   onChange,
   size = 'md',
   variant = 'track',
+  showZero = false,
   className = ''
 }) => {
   const { reduced } = useMotionPrefs();
@@ -55,27 +58,27 @@ export const PillTabs: React.FC<PillTabsProps> = ({
               transition-colors duration-[var(--tm-dur-fast)] ${pad}
               ${
                 isActive
-                  ? 'text-white'
+                  ? 'text-[var(--tm-solid-ink)]'
                   : 'text-[var(--tm-ink-soft)] hover:text-[var(--tm-ink)]'
               }`}
           >
             {isActive && (
               <motion.span
                 layoutId={reduced ? undefined : layoutId}
-                className="absolute inset-0 rounded-full bg-[var(--tm-primary)] shadow-soft-sm"
+                className="absolute inset-0 rounded-full bg-[var(--tm-solid)] shadow-soft-sm"
                 transition={reduced ? { duration: 0 } : spring}
               />
             )}
             <span className="relative z-10 inline-flex items-center gap-2 whitespace-nowrap">
               {tab.icon}
               {tab.label}
-              {tab.count !== undefined && tab.count > 0 && (
+              {tab.count !== undefined && (showZero || tab.count > 0) && (
                 <span
                   className={`inline-flex min-w-5 items-center justify-center rounded-full px-1.5
                     text-[10px] font-bold leading-[17px] tabular-nums
                     ${
                       isActive
-                        ? 'bg-white/22 text-white'
+                        ? 'bg-white/25 text-[var(--tm-solid-ink)]'
                         : 'bg-[var(--tm-card)] text-[var(--tm-ink-muted)]'
                     }`}
                 >

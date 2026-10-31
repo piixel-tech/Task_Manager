@@ -13,6 +13,7 @@ from app.schemas.portal import (
     PortalPerson,
     PortalProject,
     PortalSummary,
+    ProjectProgress,
     Ref,
 )
 from app.services.checklist import deliverables_out
@@ -108,6 +109,18 @@ async def summary(month: str | None = None, user: User = Depends(only_clients)) 
     position = sum(STAGES.index(stage) * n for d in items for stage, n in d.by_stage.items())
     progress = round(100 * position / (total * (len(STAGES) - 1))) if total else 0
 
+    stages = {stage: sum(d.by_stage.get(stage, 0) for d in items) for stage in STAGES}
+    per_project: dict = {}
+    for g in groups:
+        row = per_project.setdefault(g.project.id, [g.project.name, 0, 0, 0])
+        row[1] += g.deliverables.total
+        row[2] += g.deliverables.by_stage.get(STAGES[-1], 0)
+        row[3] += sum(STAGES.index(stage) * n for stage, n in g.deliverables.by_stage.items())
+    project_progress = [
+        ProjectProgress(id=pid, name=n, total=t, done=dn, progress=round(100 * pos / (t * (len(STAGES) - 1))) if t else 0)
+        for pid, (n, t, dn, pos) in per_project.items()
+    ]
+
     latest = []
     for project, subs in await _projects(user):
         rows = await Requirement.find(Requirement.project_id == project.id).sort([("created_at", -1), ("_id", -1)]).limit(SUMMARY_ITEMS).to_list()
@@ -120,4 +133,6 @@ async def summary(month: str | None = None, user: User = Depends(only_clients)) 
         approvals=pending[:SUMMARY_ITEMS],
         deliverables=DeliverablesTotals(total=total, done=done, remaining=total - done, progress=progress),
         latest_requirements=latest[:SUMMARY_ITEMS],
+        stages=stages,
+        projects=project_progress,
     )

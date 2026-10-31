@@ -58,7 +58,7 @@ async def delete_company(company_id: PydanticObjectId) -> None:
     """Only a company nobody belongs to: people and projects keep pointing at it, so it has to be empty first."""
     company = await _get(company_id)
     people = await User.find(User.company_id == company.id).count()
-    projects = await Project.find(Project.company_id == company.id).count()
+    projects = await Project.find({"$or": [{"company_id": company.id}, {"extra_company_ids": company.id}]}).count()
     if people or projects:
         raise HTTPException(
             status.HTTP_409_CONFLICT,

@@ -19,9 +19,9 @@ export const AuthGuard: React.FC<{ children: React.ReactNode; roles?: UserRole[]
 
   if (!initialized || isLoading) {
     return (
-      <div className="min-h-screen bg-[var(--tm-card-muted)] flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--tm-bg)] flex items-center justify-center">
         <div className="text-center space-y-3">
-          <div className="w-10 h-10 border-4 border-[var(--tm-primary)] border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="w-10 h-10 border-[3px] border-[var(--tm-solid)] border-t-[var(--tm-accent)] rounded-full animate-spin mx-auto" />
           <p className="text-xs font-semibold text-[var(--tm-ink-muted)]">Loading Task Manager workspace...</p>
         </div>
       </div>

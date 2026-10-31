@@ -142,7 +142,7 @@ export const ChatSearchModal: React.FC<Props> = ({ isOpen, onClose, group, menti
           Only messages that mention me
         </label>
 
-        {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</p>}
+        {error && <p className="tm-error px-4 py-3 text-xs font-semibold">{error}</p>}
 
         <div aria-live="polite">
           {!anyFilter ? (
@@ -152,7 +152,7 @@ export const ChatSearchModal: React.FC<Props> = ({ isOpen, onClose, group, menti
           ) : hits.length === 0 ? (
             <p className="py-6 text-center text-[13px] text-[var(--tm-ink-muted)]">Nothing found.</p>
           ) : (
-            <ul className="max-h-[40vh] divide-y divide-[var(--tm-border)] overflow-y-auto rounded-xl border border-[var(--tm-border)]">
+            <ul className="max-h-[40vh] divide-y divide-[var(--tm-border)] overflow-y-auto rounded-[var(--tm-radius-md)] border border-[var(--tm-border)]">
               {hits.map((h) => (
                 <li key={h.message.id}>
                   <button type="button" onClick={() => onOpen(h.group_id, h.message.id)} className="block w-full px-3.5 py-2.5 text-left hover:bg-[var(--tm-card-muted)]">

@@ -9,7 +9,6 @@ import {
   Eye,
   MessageSquare,
   Plus,
-  Search,
   Users
 } from 'lucide-react';
 import { userService, taskService } from '../../../services';
@@ -28,6 +27,7 @@ import { SuccessDialog } from '../../../components/ui/SuccessDialog';
 import { Drawer } from '../../../components/ui/Drawer';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
+import { FilterBar, FilterSearch } from '../../../components/ui/FilterBar';
 import { PillTabs } from '../../../components/ui/PillTabs';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { StaggerItem } from '../../../components/ui/Stagger';
@@ -42,9 +42,11 @@ interface UserForm {
   password: string;
   role: UserRole;
   companyId: string;
+  /** Job role shown under the person's name everywhere. */
+  jobTitle: string;
 }
 
-const emptyForm: UserForm = { name: '', email: '', password: '', role: 'employee', companyId: '' };
+const emptyForm: UserForm = { name: '', email: '', password: '', role: 'employee', companyId: '', jobTitle: '' };
 
 type PendingAction =
   | { kind: 'create' }
@@ -104,7 +106,7 @@ const compare = (a: string | number, b: string | number) =>
 
 const FormError: React.FC<{ message: string | null }> = ({ message }) =>
   message ? (
-    <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">
+    <div className="tm-error px-4 py-3 text-xs font-semibold">
       {message}
     </div>
   ) : null;
@@ -188,7 +190,8 @@ export const AdminUsersPage: React.FC = () => {
       email: u.loginId,
       password: '',
       role: u.role,
-      companyId: u.companyId ?? companies[0]?.id ?? ''
+      companyId: u.companyId ?? companies[0]?.id ?? '',
+      jobTitle: u.jobTitle === u.role ? '' : u.jobTitle
     });
     setFormError(null);
     setEditingUser(u);
@@ -222,7 +225,7 @@ export const AdminUsersPage: React.FC = () => {
             role: form.role,
             company: 'piixel',
             companyId: form.companyId || undefined,
-            jobTitle: form.role,
+            jobTitle: form.jobTitle.trim() || form.role,
             active: true
           });
           result = {
@@ -236,7 +239,8 @@ export const AdminUsersPage: React.FC = () => {
             name: form.name.trim(),
             loginId: form.email.trim(),
             role: form.role,
-            companyId: form.companyId || undefined
+            companyId: form.companyId || undefined,
+            jobTitle: form.jobTitle.trim()
           });
           syncStores(updated);
           result = { title: 'Changes saved', message: `Updated details for ${updated.name}.` };
@@ -352,25 +356,24 @@ export const AdminUsersPage: React.FC = () => {
       />
 
       {/* Filters */}
-      <StaggerItem className="flex flex-col gap-3.5 lg:flex-row lg:items-center lg:justify-between">
-        <PillTabs
-          activeTab={statusTab}
-          onChange={(t) => setStatusTab(t as typeof statusTab)}
-          tabs={[
-            { id: 'all', label: 'Everyone', count: counts.all },
-            { id: 'left', label: 'Inactive', count: counts.left }
-          ]}
-        />
-
-        <div className="lg:w-80">
-          <Input
-            pill
-            placeholder="Search name, email, role or company"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            leftIcon={<Search className="h-4 w-4" />}
+      <StaggerItem>
+        <FilterBar
+          activeCount={(query.trim() ? 1 : 0) + (statusTab !== 'all' ? 1 : 0)}
+          onClear={() => {
+            setQuery('');
+            setStatusTab('all');
+          }}
+        >
+          <PillTabs
+            activeTab={statusTab}
+            onChange={(t) => setStatusTab(t as typeof statusTab)}
+            tabs={[
+              { id: 'all', label: 'Everyone', count: counts.all },
+              { id: 'left', label: 'Inactive', count: counts.left }
+            ]}
           />
-        </div>
+          <FilterSearch value={query} onChange={setQuery} placeholder="Search name, email, role or company" />
+        </FilterBar>
       </StaggerItem>
 
       {/* Employees table */}
@@ -378,12 +381,12 @@ export const AdminUsersPage: React.FC = () => {
         <SkeletonGrid count={6} />
       ) : filteredUsers.length === 0 ? (
         <EmptyState
-          icon={<Users className="h-6 w-6 text-[var(--tm-primary)]" />}
+          icon={<Users className="h-6 w-6 text-[var(--tm-primary-dark)]" />}
           title="No matching team members"
           description="Try adjusting your search terms or status filter."
         />
       ) : (
-        <div className="overflow-x-auto rounded-[var(--tm-radius-xl)] border border-[var(--tm-border)] bg-[var(--tm-card)] shadow-soft-xs">
+        <div className="animate-fade-in overflow-x-auto rounded-[var(--tm-radius-xl)] border border-[var(--tm-border)] bg-[var(--tm-card)] shadow-soft-xs">
           <table className="w-full min-w-[960px] text-left text-[13px]">
             <thead className="border-b border-[var(--tm-border)] bg-[var(--tm-card-muted)]">
               <tr>
@@ -405,7 +408,7 @@ export const AdminUsersPage: React.FC = () => {
                         }`}
                       >
                         {c.label}
-                        <Icon className={`h-3.5 w-3.5 ${active ? 'text-[var(--tm-primary)]' : 'opacity-50 group-hover:opacity-100'}`} />
+                        <Icon className={`h-3.5 w-3.5 ${active ? 'text-[var(--tm-primary-dark)]' : 'opacity-50 group-hover:opacity-100'}`} />
                       </button>
                     </th>
                   );
@@ -423,7 +426,10 @@ export const AdminUsersPage: React.FC = () => {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <Avatar name={u.name} src={u.avatarUrl} size="sm" />
-                        <span className="font-bold text-[var(--tm-ink)]">{u.name}</span>
+                        <span className="min-w-0">
+                          <span className="block font-bold text-[var(--tm-ink)]">{u.name}</span>
+                          {u.jobTitle !== u.role && <span className="block text-[12px] text-[var(--tm-ink-muted)]">{u.jobTitle}</span>}
+                        </span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-[var(--tm-ink-soft)]">{u.loginId}</td>
@@ -465,7 +471,7 @@ export const AdminUsersPage: React.FC = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                            className="border-[var(--tm-success-ring)] text-[var(--tm-success)] hover:bg-[var(--tm-success-bg)]"
                             onClick={() => setConfirm({ kind: 'rehire', user: u })}
                           >
                             Reactivate
@@ -486,7 +492,7 @@ export const AdminUsersPage: React.FC = () => {
         isOpen={!!viewingUser}
         onClose={() => setViewingUser(null)}
         title="Employee profile"
-        description={viewingUser ? viewingUser.loginId : undefined}
+        description={viewingUser ? (viewingUser.jobTitle !== viewingUser.role ? `${viewingUser.jobTitle} · ${viewingUser.loginId}` : viewingUser.loginId) : undefined}
         width="lg"
         footer={
           <div className="flex justify-end gap-3">
@@ -531,7 +537,9 @@ export const AdminUsersPage: React.FC = () => {
           <div className="space-y-7">
             {/* Identity */}
             <div className="flex items-center gap-4 rounded-[var(--tm-radius-lg)] bg-[var(--tm-card-muted)] p-5">
-              <Avatar name={viewingUser.name} src={viewingUser.avatarUrl} size="xl" />
+              <div className="rounded-full bg-[var(--tm-bg-sunken)] p-2">
+                <Avatar name={viewingUser.name} src={viewingUser.avatarUrl} size="xl" ring />
+              </div>
               <div className="min-w-0">
                 <h3 className="truncate text-[19px] font-extrabold tracking-[-0.02em] text-[var(--tm-ink)]">
                   {viewingUser.name}
@@ -584,6 +592,14 @@ export const AdminUsersPage: React.FC = () => {
             value={form.name}
             onChange={(e) => setField('name', e.target.value)}
             required
+          />
+
+          <Input
+            label="Job role"
+            placeholder="e.g. Video editor"
+            value={form.jobTitle}
+            onChange={(e) => setField('jobTitle', e.target.value)}
+            maxLength={80}
           />
 
           <Input

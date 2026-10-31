@@ -228,3 +228,14 @@ async def test_a_deactivated_person_cant_use_their_sessions(client, team):
     t = await sign_in(client, team.mia)
     await client.delete(f"/users/{team.mia.id}", headers=team.admin.headers)
     assert (await client.get("/auth/me", headers=headers(t["access_token"]))).status_code == 401
+
+
+async def test_admin_sets_a_job_role_when_adding_and_editing_a_member(client, team):
+    r = await client.post(
+        "/users",
+        json={"name": "Role Hire", "email": "role@example.com", "password": "temporary-1", "role": "employee", "title": "Video editor"},
+        headers=team.admin.headers,
+    )
+    assert r.status_code == 201 and r.json()["title"] == "Video editor"
+    r = await client.patch(f"/users/{r.json()['id']}", json={"title": "Senior editor"}, headers=team.admin.headers)
+    assert r.status_code == 200 and r.json()["title"] == "Senior editor"

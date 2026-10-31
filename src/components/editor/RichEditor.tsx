@@ -65,7 +65,7 @@ function mentionPopup() {
         const row = document.createElement('button');
         row.type = 'button';
         row.setAttribute('role', 'option');
-        row.className = `flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-[13px] font-semibold ${
+        row.className = `flex w-full items-center gap-2 rounded-[var(--tm-radius-sm)] px-3 py-1.5 text-left text-[13px] font-semibold ${
           i === index ? 'bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)]' : 'text-[var(--tm-ink)] hover:bg-[var(--tm-bg-sunken)]'
         }`;
         row.textContent = p.name + (p.role === 'client' ? ' (client)' : '');
@@ -93,7 +93,7 @@ function mentionPopup() {
       box = document.createElement('div');
       box.setAttribute('role', 'listbox');
       box.setAttribute('aria-label', 'Mention someone');
-      box.className = 'fixed z-[60] w-56 rounded-xl border border-[var(--tm-border)] bg-[var(--tm-card)] p-1 shadow-soft-lg';
+      box.className = 'fixed z-[60] w-56 rounded-[var(--tm-radius-sm)] glass-strong p-1';
       document.body.append(box);
       items = props.items;
       index = 0;
@@ -279,7 +279,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
   ];
 
   return (
-    <div className="relative rounded-2xl border border-[var(--tm-border)] bg-[var(--tm-bg)] focus-within:border-[var(--tm-primary)]">
+    <div className="relative rounded-[var(--tm-radius-md)] border border-[var(--tm-border)] bg-[var(--tm-bg)] focus-within:border-[var(--tm-primary)]">
       <div role="toolbar" aria-label="Formatting" className="flex items-center gap-0.5 overflow-x-auto border-b border-[var(--tm-border)] px-2 py-1">
         {buttons.map((b) => (
           <button
@@ -291,7 +291,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
             disabled={disabled}
             onMouseDown={(e) => e.preventDefault()} // don't steal the selection from the editor
             onClick={b.run}
-            className={`grid h-7 w-7 shrink-0 place-items-center rounded-md ${
+            className={`grid h-7 w-7 shrink-0 place-items-center rounded-[var(--tm-radius-sm)] ${
               b.on ? 'bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)]' : 'text-[var(--tm-ink-soft)] hover:bg-[var(--tm-bg-sunken)]'
             }`}
           >
@@ -309,7 +309,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
             setEmojiOpen((o) => !o);
             setLinkOpen(false);
           }}
-          className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-[var(--tm-ink-soft)] hover:bg-[var(--tm-bg-sunken)]"
+          className="grid h-7 w-7 shrink-0 place-items-center rounded-[var(--tm-radius-sm)] text-[var(--tm-ink-soft)] hover:bg-[var(--tm-bg-sunken)]"
         >
           <Smile className="h-4 w-4" />
         </button>
@@ -329,9 +329,9 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
             onChange={(e) => setLinkUrl(e.target.value)}
             placeholder="Paste a web address"
             aria-label="Link address"
-            className="min-w-0 flex-1 rounded-lg border border-[var(--tm-border)] bg-[var(--tm-card)] px-3 py-1.5 text-[13px] outline-none focus:border-[var(--tm-primary)]"
+            className="min-w-0 flex-1 rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)] bg-[var(--tm-card)] px-3 py-1.5 text-[13px] outline-none focus:border-[var(--tm-primary)]"
           />
-          <button type="submit" className="rounded-lg bg-[var(--tm-primary)] px-3 py-1.5 text-[12.5px] font-bold text-[var(--tm-on-primary)]">
+          <button type="submit" className="rounded-[var(--tm-radius-sm)] bg-[var(--tm-primary)] px-3 py-1.5 text-[12.5px] font-bold text-[var(--tm-on-primary)]">
             {linkUrl.trim() ? 'Apply' : 'Remove'}
           </button>
         </form>
@@ -339,7 +339,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
 
       {emojiOpen && (
         <div className="absolute bottom-full left-0 z-50 mb-2">
-          <Suspense fallback={<div className="rounded-xl border border-[var(--tm-border)] bg-[var(--tm-card)] p-4 text-[12px]">Loading emoji…</div>}>
+          <Suspense fallback={<div className="rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)] bg-[var(--tm-card)] p-4 text-[12px]">Loading emoji…</div>}>
             <EmojiPicker
               width={320}
               height={380}

@@ -4,13 +4,16 @@ import { CalendarDays, Pencil } from 'lucide-react';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { Button } from '../../../components/ui/Button';
 import { StatusChip } from '../../../components/ui/StatusChip';
+import { Stagger } from '../../../components/ui/Stagger';
 import { useAuthStore } from '../../../store/authStore';
 import { useDailyStatusStore } from '../../../store/useDailyStatusStore';
 import { OfficeBoardCard } from '../../office/components/OfficeBoardCard';
+import { UpcomingHolidays } from '../../workspace/UpcomingHolidays';
 import { TodayOverview } from '../../status/components/TodayOverview';
 import { statusMeta } from '../../status/statusMeta';
+import { EmployeeWidgets } from '../widgets/EmployeeWidgets';
 
-/** Employee home: today's team overview plus my own status. */
+/** Employee home: my day at a glance (tasks, reviews, schedule), then today's team overview. */
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
@@ -23,7 +26,7 @@ export const DashboardPage: React.FC = () => {
     <>
       <PageHeader
         title={`${greeting}, ${user?.nickname || user?.name || ''}`}
-        description="See who is in today and open anyone's calendar to book a slot."
+        description="Your day at a glance, and who is in today."
         actions={
           <>
             <StatusChip tone={meta?.tone ?? 'neutral'}>{meta ? `You: ${meta.label}` : 'Status not set'}</StatusChip>
@@ -40,8 +43,18 @@ export const DashboardPage: React.FC = () => {
           </>
         }
       />
-      <OfficeBoardCard />
-      <TodayOverview />
+      <Stagger className="grid gap-6 lg:grid-cols-12">
+        <EmployeeWidgets />
+        <div className="lg:col-span-12">
+          <OfficeBoardCard />
+        </div>
+        <div className="lg:col-span-4">
+          <UpcomingHolidays />
+        </div>
+        <div className="lg:col-span-12">
+          <TodayOverview />
+        </div>
+      </Stagger>
     </>
   );
 };

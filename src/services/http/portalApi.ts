@@ -24,6 +24,9 @@ export interface PortalSummary {
   approvals: ApprovalItem[];
   deliverables: { total: number; done: number; remaining: number; progress: number };
   latest_requirements: Requirement[];
+  /** Deliverables per stage across all of the client's projects. */
+  stages: Record<string, number>;
+  projects: { id: string; name: string; total: number; done: number; progress: number }[];
 }
 
 export interface PortalDeliverables {

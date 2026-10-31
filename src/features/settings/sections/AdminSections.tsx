@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Download, ImagePlus, LogOut, RotateCcw, Trash2, UserPlus, Users } from 'lucide-react';
+import { Building2, Download, ImagePlus, LogOut, Pencil, RotateCcw, Trash2, UserPlus, Users } from 'lucide-react';
 import { Avatar } from '../../../components/ui/Avatar';
 import { AuthImage } from '../../../components/ui/AuthImage';
 import { Button } from '../../../components/ui/Button';
@@ -28,12 +28,13 @@ import {
   type TrashRow
 } from '../../../services/http/adminApi';
 import { assetApi } from '../../../services/http/taskApi';
+import { HolidayDatePicker, type DateSel } from '../components/HolidayDatePicker';
 import { projectApi, type Project } from '../../../services/http/projectApi';
 import { formatTimeAgo } from '../../../utils/time';
 
 const errorOf = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
 const Alert: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">
+  <div role="alert" className="tm-error px-4 py-3 text-xs font-semibold">
     {children}
   </div>
 );
@@ -132,10 +133,10 @@ export const CompaniesSection: React.FC = () => {
         {rows === null ? (
           error ? null : <SkeletonRows count={2} />
         ) : (
-          <ul className="divide-y divide-[var(--tm-border)] rounded-xl border border-[var(--tm-border)]">
+          <ul className="divide-y divide-[var(--tm-border)] rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)]">
             {rows.map((c) => (
               <li key={c.id} className="flex items-center gap-3 px-4 py-3">
-                <Building2 className="h-4 w-4 text-[var(--tm-primary)]" />
+                <Building2 className="h-4 w-4 text-[var(--tm-primary-dark)]" />
                 <span className="flex-1 text-[14px] font-bold text-[var(--tm-ink)]">{c.name}</span>
                 <Button size="sm" variant="outline" onClick={() => { setRenaming(c); setNewName(c.name); }}>
                   Rename
@@ -180,14 +181,23 @@ export const WorkspaceSection: React.FC = () => {
   const [name, setName] = useState('');
   const [start, setStart] = useState('09:00');
   const [end, setEnd] = useState('18:00');
-  const [holiday, setHoliday] = useState({ date: '', name: '', type: 'company' as Holiday['type'] });
+  const [holiday, setHoliday] = useState({ name: '', type: 'company' as Holiday['type'], company: '' }); // company '' = both
+  const [picked, setPicked] = useState<DateSel[]>([]); // single dates and ranges for the same holiday
+  const [companies, setCompanies] = useState<CompanyRow[]>([]);
+  const [weeklyOff, setWeeklyOff] = useState<number[]>([6]);
+  const [editing, setEditing] = useState<Holiday | null>(null);
+  const [edit, setEdit] = useState({ name: '', type: 'company' as Holiday['type'], company: '', start: '', end: '' });
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!workspace) void useWorkspaceStore.getState().load();
   }, [workspace]);
   useEffect(() => {
+    companyApi.list().then(setCompanies).catch(() => {});
+  }, []);
+  useEffect(() => {
     if (workspace) {
+      setWeeklyOff(workspace.weekly_off);
       setName(workspace.name);
       setStart(workspace.work_start);
       setEnd(workspace.work_end);
@@ -243,16 +253,69 @@ export const WorkspaceSection: React.FC = () => {
 
   const addHoliday = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!holiday.date || !holiday.name.trim()) return;
+    if (picked.length === 0 || !holiday.name.trim()) return;
+    const count = picked.length;
     const ok = await confirm({
-      title: `Add “${holiday.name.trim()}”?`,
-      message: holiday.type === 'optional' ? 'Shown as optional: bookings stay open.' : 'No one can book time with anyone on that day.',
-      confirmLabel: 'Add holiday',
-      action: async () => setWorkspace(await workspaceApi.addHoliday({ date: holiday.date, name: holiday.name.trim(), type: holiday.type })),
-      successTitle: 'Holiday added'
+      title: `Add “${holiday.name.trim()}”${count > 1 ? ` (${count} entries)` : ''}?`,
+      message: `Applies to ${holiday.company ? (companies.find((c) => c.id === holiday.company)?.name ?? 'one company') : 'both companies'}. ${
+        holiday.type === 'optional' ? 'Shown as optional on calendars.' : 'Calendars show it as a holiday.'
+      }`,
+      confirmLabel: count > 1 ? 'Add holidays' : 'Add holiday',
+      action: async () =>
+        setWorkspace(
+          await workspaceApi.addHoliday({
+            dates: picked.filter((s) => s.start === s.end).map((s) => s.start),
+            ranges: picked.filter((s) => s.start !== s.end),
+            name: holiday.name.trim(),
+            type: holiday.type,
+            company_ids: holiday.company ? [holiday.company] : []
+          })
+        ),
+      successTitle: count > 1 ? 'Holidays added' : 'Holiday added'
     });
-    if (ok) setHoliday({ date: '', name: '', type: 'company' });
+    if (ok) {
+      setHoliday({ name: '', type: 'company', company: '' });
+      setPicked([]);
+    }
   };
+
+  const openEdit = (h: Holiday) => {
+    setEditing(h);
+    setEdit({ name: h.name, type: h.type, company: h.company_ids.length === 1 ? h.company_ids[0] : '', start: h.date, end: h.end_date ?? '' });
+  };
+
+  const saveEdit = async () => {
+    if (!editing || !edit.name.trim() || !edit.start) return;
+    if (edit.end && edit.end < edit.start) return setError('A range must end on or after its first day.');
+    setError(null);
+    const target = editing;
+    const ok = await confirm({
+      title: `Save “${edit.name.trim()}”?`,
+      message: 'Every calendar updates right away.',
+      confirmLabel: 'Save',
+      action: async () =>
+        setWorkspace(
+          await workspaceApi.editHoliday(target.id, {
+            name: edit.name.trim(),
+            type: edit.type,
+            company_ids: edit.company ? [edit.company] : [],
+            date: edit.start,
+            end_date: edit.end
+          })
+        ),
+      successTitle: 'Holiday updated'
+    });
+    if (ok) setEditing(null);
+  };
+
+  const saveWeeklyOff = () =>
+    confirm({
+      title: 'Save the weekly off?',
+      message: 'Every matching day shows as a week off on all calendars, and nobody is asked for a daily status on it.',
+      confirmLabel: 'Save',
+      action: async () => setWorkspace(await workspaceApi.update({ weekly_off: weeklyOff })),
+      successTitle: 'Weekly off saved'
+    });
 
   const removeHoliday = (h: Holiday) =>
     confirm({
@@ -275,9 +338,9 @@ export const WorkspaceSection: React.FC = () => {
         <CardContent className="space-y-6">
           <div className="flex flex-wrap items-center gap-4">
             {workspace.logo_url ? (
-              <AuthImage url={workspace.logo_url} alt="Workspace logo" className="h-16 w-16 rounded-2xl object-cover" />
+              <AuthImage url={workspace.logo_url} alt="Workspace logo" className="h-16 w-16 rounded-[var(--tm-radius-md)] object-cover" />
             ) : (
-              <span className="grid h-16 w-16 place-items-center rounded-2xl bg-[var(--tm-primary)] text-2xl font-extrabold text-white">{workspace.name[0]?.toUpperCase()}</span>
+              <span className="grid h-16 w-16 place-items-center rounded-[var(--tm-radius-md)] bg-[var(--tm-solid)] text-2xl font-extrabold text-[var(--tm-solid-ink)]">{workspace.name[0]?.toUpperCase()}</span>
             )}
             <div className="flex flex-wrap gap-2">
               <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-[var(--tm-border-strong)] bg-[var(--tm-card)] px-4 py-2 text-[13px] font-bold text-[var(--tm-ink)] hover:bg-[var(--tm-card-muted)]">
@@ -314,23 +377,37 @@ export const WorkspaceSection: React.FC = () => {
           <CardDescription>Days the office is closed. Nobody can book time on them.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form onSubmit={addHoliday} className="grid gap-3 sm:grid-cols-[10rem_1fr_14rem_auto] sm:items-end">
-            <Input label="Date" type="date" value={holiday.date} onChange={(e) => setHoliday({ ...holiday, date: e.target.value })} required />
-            <Input label="Name" value={holiday.name} maxLength={100} onChange={(e) => setHoliday({ ...holiday, name: e.target.value })} required />
-            <Select label="Kind" value={holiday.type} onChange={(e) => setHoliday({ ...holiday, type: e.target.value as Holiday['type'] })} options={HOLIDAY_TYPES} />
-            <Button type="submit" disabled={!holiday.date || !holiday.name.trim()}>
-              Add
-            </Button>
+          <form onSubmit={addHoliday} className="space-y-4">
+            <HolidayDatePicker value={picked} onChange={setPicked} />
+            <div className="grid gap-3 sm:grid-cols-[1fr_14rem_12rem_auto] sm:items-end">
+              <Input label="Name" value={holiday.name} maxLength={100} onChange={(e) => setHoliday({ ...holiday, name: e.target.value })} required />
+              <Select label="Kind" value={holiday.type} onChange={(e) => setHoliday({ ...holiday, type: e.target.value as Holiday['type'] })} options={HOLIDAY_TYPES} />
+              <Select
+                label="Applies to"
+                value={holiday.company}
+                onChange={(e) => setHoliday({ ...holiday, company: e.target.value })}
+                options={[{ value: '', label: 'Both companies' }, ...companies.map((c) => ({ value: c.id, label: c.name }))]}
+              />
+              <Button type="submit" disabled={picked.length === 0 || !holiday.name.trim()}>
+                Add
+              </Button>
+            </div>
           </form>
           {workspace.holidays.length === 0 ? (
             <p className="py-2 text-center text-[13px] text-[var(--tm-ink-muted)]">No holidays listed.</p>
           ) : (
-            <ul className="divide-y divide-[var(--tm-border)] rounded-xl border border-[var(--tm-border)]">
+            <ul className="divide-y divide-[var(--tm-border)] rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)]">
               {workspace.holidays.map((h) => (
                 <li key={h.id} className="flex items-center gap-3 px-4 py-2.5">
-                  <span className="w-28 shrink-0 text-[13px] font-bold tabular-nums text-[var(--tm-ink-soft)]">{h.date}</span>
+                  <span className="w-40 shrink-0 text-[13px] font-bold tabular-nums text-[var(--tm-ink-soft)]">{h.end_date ? `${h.date} - ${h.end_date}` : h.date}</span>
                   <span className="flex-1 text-[14px] font-semibold text-[var(--tm-ink)]">{h.name}</span>
+                  <span className="rounded-full bg-[var(--tm-bg-sunken)] px-2.5 py-0.5 text-[11px] font-bold text-[var(--tm-ink-soft)]">
+                    {h.company_ids.length === 0 ? 'Both companies' : h.company_ids.map((id) => companies.find((c) => c.id === id)?.name ?? 'Company').join(', ')}
+                  </span>
                   <span className="rounded-full bg-[var(--tm-bg-sunken)] px-2.5 py-0.5 text-[11px] font-bold capitalize text-[var(--tm-ink-soft)]">{h.type}</span>
+                  <Button size="sm" variant="ghost" aria-label={`Edit ${h.name}`} onClick={() => openEdit(h)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
                   <Button size="sm" variant="ghost" aria-label={`Remove ${h.name}`} onClick={() => void removeHoliday(h)}>
                     <Trash2 className="h-4 w-4 text-[var(--tm-danger)]" />
                   </Button>
@@ -340,6 +417,59 @@ export const WorkspaceSection: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Weekly off</CardTitle>
+          <CardDescription>Days off every week. They show as a holiday band on all calendars, and nobody is asked for a daily status on them.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center gap-3">
+          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((d, i) => (
+            <label key={d} className="inline-flex cursor-pointer items-center gap-2 text-[13.5px] font-semibold text-[var(--tm-ink)]">
+              <input
+                type="checkbox"
+                checked={weeklyOff.includes(i)}
+                onChange={(e) => setWeeklyOff((cur) => (e.target.checked ? [...cur, i].sort() : cur.filter((x) => x !== i)))}
+                className="h-4 w-4 accent-[var(--tm-primary)]"
+              />
+              {d}
+            </label>
+          ))}
+          <Button
+            size="sm"
+            className="ml-auto"
+            disabled={weeklyOff.length === workspace.weekly_off.length && weeklyOff.every((d) => workspace.weekly_off.includes(d))}
+            onClick={() => void saveWeeklyOff()}
+          >
+            Save
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Modal isOpen={!!editing} onClose={() => setEditing(null)} title="Edit holiday" maxWidth="md">
+        <div className="space-y-4">
+          <Input label="Name" value={edit.name} maxLength={100} onChange={(e) => setEdit({ ...edit, name: e.target.value })} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input label="First day" type="date" value={edit.start} onChange={(e) => setEdit({ ...edit, start: e.target.value })} />
+            <Input label="Last day (optional)" type="date" value={edit.end} min={edit.start} onChange={(e) => setEdit({ ...edit, end: e.target.value })} />
+          </div>
+          <Select label="Kind" value={edit.type} onChange={(e) => setEdit({ ...edit, type: e.target.value as Holiday['type'] })} options={HOLIDAY_TYPES} />
+          <Select
+            label="Applies to"
+            value={edit.company}
+            onChange={(e) => setEdit({ ...edit, company: e.target.value })}
+            options={[{ value: '', label: 'Both companies' }, ...companies.map((c) => ({ value: c.id, label: c.name }))]}
+          />
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setEditing(null)}>
+              Cancel
+            </Button>
+            <Button disabled={!edit.name.trim() || !edit.start} onClick={() => void saveEdit()}>
+              Save
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
@@ -407,9 +537,9 @@ export const TrashSection: React.FC = () => {
         {rows === null ? (
           error ? null : <SkeletonRows count={3} />
         ) : rows.length === 0 ? (
-          <EmptyState icon={<Trash2 className="h-6 w-6 text-[var(--tm-primary)]" />} title="The trash is empty" description="Nothing has been deleted lately." />
+          <EmptyState icon={<Trash2 className="h-6 w-6 text-[var(--tm-primary-dark)]" />} title="The trash is empty" description="Nothing has been deleted lately." />
         ) : (
-          <ul className="divide-y divide-[var(--tm-border)] rounded-xl border border-[var(--tm-border)]">
+          <ul className="divide-y divide-[var(--tm-border)] rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)]">
             {rows.map((r) => (
               <li key={r.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                 <span className="rounded-full bg-[var(--tm-bg-sunken)] px-2.5 py-0.5 text-[11px] font-bold text-[var(--tm-ink-soft)]">{KIND_LABEL[r.kind]}</span>
@@ -582,7 +712,7 @@ export const SecuritySection: React.FC = () => {
         ) : rows.length === 0 ? (
           <p className="py-4 text-center text-[13px] text-[var(--tm-ink-muted)]">No one is signed in right now.</p>
         ) : (
-          <ul className="divide-y divide-[var(--tm-border)] rounded-xl border border-[var(--tm-border)]">
+          <ul className="divide-y divide-[var(--tm-border)] rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)]">
             {rows.map((s) => (
               <li key={s.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                 <Avatar name={s.user?.name ?? '?'} src={s.user?.avatar_url ?? undefined} size="sm" />

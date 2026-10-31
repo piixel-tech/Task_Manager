@@ -106,14 +106,14 @@ export const EmployeeTaskTabs: React.FC<EmployeeTaskTabsProps> = ({ userId }) =>
       <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
         {activeTab === 'completed' ? (
           completedDayGroups.length === 0 ? (
-            <div className="text-xs text-[var(--tm-ink-muted)] text-center py-6 bg-[var(--tm-card-muted)] rounded-xl border border-[var(--tm-border)]">
+            <div className="text-xs text-[var(--tm-ink-muted)] text-center py-6 bg-[var(--tm-card-muted)] rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)]">
               No completed tasks found for this employee.
             </div>
           ) : (
             completedDayGroups.map((group) => {
               const isOpen = openDaysMap[group.dateKey] !== false; // open by default
               return (
-                <div key={group.dateKey} className="rounded-xl border border-[var(--tm-border)] overflow-hidden bg-[var(--tm-card-muted)]">
+                <div key={group.dateKey} className="rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)] overflow-hidden bg-[var(--tm-card-muted)]">
                   {/* Collapsible Day Sub-Heading */}
                   <button
                     type="button"
@@ -141,9 +141,9 @@ export const EmployeeTaskTabs: React.FC<EmployeeTaskTabsProps> = ({ userId }) =>
                                   <Flag
                                     className={`w-3.5 h-3.5 shrink-0 ${
                                       t.priority === 'high' || t.priority === 'urgent'
-                                        ? 'text-red-500 fill-red-500/20'
+                                        ? 'text-[var(--tm-danger)] fill-[var(--tm-danger)]/20'
                                         : t.priority === 'medium'
-                                        ? 'text-amber-500 fill-amber-500/20'
+                                        ? 'text-[var(--tm-warning)] fill-[var(--tm-warning)]/20'
                                         : 'text-gray-400 fill-gray-400/20'
                                     }`}
                                   />
@@ -152,7 +152,7 @@ export const EmployeeTaskTabs: React.FC<EmployeeTaskTabsProps> = ({ userId }) =>
                               <div className="font-bold text-[var(--tm-ink)] truncate">{t.title}</div>
                             </div>
                             <div className="text-right shrink-0">
-                              <div className="font-bold text-[var(--tm-primary)]">{formatHours(t.loggedHours || 0)}</div>
+                              <div className="font-bold text-[var(--tm-primary-dark)]">{formatHours(t.loggedHours || 0)}</div>
                             </div>
                           </div>
                         );
@@ -164,14 +164,14 @@ export const EmployeeTaskTabs: React.FC<EmployeeTaskTabsProps> = ({ userId }) =>
             })
           )
         ) : currentTabTasks.length === 0 ? (
-          <div className="text-xs text-[var(--tm-ink-muted)] text-center py-6 bg-[var(--tm-card-muted)] rounded-xl border border-[var(--tm-border)]">
+          <div className="text-xs text-[var(--tm-ink-muted)] text-center py-6 bg-[var(--tm-card-muted)] rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)]">
             No tasks found in {activeTab} for this employee.
           </div>
         ) : (
           currentTabTasks.map((t) => {
             const prj = projectMap.get(t.projectId);
             return (
-              <div key={t.id} className="p-3 bg-[var(--tm-card-muted)] rounded-xl border border-[var(--tm-border)] flex items-center justify-between text-xs gap-3">
+              <div key={t.id} className="px-5 py-3.5 bg-[var(--tm-card-muted)] rounded-[var(--tm-radius-md)] flex items-center justify-between text-xs gap-3 transition-all hover:-translate-y-px hover:shadow-soft-xs">
                 <div className="space-y-1 overflow-hidden">
                   <div className="flex items-center gap-2">
                     {prj && (
@@ -183,9 +183,9 @@ export const EmployeeTaskTabs: React.FC<EmployeeTaskTabsProps> = ({ userId }) =>
                       <Flag
                         className={`w-3.5 h-3.5 shrink-0 ${
                           t.priority === 'high' || t.priority === 'urgent'
-                            ? 'text-red-500 fill-red-500/20'
+                            ? 'text-[var(--tm-danger)] fill-[var(--tm-danger)]/20'
                             : t.priority === 'medium'
-                            ? 'text-amber-500 fill-amber-500/20'
+                            ? 'text-[var(--tm-warning)] fill-[var(--tm-warning)]/20'
                             : 'text-gray-400 fill-gray-400/20'
                         }`}
                       />
@@ -194,7 +194,7 @@ export const EmployeeTaskTabs: React.FC<EmployeeTaskTabsProps> = ({ userId }) =>
                   <div className="font-bold text-[var(--tm-ink)] truncate">{t.title}</div>
                 </div>
                 <div className="text-right shrink-0">
-                  <div className="font-bold text-[var(--tm-primary)]">{formatHours(t.loggedHours || 0)}</div>
+                  <div className="font-bold text-[var(--tm-primary-dark)]">{formatHours(t.loggedHours || 0)}</div>
                   {t.dueDate ? (
                     <div className="text-[10px] text-[var(--tm-ink-muted)]">Due: {formatDate(t.dueDate)}</div>
                   ) : (

@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowDown, ArrowLeft, CalendarClock, Info, Link2, Search, Users } from 'lucide-react';
+import { ArrowDown, ArrowLeft, CalendarClock, Info, Link2, PanelRight, Search, Users } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
+import { Skeleton } from '../../../components/ui/Skeleton';
+import { EmptyState } from '../../../components/ui/EmptyState';
 import { focusEndLabel, useFocusOf } from '../../../store/useFocusStore';
 import { useConfirm } from '../../../hooks/useConfirm';
 import { toast } from '../../../store/useToastStore';
@@ -40,7 +42,13 @@ const NEAR_BOTTOM_PX = 80;
 const NEAR_TOP_PX = 120;
 
 /** Right column: header, scrolling messages (older ones load as you scroll up), typing hint and the message box. */
-export const Conversation: React.FC<{ group: ChatGroup; onBack: () => void; onInfo: () => void }> = ({ group, onBack, onInfo }) => {
+export const Conversation: React.FC<{ group: ChatGroup; onBack: () => void; onInfo: () => void; panelOpen?: boolean; onTogglePanel?: () => void }> = ({
+  group,
+  onBack,
+  onInfo,
+  panelOpen,
+  onTogglePanel
+}) => {
   const confirm = useConfirm();
   const navigate = useNavigate();
   const me = useAuthStore((s) => s.user)!;
@@ -63,6 +71,7 @@ export const Conversation: React.FC<{ group: ChatGroup; onBack: () => void; onIn
   const list = useRef<HTMLDivElement>(null);
   const pinned = useRef(true); // keep the view glued to the newest message
   const heightBefore = useRef<number | null>(null); // scroll height before older messages were added
+  const lastShown = useRef<{ group: string; id?: string } | null>(null); // to glide only to messages that arrive while reading
 
   const items = thread?.items ?? [];
   const firstId = items[0]?.id;
@@ -110,9 +119,11 @@ export const Conversation: React.FC<{ group: ChatGroup; onBack: () => void; onIn
   useLayoutEffect(() => {
     const el = list.current;
     if (el && !jump && !thread?.hasNewer && (pinned.current || last?.sender?.id === me.id)) {
-      el.scrollTop = el.scrollHeight;
+      const arrived = lastShown.current?.group === group.id && lastShown.current.id !== last?.id && lastShown.current.id !== undefined;
+      el.scrollTo({ top: el.scrollHeight, behavior: arrived ? 'smooth' : 'auto' });
       pinned.current = true;
     }
+    lastShown.current = { group: group.id, id: last?.id };
   }, [last?.id, thread?.loaded, thread?.hasNewer, group.id, typers.length, me.id, jump]);
 
   // A short conversation never scrolls, so fetch more until the box is full or there's nothing older.
@@ -177,7 +188,7 @@ export const Conversation: React.FC<{ group: ChatGroup; onBack: () => void; onIn
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex items-center gap-3 border-b border-[var(--tm-border)] bg-[var(--tm-card)] px-3 py-2.5">
+      <header className="flex items-center gap-3 border-b border-[var(--tm-border)] bg-[var(--tm-card)] px-4 py-3">
         <Button variant="ghost" size="sm" className="lg:hidden" aria-label="Back to chats" onClick={onBack}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
@@ -189,7 +200,7 @@ export const Conversation: React.FC<{ group: ChatGroup; onBack: () => void; onIn
             <span className="block truncate text-[15px] font-extrabold text-[var(--tm-ink)]">{group.name}</span>
             <span className="block truncate text-[12px] text-[var(--tm-ink-muted)]" aria-live="polite">
               {typers.length > 0 ? (
-                <span className="font-semibold text-[var(--tm-primary)]">
+                <span className="font-semibold text-[var(--tm-primary-dark)]">
                   {typers.length === 1 ? `${typers[0]} is typing…` : typers.length === 2 ? `${typers.join(' and ')} are typing…` : `${typers.length} people are typing…`}
                 </span>
               ) : (
@@ -225,19 +236,30 @@ export const Conversation: React.FC<{ group: ChatGroup; onBack: () => void; onIn
             )}
           </Button>
         )}
-        <Button variant="ghost" size="sm" aria-label="Group info" onClick={onInfo}>
+        <Button variant="ghost" size="sm" aria-label="Group info" onClick={onInfo} className="xl:hidden">
           <Info className="h-5 w-5" />
         </Button>
+        {onTogglePanel && (
+          <Button variant="ghost" size="sm" aria-label={panelOpen ? 'Hide chat info' : 'Show chat info'} aria-pressed={panelOpen} title="Chat info and media" onClick={onTogglePanel} className="hidden xl:inline-flex">
+            <PanelRight className="h-5 w-5" />
+          </Button>
+        )}
       </header>
 
       <PinnedBar group={group} onJump={(id) => void useChatStore.getState().jumpTo(group.id, id)} onToggle={togglePin} />
 
-      <div ref={list} onScroll={onScroll} className="min-h-0 flex-1 space-y-1.5 overflow-y-auto bg-[var(--tm-bg-sunken)] px-3 py-4 sm:px-5">
+      <div ref={list} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto bg-[var(--tc-area)] px-3 py-4 sm:px-6">
         {thread?.loadingOlder && <p className="py-2 text-center text-[12px] text-[var(--tm-ink-muted)]">Loading older messages…</p>}
         {thread && !thread.hasMore && items.length > 0 && <p className="py-2 text-center text-[12px] text-[var(--tm-ink-muted)]">This is the start of the conversation</p>}
-        {!thread?.loaded && <p className="py-10 text-center text-[13px] text-[var(--tm-ink-muted)]">Loading messages…</p>}
+        {!thread?.loaded && (
+          <div className="space-y-3 py-6" role="status" aria-label="Loading messages">
+            <Skeleton className="h-10 w-2/5" rounded="lg" />
+            <Skeleton className="ml-auto h-10 w-1/3" rounded="lg" />
+            <Skeleton className="h-14 w-1/2" rounded="lg" />
+          </div>
+        )}
         {thread?.loaded && items.length === 0 && (
-          <p className="py-10 text-center text-[13px] text-[var(--tm-ink-muted)]">No messages yet. Say hello 👋</p>
+          <EmptyState className="my-6" title="No messages yet" description="Say hello 👋" />
         )}
 
         {items.map((m, i) => {
@@ -247,10 +269,11 @@ export const Conversation: React.FC<{ group: ChatGroup; onBack: () => void; onIn
           return (
             <React.Fragment key={m.id}>
               {newDay && (
-                <div className="flex justify-center py-2">
-                  <span className="rounded-full bg-[var(--tm-card)] px-3 py-1 text-[11.5px] font-semibold text-[var(--tm-ink-muted)] shadow-soft-xs">{dayLabel(m.created_at)}</span>
+                <div className="flex justify-center pb-1 pt-3">
+                  <span className="rounded-full border border-[var(--tc-other-border)] bg-[var(--tm-card)] px-3 py-0.5 text-[11px] font-semibold text-[var(--tm-ink-muted)]">{dayLabel(m.created_at)}</span>
                 </div>
               )}
+              <div className={showSender ? 'pt-3' : 'pt-1'}>
               <MessageBubble
                 message={m}
                 group={group}
@@ -265,9 +288,20 @@ export const Conversation: React.FC<{ group: ChatGroup; onBack: () => void; onIn
                 onCreateTask={isClient ? undefined : setTaskFrom}
                 flash={flash === m.id}
               />
+              </div>
             </React.Fragment>
           );
         })}
+        {typers.length > 0 && (
+          <div className="flex items-end gap-2 pt-3" role="status" aria-label="Someone is typing">
+            <div className="w-8 shrink-0" />
+            <div className="tm-msg-in flex items-center gap-1 rounded-[18px] rounded-bl-[6px] border border-[var(--tc-other-border)] bg-[var(--tc-other-bg)] px-4 py-3">
+              {[0, 1, 2].map((i) => (
+                <span key={i} className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--tm-ink-muted)]" style={{ animationDelay: `${i * 150}ms` }} />
+              ))}
+            </div>
+          </div>
+        )}
         {thread?.loadingNewer && <p className="py-2 text-center text-[12px] text-[var(--tm-ink-muted)]">Loading newer messages…</p>}
       </div>
 

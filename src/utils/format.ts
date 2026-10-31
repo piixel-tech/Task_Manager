@@ -22,24 +22,24 @@ export function formatCompanyBadge(company: 'piixel' | 'unwork' | 'both'): { tex
   if (company === 'piixel') {
     return {
       text: 'Piixel',
-      bg: 'bg-indigo-50',
-      textCol: 'text-indigo-700',
-      border: 'border-indigo-200'
+      bg: 'bg-[var(--tm-primary-soft)]',
+      textCol: 'text-[var(--tm-primary-dark)]',
+      border: 'border-[var(--tm-border-strong)]'
     };
   }
   if (company === 'unwork') {
     return {
       text: 'Unwork',
-      bg: 'bg-amber-50',
-      textCol: 'text-amber-700',
-      border: 'border-amber-200'
+      bg: 'bg-[var(--tm-warning-bg)]',
+      textCol: 'text-[var(--tm-warning)]',
+      border: 'border-[var(--tm-warning-ring)]'
     };
   }
   return {
     text: 'Piixel & Unwork',
-    bg: 'bg-emerald-50',
-    textCol: 'text-emerald-700',
-    border: 'border-emerald-200'
+    bg: 'bg-[var(--tm-success-bg)]',
+    textCol: 'text-[var(--tm-success)]',
+    border: 'border-[var(--tm-success-ring)]'
   };
 }
 

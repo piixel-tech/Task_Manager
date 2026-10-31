@@ -61,10 +61,10 @@ export const TeamMonthlyGoalBar: React.FC = () => {
 
   return (
     <div
-      className="relative mb-6 overflow-hidden rounded-[var(--tm-radius-xl)] p-6 text-white shadow-hero"
+      className="relative mb-6 overflow-hidden rounded-[var(--tm-radius-xl)] p-6 text-[var(--tm-on-primary)] shadow-hero"
       style={{
         backgroundImage:
-          'linear-gradient(135deg, var(--tm-primary) 0%, var(--tm-primary-dark) 70%)'
+          'linear-gradient(135deg, var(--tm-hero-2) 0%, var(--tm-hero) 70%)'
       }}
     >
       <CurvePattern opacity={0.15} />
@@ -72,7 +72,7 @@ export const TeamMonthlyGoalBar: React.FC = () => {
       <div className="relative">
         <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3.5">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] bg-white/15 backdrop-blur-sm">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] bg-[var(--tm-on-primary)]/15 backdrop-blur-sm">
               <Target className="h-5 w-5" />
             </span>
 
@@ -80,22 +80,22 @@ export const TeamMonthlyGoalBar: React.FC = () => {
               <h3 className="flex flex-wrap items-center gap-2 text-[15px] font-extrabold tracking-[-0.01em]">
                 Monthly team goal
                 {percent >= 100 && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wider">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[var(--tm-on-primary)]/20 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wider">
                     <CheckCircle2 className="h-3 w-3" /> Achieved
                   </span>
                 )}
               </h3>
-              <p className="mt-0.5 text-[12.5px] text-white/70">
+              <p className="mt-0.5 text-[12.5px] text-[var(--tm-on-primary)]/70">
                 {hasGoal ? (
                   <>
                     Team finished{' '}
-                    <strong className="font-bold text-white">{goalData.finished}</strong> of{' '}
-                    <strong className="font-bold text-white">{goal}</strong> tasks this month
+                    <strong className="font-bold text-[var(--tm-on-primary)]">{goalData.finished}</strong> of{' '}
+                    <strong className="font-bold text-[var(--tm-on-primary)]">{goal}</strong> tasks this month
                   </>
                 ) : (
                   <>
                     Team finished{' '}
-                    <strong className="font-bold text-white">{goalData.finished}</strong>{' '}
+                    <strong className="font-bold text-[var(--tm-on-primary)]">{goalData.finished}</strong>{' '}
                     {goalData.finished === 1 ? 'task' : 'tasks'} this month — no target set yet
                   </>
                 )}
@@ -111,9 +111,9 @@ export const TeamMonthlyGoalBar: React.FC = () => {
                     type="number"
                     value={newGoalInput}
                     onChange={(e) => setNewGoalInput(e.target.value)}
-                    className="w-20 rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5
-                      text-[12.5px] font-semibold text-white outline-none
-                      placeholder:text-white/50 focus:border-white/50"
+                    className="w-20 rounded-full border border-[var(--tm-on-primary)]/25 bg-[var(--tm-on-primary)]/10 px-3.5 py-1.5
+                      text-[12.5px] font-semibold text-[var(--tm-on-primary)] outline-none
+                      placeholder:text-[var(--tm-on-primary)]/50 focus:border-[var(--tm-on-primary)]/50"
                   />
                   <button
                     onClick={handleSaveGoal}
@@ -124,7 +124,7 @@ export const TeamMonthlyGoalBar: React.FC = () => {
                   </button>
                   <button
                     onClick={() => setIsEditing(false)}
-                    className="rounded-full px-3 py-1.5 text-[12.5px] font-semibold text-white/70 hover:text-white"
+                    className="rounded-full px-3 py-1.5 text-[12.5px] font-semibold text-[var(--tm-on-primary)]/70 hover:text-[var(--tm-on-primary)]"
                   >
                     Cancel
                   </button>
@@ -132,8 +132,8 @@ export const TeamMonthlyGoalBar: React.FC = () => {
               ) : (
                 <button
                   onClick={() => setIsEditing(true)}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-white/12 px-4 py-2
-                    text-[12.5px] font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/22"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[var(--tm-on-primary)]/12 px-4 py-2
+                    text-[12.5px] font-bold text-[var(--tm-on-primary)] backdrop-blur-sm transition-colors hover:bg-[var(--tm-on-primary)]/22"
                 >
                   <Edit2 className="h-3.5 w-3.5" /> Edit target
                 </button>
@@ -143,7 +143,7 @@ export const TeamMonthlyGoalBar: React.FC = () => {
         </div>
 
         {/* Progress track — the remainder is hatched */}
-        <div className="hatch-light h-2.5 w-full overflow-hidden rounded-full bg-white/10">
+        <div className="hatch-light h-2.5 w-full overflow-hidden rounded-full bg-[var(--tm-on-primary)]/10">
           <motion.div
             className="h-full rounded-full bg-white"
             initial={{ width: reduced ? `${percent}%` : 0 }}
@@ -152,18 +152,18 @@ export const TeamMonthlyGoalBar: React.FC = () => {
           />
         </div>
 
-        <div className="mt-2 flex justify-between text-[11px] font-semibold text-white/60">
+        <div className="mt-2 flex justify-between text-[11px] font-semibold text-[var(--tm-on-primary)]/60">
           <span>0%</span>
           {hasGoal ? (
             <>
-              <span className="text-white">
+              <span className="text-[var(--tm-on-primary)]">
                 <CountUp value={percent} suffix="% completed" />
               </span>
               <span>100% · {goal} tasks</span>
             </>
           ) : (
             <>
-              <span className="text-white">Set a target to track progress</span>
+              <span className="text-[var(--tm-on-primary)]">Set a target to track progress</span>
               <span>100%</span>
             </>
           )}

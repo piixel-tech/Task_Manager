@@ -13,6 +13,7 @@ import type { HatchedBarDatum } from '../../../components/ui/HatchedBarChart';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { StaggerItem } from '../../../components/ui/Stagger';
 import { SkeletonRows } from '../../../components/ui/Skeleton';
+import { FadeIn } from '../../../components/ui/FadeIn';
 
 interface WorkloadData {
   user: User;
@@ -130,7 +131,7 @@ export const WorkloadPage: React.FC = () => {
           description="No active employees available to display workload statistics."
         />
       ) : (
-        <>
+        <FadeIn>
           <Card>
             <CardHeader>
               <div>
@@ -184,7 +185,7 @@ export const WorkloadPage: React.FC = () => {
 
                       <div className="flex items-center gap-2.5">
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--tm-bg-sunken)] px-3 py-1.5 text-[12px] font-semibold text-[var(--tm-ink-soft)]">
-                          <CheckSquare className="h-3.5 w-3.5 text-[var(--tm-primary)]" />
+                          <CheckSquare className="h-3.5 w-3.5 text-[var(--tm-primary-dark)]" />
                           {w.openTasksCount} open
                         </span>
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--tm-bg-sunken)] px-3 py-1.5 text-[12px] font-semibold text-[var(--tm-ink-soft)]">
@@ -206,7 +207,7 @@ export const WorkloadPage: React.FC = () => {
               })}
             </div>
           </StaggerItem>
-        </>
+        </FadeIn>
       )}
     </>
   );

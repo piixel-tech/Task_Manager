@@ -32,7 +32,7 @@ export const MessageInfoModal: React.FC<{ message: ChatMessage | null; group: Ch
   return (
     <Modal isOpen onClose={onClose} title="Message info" maxWidth="md">
       <div className="space-y-5">
-        <p className="rounded-xl bg-[var(--tm-card-muted)] p-3 text-[13px] text-[var(--tm-ink-soft)]">
+        <p className="rounded-[var(--tm-radius-sm)] bg-[var(--tm-card-muted)] p-3.5 text-[13px] text-[var(--tm-ink-soft)]">
           Sent {when(message.created_at)}
         </p>
         <section>

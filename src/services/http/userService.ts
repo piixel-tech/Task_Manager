@@ -36,7 +36,8 @@ export class HttpUserService implements IUserService {
         email: user.loginId,
         password: user.password,
         role: user.role,
-        company_id: user.companyId ?? null
+        company_id: user.companyId ?? null,
+        title: user.jobTitle && user.jobTitle !== user.role ? user.jobTitle : ''
       });
       return toUser(data, await fetchCompanies());
     }, 'Failed to create user');
@@ -46,6 +47,7 @@ export class HttpUserService implements IUserService {
     return wrap(async () => {
       const body: Record<string, unknown> = {};
       if (updates.name !== undefined) body.name = updates.name;
+      if (updates.jobTitle !== undefined) body.title = updates.jobTitle;
       if (updates.loginId !== undefined) body.email = updates.loginId;
       if (updates.role !== undefined) body.role = updates.role;
       if (updates.companyId !== undefined) body.company_id = updates.companyId;

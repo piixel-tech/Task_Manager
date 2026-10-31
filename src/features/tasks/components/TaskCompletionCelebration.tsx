@@ -217,14 +217,14 @@ interface Particle {
 }
 
 const CONFETTI_COLORS = [
-  '#10b981', // emerald
-  '#059669', // dark emerald
-  '#34d399', // mint
-  '#f59e0b', // amber
-  '#fbbf24', // warm yellow
-  '#6366f1', // indigo
-  '#ec4899', // pink
-  '#3b82f6'  // blue
+  '#8b5cf6', // violet
+  '#a78bfa', // light violet
+  '#241a33', // aubergine
+  '#c4b5fd', // pale violet
+  '#efe9fc', // soft tint
+  '#2f6e50', // success
+  '#a24a55', // rose
+  '#3f5b8c'  // slate blue
 ];
 
 export const TaskCompletionCelebration: React.FC = () => {
@@ -342,20 +342,20 @@ export const TaskCompletionCelebration: React.FC = () => {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.85, y: -10 }}
             transition={{ duration: reduced ? 0.15 : 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="flex items-center gap-3 rounded-full bg-[var(--tm-ink)]/90 px-5 py-3 text-white shadow-soft-xl backdrop-blur-md border border-white/10"
+            className="flex items-center gap-3 rounded-full bg-[var(--tm-ink)]/90 px-5 py-3 text-[var(--tm-ink-invert)] shadow-soft-xl backdrop-blur-md border border-[var(--tm-ink-invert)]/10"
           >
             <motion.span
               initial={reduced ? undefined : { scale: 0.2, rotate: -20 }}
               animate={{ scale: 1, rotate: 0 }}
               transition={{ duration: 0.25, delay: 0.05 }}
-              className="grid h-7 w-7 place-items-center rounded-full bg-emerald-500 text-white shadow-sm"
+              className="grid h-7 w-7 place-items-center rounded-full bg-[var(--tm-success)] text-[var(--tm-on-primary)] shadow-soft-sm"
             >
               <Check className="h-4 w-4 stroke-[3]" />
             </motion.span>
             <div className="flex flex-col">
               <span className="text-[13px] font-extrabold leading-tight">Task complete!</span>
               {active.taskTitle && (
-                <span className="max-w-[220px] truncate text-[11px] text-white/70">
+                <span className="max-w-[220px] truncate text-[11px] text-[var(--tm-ink-invert)]/70">
                   {active.taskTitle}
                 </span>
               )}
@@ -369,13 +369,13 @@ export const TaskCompletionCelebration: React.FC = () => {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: -15 }}
             transition={{ duration: reduced ? 0.2 : 0.35, ease: [0.16, 1, 0.3, 1] }}
-            className="relative flex flex-col items-center rounded-3xl bg-[var(--tm-card)] p-8 text-center shadow-2xl border-2 border-emerald-500/30 max-w-sm mx-4 backdrop-blur-lg"
+            className="relative flex flex-col items-center rounded-[var(--tm-radius-lg)] bg-[var(--tm-card)] p-8 text-center shadow-soft-lg border-2 border-[var(--tm-success)]/30 max-w-sm mx-4 backdrop-blur-lg"
           >
             <motion.div
               initial={reduced ? undefined : { scale: 0.5, rotate: -15 }}
               animate={{ scale: 1, rotate: 0 }}
               transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-              className="grid h-16 w-16 place-items-center rounded-2xl bg-emerald-500 text-white shadow-lg mb-4"
+              className="grid h-16 w-16 place-items-center rounded-[var(--tm-radius-md)] bg-[var(--tm-success)] text-[var(--tm-on-primary)] shadow-soft-lg mb-4"
             >
               {reduced ? (
                 <Check className="h-9 w-9 stroke-[3]" />
@@ -391,7 +391,7 @@ export const TaskCompletionCelebration: React.FC = () => {
                 ? `All tasks in "${active.projectName}" are completed!`
                 : '100% of project tasks have been finished!'}
             </p>
-            <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-emerald-100 dark:bg-emerald-950/40 px-3.5 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+            <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[var(--tm-success-bg)] px-3.5 py-1 text-xs font-bold text-[var(--tm-success)] dark:text-[var(--tm-success-ring)]">
               <Check className="h-3.5 w-3.5 stroke-[3]" />
               <span>100% Done</span>
             </div>

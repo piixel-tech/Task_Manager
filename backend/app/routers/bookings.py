@@ -15,7 +15,6 @@ from app.models.daily_status import DailyStatus
 from app.schemas.calendar import Availability, BookingCreate, BookingOut, Slot
 from app.services.projects import client_team_ids
 from app.services.notify import notify
-from app.services.workspace import get_workspace, parse_clock
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
@@ -63,6 +62,14 @@ async def list_bookings(
     return [_view(b, user) for b in rows]
 
 
+@router.get("/mine", response_model=list[BookingOut])
+async def my_upcoming_bookings(user: User = Depends(get_current_user)) -> list[BookingOut]:
+    """Meetings I host or booked that have not ended yet. Read-only, and only ever my own."""
+    from app.services.dashboard import my_bookings
+
+    return [_view(b, user) for b in await my_bookings(user)]
+
+
 SLOT_STEP = timedelta(minutes=30)
 
 
@@ -82,7 +89,7 @@ async def availability(
     minutes: int = Query(30, ge=MIN_MINUTES, le=240, multiple_of=15, description="How long the meeting is"),
     user: User = Depends(get_current_user),
 ) -> Availability:
-    """The host's free start times on one local day, within working hours: not past, not on leave, not overlapping a booking."""
+    """The host's free start times on one local day, any time of day: not past, not on leave, not overlapping a booking."""
     require(user, "calendar.view", target_id=host_user_id, team_ids=await client_team_ids(user))
     host = await User.get(host_user_id)
     if host is None or not host.is_active or host.role == "client":
@@ -96,12 +103,8 @@ async def availability(
     if await DailyStatus.find_one(DailyStatus.user_id == host.id, DailyStatus.date == day.isoformat(), DailyStatus.status == "leave"):
         return result([], f"{host.name} is on leave that day")
 
-    ws = await get_workspace()  # working hours and holidays are set by an admin in the workspace settings
-    holiday = next((h for h in ws.holidays if h.date == day.isoformat() and h.type != "optional"), None)
-    if holiday:
-        return result([], f"{holiday.name} is a holiday")
-    opens = datetime.combine(day, parse_clock(ws.work_start), tzinfo=tz()).astimezone(timezone.utc)
-    closes = datetime.combine(day, parse_clock(ws.work_end), tzinfo=tz()).astimezone(timezone.utc)
+    opens = datetime.combine(day, time.min, tzinfo=tz()).astimezone(timezone.utc)
+    closes = datetime.combine(day + timedelta(days=1), time.min, tzinfo=tz()).astimezone(timezone.utc)
     busy = await Booking.find(Booking.host_user_id == host.id, Booking.start < closes, Booking.end > opens).to_list()
     busy = [(as_utc(b.start), as_utc(b.end)) for b in busy]
     busy += await _external_busy(host.id, opens, closes)  # timed events on their connected calendars (e.g. Google)

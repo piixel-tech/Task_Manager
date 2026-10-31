@@ -54,7 +54,7 @@ export const AvatarStack: React.FC<AvatarStackProps> = ({
       {extra > 0 && (
         <div
           className={`-ml-2.5 flex items-center justify-center rounded-full
-            bg-[var(--tm-bg-sunken)] font-bold text-[var(--tm-ink-soft)] ring-2 ring-white
+            bg-[var(--tm-bg-sunken)] font-bold text-[var(--tm-ink-soft)] ring-2 ring-[var(--tm-card)]
             ${avatarSizeClasses[size ?? 'sm']}`}
           title={people
             .slice(max)

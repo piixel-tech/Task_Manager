@@ -12,7 +12,7 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
   (
-    { label, error, helperText, leftIcon, rightIcon, className = '', id, pill = false, ...props },
+    { label, error, helperText, leftIcon, rightIcon, className = '', id, pill: _pill = false, ...props },
     ref
   ) => {
     const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
@@ -22,7 +22,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="block text-[12px] font-semibold text-[var(--tm-ink-soft)]"
+            className="block pl-1 text-[12px] font-semibold text-[var(--tm-ink-soft)]"
           >
             {label}
           </label>
@@ -36,10 +36,9 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           <input
             ref={ref}
             id={inputId}
-            className={`w-full bg-[var(--tm-card)] px-4 py-3 text-[14px] text-[var(--tm-ink)]
-              placeholder:text-[var(--tm-ink-muted)] border transition-colors
-              duration-[var(--tm-dur-fast)] outline-none
-              ${pill ? 'rounded-full' : 'rounded-[var(--tm-radius-md)]'}
+            className={`w-full bg-[var(--tm-card)] px-5 py-3 text-[14px] text-[var(--tm-ink)]
+              placeholder:text-[var(--tm-ink-muted)] border transition-[border-color,box-shadow]
+              duration-[var(--tm-dur-fast)] outline-none focus:shadow-glow rounded-full
               ${leftIcon ? 'pl-11' : ''} ${rightIcon ? 'pr-11' : ''}
               ${
                 error
@@ -78,16 +77,16 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <div className="w-full space-y-1.5">
         {label && (
-          <label htmlFor={taId} className="block text-[12px] font-semibold text-[var(--tm-ink-soft)]">
+          <label htmlFor={taId} className="block pl-1 text-[12px] font-semibold text-[var(--tm-ink-soft)]">
             {label}
           </label>
         )}
         <textarea
           ref={ref}
           id={taId}
-          className={`w-full rounded-[var(--tm-radius-md)] border bg-[var(--tm-card)] px-4 py-3
-            text-[14px] leading-relaxed text-[var(--tm-ink)] outline-none
-            placeholder:text-[var(--tm-ink-muted)] transition-colors duration-[var(--tm-dur-fast)]
+          className={`w-full rounded-[var(--tm-radius-lg)] border bg-[var(--tm-card)] px-5 py-3.5
+            text-[14px] leading-relaxed text-[var(--tm-ink)] outline-none focus:shadow-glow
+            placeholder:text-[var(--tm-ink-muted)] transition-[border-color,box-shadow] duration-[var(--tm-dur-fast)]
             ${
               error
                 ? 'border-[var(--tm-danger)]'

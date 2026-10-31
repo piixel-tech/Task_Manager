@@ -65,11 +65,11 @@ export const AVATAR_ICONS: Record<string, React.ElementType> = {
 
 /** Deterministic soft tint per person, drawn from the accent family. */
 const tints = [
-  'bg-[var(--tm-primary)] text-white',
-  'bg-[var(--tm-primary-dark)] text-white',
-  'bg-[var(--tm-primary-light)] text-[var(--tm-primary-dark)]',
-  'bg-[#2f7d5a] text-white',
-  'bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)]'
+  'bg-[var(--tm-solid)] text-[var(--tm-solid-ink)]',
+  'bg-[var(--tm-hero)] text-[var(--tm-on-primary)]',
+  'bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)]',
+  'bg-[var(--tm-bg-sunken)] text-[var(--tm-ink)]',
+  'bg-[var(--tm-primary-light)] text-[var(--tm-hero)]'
 ];
 
 export const getInitials = (n: string) => {
@@ -88,11 +88,11 @@ const AvatarBase: React.FC<AvatarProps> = ({
 }) => {
   const [failed, setFailed] = useState(false);
 
-  const ringClass = ring ? 'ring-2 ring-white' : '';
+  const ringClass = ring ? 'ring-2 ring-[var(--tm-card)]' : '';
 
   if (src && !failed) {
     if (src.startsWith('initials:')) {
-      const bgColor = src.split(':')[1] || '#0F3D27';
+      const bgColor = src.split(':')[1] || '#7C3AED';
       return (
         <div
           className={`shrink-0 rounded-full font-bold text-white flex items-center justify-center ${avatarSizeClasses[size]} ${ringClass} ${className}`}
@@ -107,7 +107,7 @@ const AvatarBase: React.FC<AvatarProps> = ({
     if (src.startsWith('icon:')) {
       const [, iconName, bgColor] = src.split(':');
       const IconComponent = AVATAR_ICONS[iconName] || Star;
-      const bg = bgColor || '#0F3D27';
+      const bg = bgColor || '#7C3AED';
       return (
         <div
           className={`shrink-0 rounded-full text-white flex items-center justify-center ${avatarSizeClasses[size]} ${ringClass} ${className}`}
@@ -121,7 +121,7 @@ const AvatarBase: React.FC<AvatarProps> = ({
 
     if (src.startsWith('emoji:')) {
       const [, emojiChar, bgColor] = src.split(':');
-      const bg = bgColor || '#0F3D27';
+      const bg = bgColor || '#7C3AED';
       return (
         <div
           className={`shrink-0 rounded-full flex items-center justify-center ${avatarSizeClasses[size]} ${ringClass} ${className}`}

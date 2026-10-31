@@ -20,8 +20,8 @@ export class HttpProjectService implements IProjectService {
       return {
         id: p.id,
         name: p.name,
-        description: '',
-        company: name === 'unwork' ? 'unwork' : 'piixel',
+        description: p.description ?? '',
+        company: (p.company_ids?.length ?? 0) > 1 ? 'both' : name === 'unwork' ? 'unwork' : 'piixel',
         status: 'active',
         assignedUserIds: [],
         memberIds: [],

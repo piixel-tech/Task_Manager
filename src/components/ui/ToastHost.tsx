@@ -4,6 +4,7 @@ import { Bell, CheckCircle2, X, XCircle } from 'lucide-react';
 import { useToastStore, type ToastTone } from '../../store/useToastStore';
 import { router } from '../../app/router';
 import { useMotionPrefs } from './useMotionPrefs';
+import { toastVariants } from './motion';
 
 const TONES: Record<ToastTone, { icon: React.ReactNode; color: string }> = {
   info: { icon: <Bell className="h-4 w-4" />, color: 'var(--tm-primary)' },
@@ -29,12 +30,13 @@ export const ToastHost: React.FC = () => {
             <motion.div
               key={t.id}
               layout={!reduced}
-              initial={reduced ? false : { opacity: 0, x: 24 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 24 }}
+              variants={toastVariants}
+              initial={reduced ? false : 'hidden'}
+              animate="show"
+              exit="exit"
+              transition={reduced ? { duration: 0 } : undefined}
               role="status"
-              className="pointer-events-auto flex items-start gap-3 rounded-[var(--tm-radius-lg)] border
-                border-[var(--tm-border)] bg-[var(--tm-card)] p-3.5 shadow-soft-lg"
+              className="glass-strong pointer-events-auto flex items-start gap-3 rounded-[var(--tm-radius-lg)] p-4"
             >
               <span className="mt-0.5 shrink-0" style={{ color: tone.color }}>
                 {tone.icon}

@@ -84,15 +84,15 @@ export const InviteSection: React.FC<{ group: ChatGroup }> = ({ group }) => {
           New link
         </Button>
       </div>
-      {error && <p className="text-[12.5px] text-[var(--tm-danger)]">{error}</p>}
+      {error && <p className="tm-error px-4 py-3 text-[12.5px] font-semibold">{error}</p>}
       {invites && invites.length === 0 && (
-        <p className="rounded-xl border border-dashed border-[var(--tm-border-strong)] p-3 text-[12.5px] text-[var(--tm-ink-muted)]">
+        <p className="rounded-[var(--tm-radius-sm)] border border-dashed border-[var(--tm-border-strong)] p-3 text-[12.5px] text-[var(--tm-ink-muted)]">
           No active links. Make one to bring a client into this group.
         </p>
       )}
       <ul className="space-y-2">
         {invites?.map((i) => (
-          <li key={i.id} className="rounded-xl border border-[var(--tm-border)] p-3">
+          <li key={i.id} className="rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)] p-3.5">
             <div className="flex items-center gap-2">
               <Link2 className="h-4 w-4 shrink-0 text-[var(--tm-ink-muted)]" />
               <input
@@ -111,7 +111,7 @@ export const InviteSection: React.FC<{ group: ChatGroup }> = ({ group }) => {
                 <Button size="sm" variant="outline" onClick={() => copy(i)} leftIcon={<Copy className="h-4 w-4" />}>
                   Copy
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => whatsapp(i)} leftIcon={<MessageCircle className="h-4 w-4 text-emerald-600" />}>
+                <Button size="sm" variant="outline" onClick={() => whatsapp(i)} leftIcon={<MessageCircle className="h-4 w-4 text-[var(--tm-success)]" />}>
                   WhatsApp
                 </Button>
                 <Button size="sm" variant="ghost" aria-label="Revoke link" onClick={() => revoke(i)}>

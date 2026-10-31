@@ -11,25 +11,25 @@ const CelebrationCard: React.FC<{
   aside: React.ReactNode;
 }> = ({ icon, title, body, aside }) => (
   <div
-    className="relative overflow-hidden rounded-[var(--tm-radius-xl)] px-6 py-5 text-white shadow-hero"
+    className="relative overflow-hidden rounded-[var(--tm-radius-xl)] px-6 py-5 text-[var(--tm-on-primary)] shadow-hero"
     style={{
       backgroundImage:
-        'linear-gradient(135deg, var(--tm-primary) 0%, var(--tm-primary-dark) 70%)'
+        'linear-gradient(135deg, var(--tm-hero-2) 0%, var(--tm-hero) 70%)'
     }}
   >
     <CurvePattern opacity={0.16} />
 
     <div className="relative flex items-center justify-between gap-4">
       <div className="flex items-center gap-4">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/15 backdrop-blur-sm">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--tm-on-primary)]/15 backdrop-blur-sm">
           {icon}
         </span>
         <div>
           <div className="text-[15px] font-extrabold tracking-[-0.01em]">{title}</div>
-          <div className="mt-0.5 text-[12.5px] text-white/70">{body}</div>
+          <div className="mt-0.5 text-[12.5px] text-[var(--tm-on-primary)]/70">{body}</div>
         </div>
       </div>
-      <span className="hidden shrink-0 text-white/70 sm:block">{aside}</span>
+      <span className="hidden shrink-0 text-[var(--tm-on-primary)]/70 sm:block">{aside}</span>
     </div>
   </div>
 );

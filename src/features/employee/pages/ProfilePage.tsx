@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Lock, Copy, Edit2, User as UserIcon, Check, X, Camera } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
+import { PageHeader } from '../../../components/ui/PageHeader';
 import { useAppStore } from '../../../store/useAppStore';
 import { useNavigate } from 'react-router-dom';
 import { userService } from '../../../services';
@@ -108,14 +109,7 @@ export const ProfilePage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-[27px] font-extrabold leading-tight tracking-[-0.03em] text-[var(--tm-ink)]">
-          My Profile
-        </h1>
-        <p className="text-[14px] leading-relaxed text-[var(--tm-ink-muted)] mt-1.5">
-          Personal details, avatar customization and your calendar.
-        </p>
-      </div>
+      <PageHeader title="My Profile" description="Personal details, avatar customization and your calendar." />
 
       {/* User Header Card with Tap-to-Change Avatar */}
       <Card>
@@ -126,11 +120,11 @@ export const ProfilePage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsAvatarModalOpen(true)}
-                className="group relative rounded-full focus:outline-none focus:ring-2 focus:ring-[var(--tm-primary)]"
+                className="group relative rounded-full bg-[var(--tm-bg-sunken)] p-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--tm-primary)]"
                 title="Tap to change avatar"
               >
                 <UserAvatar userId={user?.id} name={user?.name || ''} src={user?.avatarUrl} size="2xl" ring />
-                <div className="absolute inset-0 rounded-full bg-black/40 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute inset-[10px] rounded-full bg-[var(--tm-scrim)] flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
                   <Camera className="w-5 h-5" />
                   <span className="text-[9.5px] font-extrabold uppercase mt-0.5">Edit</span>
                 </div>
@@ -144,16 +138,16 @@ export const ProfilePage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsAvatarModalOpen(true)}
-                  className="mt-2 text-xs font-bold text-[var(--tm-primary)] hover:underline inline-flex items-center gap-1"
+                  className="mt-2 text-xs font-bold text-[var(--tm-primary-dark)] hover:underline inline-flex items-center gap-1"
                 >
                   <Edit2 className="w-3 h-3" /> Tap avatar to change style
                 </button>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 bg-[var(--tm-card-muted)] p-2 px-3 rounded-xl border border-[var(--tm-border)]">
+            <div className="flex items-center gap-2 bg-[var(--tm-card-muted)] p-2 px-4 rounded-full">
               <span className="text-xs text-[var(--tm-ink-muted)] font-semibold">Login ID:</span>
-              <span className="font-mono text-xs font-bold text-[var(--tm-primary)] bg-[var(--tm-primary-softer)] px-2 py-0.5 rounded">
+              <span className="font-mono text-xs font-bold text-[var(--tm-primary-dark)] bg-[var(--tm-primary-softer)] px-2 py-0.5 rounded">
                 {user?.loginId}
               </span>
               <button
@@ -173,7 +167,7 @@ export const ProfilePage: React.FC = () => {
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <div>
             <CardTitle className="text-base font-extrabold flex items-center gap-2">
-              <UserIcon className="w-4 h-4 text-[var(--tm-primary)]" />
+              <UserIcon className="w-4 h-4 text-[var(--tm-primary-dark)]" />
               Personal Info &amp; Security
             </CardTitle>
             <CardDescription>
@@ -197,7 +191,7 @@ export const ProfilePage: React.FC = () => {
           {!isEditingCard ? (
             /* READ-ONLY VIEW */
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div className="bg-[var(--tm-card-muted)] p-4 rounded-xl border border-[var(--tm-border)]">
+              <div className="bg-[var(--tm-card-muted)] p-4 rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)]">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--tm-ink-muted)]">
                   Birthdate 🎂
                 </div>
@@ -206,7 +200,7 @@ export const ProfilePage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-[var(--tm-card-muted)] p-4 rounded-xl border border-[var(--tm-border)]">
+              <div className="bg-[var(--tm-card-muted)] p-4 rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)]">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--tm-ink-muted)]">
                   Password
                 </div>
@@ -219,7 +213,7 @@ export const ProfilePage: React.FC = () => {
             /* EDITABLE FORM */
             <form onSubmit={handleSavePersonalInfoCard} className="space-y-5 max-w-2xl">
               {passwordError && (
-                <div className="p-3 rounded-lg bg-[var(--tm-danger-bg)] border border-[var(--tm-danger-ring)] text-[var(--tm-danger)] text-xs font-medium">
+                <div className="p-3 rounded-[var(--tm-radius-sm)] bg-[var(--tm-danger-bg)] border border-[var(--tm-danger-ring)] text-[var(--tm-danger)] text-xs font-medium">
                   {passwordError}
                 </div>
               )}

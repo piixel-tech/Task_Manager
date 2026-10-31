@@ -13,10 +13,10 @@ export const LeavePage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[var(--tm-bg)] flex flex-col items-center justify-center p-4">
-      <Card className="max-w-md w-full border-[var(--tm-warning-ring)] shadow-xl bg-white/90 backdrop-blur-md text-center overflow-hidden animate-fade-in">
+      <Card className="max-w-md w-full border-[var(--tm-warning-ring)] shadow-soft-lg bg-[var(--tm-card)] text-center overflow-hidden animate-fade-in">
         <div className="h-2 bg-[var(--tm-primary)]" />
         <CardContent className="p-8 space-y-6">
-          <div className="w-20 h-20 rounded-full bg-[var(--tm-warning-bg)] text-[var(--tm-warning)] flex items-center justify-center mx-auto shadow-md shadow-soft">
+          <div className="w-20 h-20 rounded-full bg-[var(--tm-warning-bg)] text-[var(--tm-warning)] flex items-center justify-center mx-auto shadow-soft">
             <Sun className="w-10 h-10" />
           </div>
 
@@ -36,7 +36,7 @@ export const LeavePage: React.FC = () => {
             <Button
               variant="outline"
               size="md"
-              onClick={() => navigate('/app/profile')}
+              onClick={() => navigate('/app/settings/profile')}
               rightIcon={<ArrowRight className="w-4 h-4" />}
             >
               View My Profile & Calendar

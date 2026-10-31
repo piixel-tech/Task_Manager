@@ -1,7 +1,9 @@
+import { formatDate } from '../../../utils/time';
+import { FadeIn } from '../../../components/ui/FadeIn';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowRight, Eye, Pencil, Plus, Trash2, Users } from 'lucide-react';
-import { Card, CardContent } from '../../../components/ui/Card';
+import { Eye, Pencil, Plus, Trash2 } from 'lucide-react';
+import { FolderCard } from '../../../components/ui/FolderCard';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
 import { PageHeader } from '../../../components/ui/PageHeader';
@@ -28,7 +30,7 @@ export const ProjectDetailPage: React.FC = () => {
   const prefix = user?.role === 'admin' ? '/admin' : '/app';
 
   const [project, setProject] = useState<ProjectDetail | null>(null);
-  const [company, setCompany] = useState('');
+  const [companyNames, setCompanyNames] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -38,7 +40,7 @@ export const ProjectDetailPage: React.FC = () => {
     try {
       const [p, companies] = await Promise.all([projectApi.get(id), fetchCompanies()]);
       setProject(p);
-      setCompany(companies.find((c) => c.id === p.company_id)?.name.toLowerCase() ?? '');
+      setCompanyNames(p.company_ids.map((cid) => companies.find((c) => c.id === cid)?.name.toLowerCase() ?? '').filter(Boolean));
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load the project');
@@ -77,20 +79,26 @@ export const ProjectDetailPage: React.FC = () => {
   const editableCount = project.subfolders.filter((s) => s.can_edit).length;
 
   return (
-    <>
+    <FadeIn>
       <PageHeader
         title={
           <span className="flex flex-wrap items-center gap-3">
             {project.name}
-            {company && (
-              <Badge variant={company === 'unwork' ? 'unwork' : 'piixel'} className="capitalize">
+            {companyNames.map((company) => (
+              <Badge key={company} variant={company === 'unwork' ? 'unwork' : 'piixel'} className="capitalize">
                 {company}
               </Badge>
-            )}
+            ))}
           </span>
         }
         description={
-          project.clients.length > 0 ? `Clients: ${project.clients.map((c) => c.name).join(', ')}` : 'Subfolders of this project.'
+          [
+            project.description,
+            project.start_date && `Starts ${formatDate(`${project.start_date}T00:00:00`, 'MMM d, yyyy')}`,
+            project.clients.length > 0 && `Clients: ${project.clients.map((c) => c.name).join(', ')}`
+          ]
+            .filter(Boolean)
+            .join(' · ') || 'Subfolders of this project.'
         }
         actions={
           <>
@@ -116,6 +124,7 @@ export const ProjectDetailPage: React.FC = () => {
         }
       />
 
+      <div className="mt-6">
       <PillTabs
         activeTab={tab}
         onChange={(t) => setParams(t === 'requirements' ? { tab: 'requirements' } : {}, { replace: true })}
@@ -124,11 +133,14 @@ export const ProjectDetailPage: React.FC = () => {
           { id: 'requirements', label: 'Requirements' }
         ]}
       />
+      </div>
 
       {tab === 'requirements' ? (
-        <RequirementsPanel projectId={project.id} subfolders={project.subfolders.map((s) => ({ id: s.id, name: s.name }))} />
+        <div className="mt-8">
+          <RequirementsPanel projectId={project.id} subfolders={project.subfolders.map((s) => ({ id: s.id, name: s.name }))} />
+        </div>
       ) : (
-        <>
+        <div className="mt-8 space-y-6 pb-4">
       {editableCount === 0 && user?.role !== 'admin' && (
         <div className="flex items-center gap-2.5 rounded-[var(--tm-radius-md)] bg-[var(--tm-info-bg)] px-4 py-3 text-[13px] text-[var(--tm-info)]">
           <Eye className="h-4 w-4 shrink-0" />
@@ -136,43 +148,34 @@ export const ProjectDetailPage: React.FC = () => {
         </div>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        {project.subfolders.map((s) => (
-          <Card key={s.id} interactive animate={false} onClick={() => navigate(`${prefix}/projects/${project.id}/subfolders/${s.id}`)}>
-            <CardContent className="space-y-4 pt-6">
-              <div className="flex items-start justify-between gap-3">
-                <h3 className="text-[16px] font-bold text-[var(--tm-ink)]">{s.name}</h3>
-                <div className="flex items-center gap-2">
+      <div>
+        <h2 className="mb-5 text-[20px] font-bold text-[var(--tm-ink)]">Folders</h2>
+        <div className="grid grid-cols-2 gap-6 md:grid-cols-3 xl:grid-cols-4">
+          {project.subfolders.map((s) => (
+            <FolderCard
+              key={s.id}
+              title={s.name}
+              subtitle={`${s.members.length} member${s.members.length === 1 ? '' : 's'}`}
+              people={s.members.map((m) => ({ id: m.id, name: m.name, avatarUrl: m.avatar_url ?? undefined }))}
+              badge={
+                <span className="flex items-center gap-1.5">
                   {s.viewer_is_head && <HeadBadge />}
                   {!s.can_edit && (
                     <Badge variant="default" size="sm" className="inline-flex items-center gap-1">
                       <Eye className="h-3 w-3" /> Read-only
                     </Badge>
                   )}
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-[var(--tm-ink-muted)]">Heads</div>
-                <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-                  {s.heads.map((h) => (
-                    <PersonChip key={h.id} person={h} isHead />
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between text-[12.5px] font-semibold text-[var(--tm-ink-soft)]">
-                <span className="flex items-center gap-1.5">
-                  <Users className="h-4 w-4 text-[var(--tm-primary)]" />
-                  {s.members.length} member{s.members.length === 1 ? '' : 's'}
                 </span>
-                <ArrowRight className="h-4 w-4 text-[var(--tm-ink-muted)]" />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              }
+              footer={s.heads.map((h) => (
+                <PersonChip key={h.id} person={h} isHead size="xs" />
+              ))}
+              onClick={() => navigate(`${prefix}/projects/${project.id}/subfolders/${s.id}`)}
+            />
+          ))}
+        </div>
       </div>
-        </>
+        </div>
       )}
 
       <ProjectFormModal isOpen={editing} onClose={() => setEditing(false)} project={project} onSaved={load} />
@@ -182,6 +185,6 @@ export const ProjectDetailPage: React.FC = () => {
         projectId={project.id}
         onSaved={load}
       />
-    </>
+    </FadeIn>
   );
 };

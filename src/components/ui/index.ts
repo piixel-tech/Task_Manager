@@ -3,6 +3,7 @@ export { Avatar, getInitials, avatarSizeClasses } from './Avatar';
 export { AvatarStack } from './AvatarStack';
 export { Badge } from './Badge';
 export { Button } from './Button';
+export { CornerButton } from './CornerButton';
 export {
   Card,
   CardContent,
@@ -14,7 +15,9 @@ export {
 export { CountUp } from './CountUp';
 export { ConfirmDialog } from './ConfirmDialog';
 export { Drawer } from './Drawer';
+export { ItemsDrawer } from './ItemsDrawer';
 export { EmptyState } from './EmptyState';
+export { FadeIn } from './FadeIn';
 export { HatchedBarChart } from './HatchedBarChart';
 export { HeroCard, HeroStat, CurvePattern } from './HeroCard';
 export { Input, Textarea } from './Input';

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from beanie import PydanticObjectId
 from pydantic import BaseModel, Field
@@ -41,6 +41,9 @@ class SubfolderOut(BaseModel):
 class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     company_id: PydanticObjectId
+    company_ids: list[PydanticObjectId] | None = None  # all companies (first wins as the main one); omit for just `company_id`
+    start_date: date | None = None
+    description: str = Field(default="", max_length=200)
     client_ids: list[PydanticObjectId] = Field(default_factory=list)
     first_subfolder: SubfolderCreate
 
@@ -48,6 +51,9 @@ class ProjectCreate(BaseModel):
 class ProjectUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     company_id: PydanticObjectId | None = None
+    company_ids: list[PydanticObjectId] | None = Field(default=None, min_length=1)
+    start_date: date | None = None
+    description: str | None = Field(default=None, max_length=200)
     client_ids: list[PydanticObjectId] | None = None
 
 
@@ -55,6 +61,9 @@ class ProjectOut(BaseModel):
     id: PydanticObjectId
     name: str
     company_id: PydanticObjectId
+    company_ids: list[PydanticObjectId]  # every company the project belongs to (main one first)
+    start_date: str | None = None
+    description: str = ""
     client_ids: list[PydanticObjectId]
     created_by: PydanticObjectId
     created_at: datetime

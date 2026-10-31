@@ -1,3 +1,4 @@
+import { FadeIn } from '../../../components/ui/FadeIn';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Eye, Pencil } from 'lucide-react';
@@ -16,9 +17,10 @@ import { ChecklistTab } from '../components/ChecklistTab';
 import { DeliverablesTab } from '../components/DeliverablesTab';
 import { ChangesBox } from '../../activity/components/ChangesBox';
 import { activityApi } from '../../../services/http/activityApi';
+import { SubfolderTasksTab, SubfolderTaskSummary, useSubfolderTasks, type TaskFilter } from '../components/SubfolderTasks';
 
-type Tab = 'overview' | 'checklist' | 'deliverables' | 'changes';
-const TABS: Tab[] = ['overview', 'checklist', 'deliverables', 'changes'];
+type Tab = 'overview' | 'tasks' | 'checklist' | 'deliverables' | 'changes';
+const TABS: Tab[] = ['overview', 'tasks', 'checklist', 'deliverables', 'changes'];
 
 export const SubfolderPage: React.FC = () => {
   const { projectId = '', id = '' } = useParams<{ projectId: string; id: string }>();
@@ -36,6 +38,8 @@ export const SubfolderPage: React.FC = () => {
   // A notification links straight to an entry of the Mid-way changes box.
   const tab: Tab = requested && TABS.includes(requested) ? requested : params.get('entry') ? 'changes' : 'overview';
   const [openChanges, setOpenChanges] = useState(0);
+  const [taskFilter, setTaskFilter] = useState<TaskFilter>('all');
+  const taskData = useSubfolderTasks(id);
 
   const load = useCallback(async () => {
     try {
@@ -76,7 +80,7 @@ export const SubfolderPage: React.FC = () => {
   const siblings = project.subfolders.filter((s) => s.id !== subfolder.id);
 
   return (
-    <>
+    <FadeIn>
       <PageHeader
         title={
           <span className="flex flex-wrap items-center gap-3">
@@ -87,7 +91,7 @@ export const SubfolderPage: React.FC = () => {
         description={
           <button
             type="button"
-            className="font-semibold text-[var(--tm-primary)] hover:underline"
+            className="font-semibold text-[var(--tm-primary-dark)] hover:underline"
             onClick={() => navigate(`${prefix}/projects/${project.id}`)}
           >
             {project.name}
@@ -102,17 +106,22 @@ export const SubfolderPage: React.FC = () => {
         }
       />
 
+      <div className="mt-6">
       <PillTabs
         activeTab={tab}
         onChange={(t) => setParams(t === 'overview' ? {} : { tab: t }, { replace: true })}
         tabs={[
           { id: 'overview', label: 'Overview' },
+          { id: 'tasks', label: 'Tasks' },
           { id: 'checklist', label: 'Checklist' },
           { id: 'deliverables', label: 'Deliverables' },
           { id: 'changes', label: 'Mid-way changes', count: openChanges || undefined }
         ]}
       />
+      </div>
 
+      <div className="mt-6 space-y-5">
+      {tab === 'tasks' && <SubfolderTasksTab data={taskData} filter={taskFilter} onFilter={setTaskFilter} />}
       {tab === 'checklist' && <ChecklistTab subfolderId={subfolder.id} />}
       {tab === 'deliverables' && <DeliverablesTab subfolderId={subfolder.id} />}
       {tab === 'changes' && <ChangesBox subfolderId={subfolder.id} projectId={project.id} onCount={setOpenChanges} />}
@@ -125,9 +134,8 @@ export const SubfolderPage: React.FC = () => {
       )}
 
       {tab === 'overview' && (
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <Card>
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+          <Card className="min-w-0">
             <CardHeader>
               <CardTitle className="text-base font-extrabold">Heads</CardTitle>
             </CardHeader>
@@ -138,7 +146,7 @@ export const SubfolderPage: React.FC = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="min-w-0">
             <CardHeader>
               <CardTitle className="text-base font-extrabold">Members ({others.length})</CardTitle>
             </CardHeader>
@@ -146,9 +154,9 @@ export const SubfolderPage: React.FC = () => {
               {others.length === 0 ? (
                 <p className="text-[13px] text-[var(--tm-ink-muted)]">Only the heads so far.</p>
               ) : (
-                <ul className="grid gap-3 sm:grid-cols-2">
+                <ul className="grid gap-3">
                   {others.map((m) => (
-                    <li key={m.id}>
+                    <li key={m.id} className="min-w-0">
                       <PersonChip person={m} size="md" />
                     </li>
                   ))}
@@ -156,35 +164,44 @@ export const SubfolderPage: React.FC = () => {
               )}
             </CardContent>
           </Card>
-        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-extrabold">Other subfolders</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {siblings.length === 0 ? (
-              <p className="text-[13px] text-[var(--tm-ink-muted)]">This is the only subfolder.</p>
-            ) : (
-              <ul className="space-y-2">
-                {siblings.map((s) => (
-                  <li key={s.id}>
-                    <button
-                      type="button"
-                      onClick={() => navigate(`${prefix}/projects/${project.id}/subfolders/${s.id}`)}
-                      className="flex w-full items-center justify-between gap-3 rounded-[var(--tm-radius-md)] bg-[var(--tm-card-muted)] px-4 py-3 text-left transition-colors hover:bg-[var(--tm-bg-sunken)]"
-                    >
-                      <span className="truncate text-[13px] font-bold text-[var(--tm-ink)]">{s.name}</span>
-                      {s.viewer_is_head && <HeadBadge />}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          <Card className="min-w-0 md:col-span-2 xl:col-span-1">
+            <CardHeader>
+              <CardTitle className="text-base font-extrabold">Other subfolders</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {siblings.length === 0 ? (
+                <p className="text-[13px] text-[var(--tm-ink-muted)]">This is the only subfolder.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {siblings.map((s) => (
+                    <li key={s.id}>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`${prefix}/projects/${project.id}/subfolders/${s.id}`)}
+                        className="flex w-full items-center justify-between gap-3 rounded-[var(--tm-radius-md)] bg-[var(--tm-card-muted)] px-4 py-3 text-left transition-colors hover:bg-[var(--tm-bg-sunken)]"
+                      >
+                        <span className="truncate text-[13px] font-bold text-[var(--tm-ink)]">{s.name}</span>
+                        {s.viewer_is_head && <HeadBadge />}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          <SubfolderTaskSummary
+            data={taskData}
+            className="min-w-0 md:col-span-2 xl:col-span-3"
+            onOpen={(f) => {
+              setTaskFilter(f);
+              setParams({ tab: 'tasks' }, { replace: true });
+            }}
+          />
+        </div>
       )}
+      </div>
 
       <SubfolderFormModal
         isOpen={editing}
@@ -193,6 +210,6 @@ export const SubfolderPage: React.FC = () => {
         subfolder={subfolder}
         onSaved={load}
       />
-    </>
+    </FadeIn>
   );
 };

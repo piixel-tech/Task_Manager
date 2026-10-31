@@ -33,7 +33,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   <Modal isOpen={isOpen} onClose={onCancel} title={title} maxWidth="sm" dismissible={!isLoading}>
     {message && <div className="text-[13.5px] text-[var(--tm-ink-soft)]">{message}</div>}
     {error && (
-      <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">
+      <div className="mt-4 tm-error px-4 py-3 text-xs font-semibold">
         {error}
       </div>
     )}

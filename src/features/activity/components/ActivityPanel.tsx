@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { PillTabs } from '../../../components/ui/PillTabs';
+import { Skeleton } from '../../../components/ui/Skeleton';
 import { useAuthStore } from '../../../store/authStore';
 import { activityApi, type ActivityEntry, type ActivityInput } from '../../../services/http/activityApi';
 import type { ApiTask } from '../../../services/http/taskApi';
@@ -65,14 +66,14 @@ export const ActivityPanel: React.FC<{ task: ApiTask }> = ({ task }) => {
             { id: 'log', label: 'Log' }
           ]}
         />
-        {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</p>}
+        {error && <p className="tm-error px-4 py-3 text-xs font-semibold">{error}</p>}
 
         {tab === 'changes' && (
           <>
             <p className="text-[12px] text-[var(--tm-ink-muted)]">Something needs to change while the work is under way? Post it here. The assignee or a head ticks it off when it is done.</p>
             <EntryComposer kind="change_request" people={people} placeholder="Describe the change" onPost={post} />
             {!list ? (
-              error ? null : <p className="text-[13px] text-[var(--tm-ink-muted)]">Loading…</p>
+              error ? null : <div className="space-y-2" role="status" aria-label="Loading"><Skeleton className="h-14 w-full" rounded="lg" /><Skeleton className="h-14 w-full" rounded="lg" /></div>
             ) : changes.length === 0 ? (
               <p className="py-3 text-center text-[13px] text-[var(--tm-ink-muted)]">No mid-way changes yet.</p>
             ) : (

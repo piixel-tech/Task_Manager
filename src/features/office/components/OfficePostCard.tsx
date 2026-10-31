@@ -1,29 +1,37 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CheckCircle2, RotateCcw } from 'lucide-react';
 import { Avatar } from '../../../components/ui/Avatar';
 import { PersonLink } from '../../../components/ui/PersonLink';
 import { AvatarStack } from '../../../components/ui/AvatarStack';
 import { AuthImage } from '../../../components/ui/AuthImage';
-import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { useAuthStore } from '../../../store/authStore';
 import type { OfficePost } from '../../../services/http/officeApi';
-import { categoryMeta, REACTIONS, timeAgo, tint } from '../officeMeta';
+import { REACTIONS, timeAgo } from '../officeMeta';
+import { PeoplePopover } from './PeoplePopover';
+
+/** On phones there is no hover: a tap on a reaction that has people opens the list instead. */
+const noHover = () => typeof window !== 'undefined' && !!window.matchMedia?.('(hover: none)').matches;
 
 interface Props {
   post: OfficePost;
+  /** Position in the grid, for the staggered entry. */
+  index?: number;
   /** Called once when a post you haven't seen has been on screen for a moment. */
   onViewed: (id: string) => void;
   onReact: (post: OfficePost, emoji: string) => void;
   onToggleResolved: (post: OfficePost) => void;
 }
 
-/** One notice or issue: category colour and emoji, author, photo, reactions, who has seen it, resolved state. */
-export const OfficePostCard: React.FC<Props> = ({ post, onViewed, onReact, onToggleResolved }) => {
+/** One notice or issue: author, text (4 lines, then "Read more"), photo, reactions, who has seen it, resolved state. */
+export const OfficePostCard: React.FC<Props> = ({ post, index = 0, onViewed, onReact, onToggleResolved }) => {
   const me = useAuthStore((s) => s.user);
-  const meta = categoryMeta(post.category);
   const ref = useRef<HTMLElement>(null);
+  const textRef = useRef<HTMLParagraphElement>(null);
   const [zoom, setZoom] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [clamped, setClamped] = useState(false);
+  const [popover, setPopover] = useState<string | null>(null); // 'r:<emoji>' or 'seen'
 
   // Mark as seen once at least half the card has been visible for a moment.
   useEffect(() => {
@@ -44,142 +52,173 @@ export const OfficePostCard: React.FC<Props> = ({ post, onViewed, onReact, onTog
     };
   }, [post.id, post.is_new, onViewed]);
 
+  // "Read more" only when the text really is cut off at 4 lines.
+  useLayoutEffect(() => {
+    const el = textRef.current;
+    if (el && !expanded) setClamped(el.scrollHeight > el.clientHeight + 1);
+  }, [post.text, expanded]);
+
   const reactions = new Map(post.reactions.map((r) => [r.emoji, r]));
   const mine = post.author?.id === me?.id;
 
   return (
     <article
       ref={ref}
-      style={tint(meta.accent, post.resolved ? 3 : 9)}
-      className={`relative overflow-hidden rounded-[var(--tm-radius-xl)] border p-5 shadow-soft-xs transition-shadow hover:shadow-soft ${
-        post.resolved ? 'opacity-80' : ''
-      }`}
+      style={{ animationDelay: `${Math.min(index, 9) * 55}ms`, animationFillMode: 'both' }}
+      className={`animate-fade-in tm-lift relative flex flex-col hover:z-20 focus-within:z-20 gap-3 rounded-[20px] bg-[var(--tm-card)] p-4 shadow-soft-sm ${post.resolved ? 'opacity-75' : ''}`}
     >
-      {/* Colour strip */}
-      <span aria-hidden className="absolute inset-y-0 left-0 w-1.5" style={{ background: meta.accent }} />
-
-      <div className="flex items-start gap-3.5 pl-1.5">
-        <span
-          aria-hidden
-          className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-2xl shadow-soft-xs"
-          style={{ background: `color-mix(in srgb, ${meta.accent} 22%, var(--tm-card))` }}
-        >
-          {post.emoji}
+      {/* Author, time, state */}
+      <div className="flex items-center gap-2">
+        <PersonLink userId={post.author?.id} className="flex min-w-0 items-center gap-2">
+          <Avatar name={post.author?.name ?? 'Someone'} src={post.author?.avatar_url ?? undefined} size="sm" />
+          <span className="truncate text-[13px] font-semibold text-[var(--tm-ink)]">{mine ? 'You' : (post.author?.name ?? 'Someone')}</span>
+        </PersonLink>
+        <span className="shrink-0 text-[11.5px] text-[var(--tm-ink-muted)]" title={new Date(post.created_at).toLocaleString()}>
+          · {timeAgo(post.created_at)}
         </span>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[12px] font-extrabold uppercase tracking-wide" style={{ color: meta.accent }}>
-              {post.category_label}
+        <span className="ml-auto flex shrink-0 items-center gap-1.5">
+          {post.is_new && (
+            <span className="rounded-full bg-[var(--tm-danger)] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-[var(--tm-on-primary)]">New</span>
+          )}
+          {post.resolved && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--tm-success-bg)] px-2 py-0.5 text-[10.5px] font-bold text-[var(--tm-success)]">
+              <CheckCircle2 className="h-3 w-3" />
+              Resolved
             </span>
-            {post.is_new && (
-              <span className="rounded-full bg-[var(--tm-danger)] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">
-                New
-              </span>
-            )}
-            {post.resolved && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--tm-success-bg)] px-2 py-0.5 text-[11px] font-bold text-[var(--tm-success)]">
-                <CheckCircle2 className="h-3 w-3" />
-                Resolved
-              </span>
-            )}
-            <span className="ml-auto text-[11.5px] text-[var(--tm-ink-muted)]" title={new Date(post.created_at).toLocaleString()}>
-              {timeAgo(post.created_at)}
-            </span>
-          </div>
+          )}
+        </span>
+      </div>
 
-          <div className="mt-1.5 flex items-center gap-2">
-            <PersonLink userId={post.author?.id} className="flex items-center gap-2">
-              <Avatar name={post.author?.name ?? 'Someone'} src={post.author?.avatar_url ?? undefined} size="xs" />
-              <span className="text-[12.5px] font-semibold text-[var(--tm-ink-soft)]">{mine ? 'You' : (post.author?.name ?? 'Someone')}</span>
-            </PersonLink>
-          </div>
-
-          <p
-            className={`mt-3 whitespace-pre-wrap break-words text-[15px] leading-relaxed ${
-              post.resolved ? 'text-[var(--tm-ink-muted)] line-through decoration-2' : 'font-semibold text-[var(--tm-ink)]'
-            }`}
+      {/* Text */}
+      <div>
+        <p
+          ref={textRef}
+          className={`whitespace-pre-wrap break-words text-[14px] leading-snug ${expanded ? '' : 'line-clamp-4'} ${
+            post.resolved ? 'text-[var(--tm-ink-muted)]' : 'text-[var(--tm-ink)]'
+          }`}
+        >
+          {post.text}
+        </p>
+        {(clamped || expanded) && (
+          <button
+            type="button"
+            onClick={() => setExpanded((e) => !e)}
+            aria-expanded={expanded}
+            className="mt-1 text-[12px] font-bold text-[var(--tm-primary-dark)] hover:underline"
           >
-            {post.text}
-          </p>
+            {expanded ? 'Show less' : 'Read more'}
+          </button>
+        )}
+      </div>
 
-          {post.photo && (
-            <button
-              type="button"
-              onClick={() => setZoom(true)}
-              aria-label="Enlarge photo"
-              className="mt-3 block overflow-hidden rounded-xl border border-[var(--tm-border)]"
+      {/* Attachments */}
+      {post.photo && (
+        <button
+          type="button"
+          onClick={() => setZoom(true)}
+          aria-label="Enlarge photo"
+          className="block h-16 w-16 overflow-hidden rounded-[12px] border border-[var(--tm-border)]"
+        >
+          <AuthImage url={post.photo.url} alt={`Photo for: ${post.text.slice(0, 60)}`} className="h-full w-full object-cover" />
+        </button>
+      )}
+
+      {post.resolved && post.resolved_by && (
+        <p className="text-[11.5px] text-[var(--tm-success)]">
+          Resolved by {post.resolved_by.id === me?.id ? 'you' : post.resolved_by.name}
+          {post.resolved_at ? ` · ${timeAgo(post.resolved_at)}` : ''}
+        </p>
+      )}
+
+      {/* Reactions */}
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Reactions">
+        {REACTIONS.map((emoji) => {
+          const r = reactions.get(emoji);
+          const key = `r:${emoji}`;
+          const open = popover === key && !!r?.users.length;
+          return (
+            <div
+              key={emoji}
+              className="relative"
+              onMouseEnter={() => !noHover() && r?.users.length && setPopover(key)}
+              onMouseLeave={() => !noHover() && setPopover((p) => (p === key ? null : p))}
             >
-              <AuthImage url={post.photo.url} alt={`Photo for: ${post.text.slice(0, 60)}`} className="h-52 w-full max-w-md object-cover" />
-            </button>
-          )}
-
-          {post.resolved && post.resolved_by && (
-            <p className="mt-2 text-[12px] text-[var(--tm-success)]">
-              Resolved by {post.resolved_by.id === me?.id ? 'you' : post.resolved_by.name}
-              {post.resolved_at ? ` · ${timeAgo(post.resolved_at)}` : ''}
-            </p>
-          )}
-
-          {/* Reactions */}
-          <div className="mt-4 flex flex-wrap gap-1.5" role="group" aria-label="Reactions">
-            {REACTIONS.map((emoji) => {
-              const r = reactions.get(emoji);
-              return (
-                <button
-                  key={emoji}
-                  type="button"
-                  aria-pressed={!!r?.mine}
-                  onClick={() => onReact(post, emoji)}
-                  title={r?.users.length ? r.users.map((u) => u.name).join(', ') : `React ${emoji}`}
-                  className={`inline-flex h-8 items-center gap-1 rounded-full border px-2.5 text-[13px] transition-transform hover:scale-110 ${
-                    r?.mine
-                      ? 'border-[var(--tm-primary)] bg-[var(--tm-primary-soft)] font-bold text-[var(--tm-primary-dark)]'
-                      : r
-                        ? 'border-[var(--tm-border-strong)] bg-[var(--tm-card)] font-semibold text-[var(--tm-ink)]'
-                        : 'border-transparent text-[var(--tm-ink-muted)] opacity-70 hover:opacity-100'
-                  }`}
-                >
-                  <span>{emoji}</span>
-                  {r && <span className="tabular-nums">{r.count}</span>}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Footer: seen by + resolve */}
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--tm-border)] pt-3">
-            <div className="flex items-center gap-2 text-[12px] text-[var(--tm-ink-muted)]">
-              {post.seen_by.length > 0 ? (
+              <button
+                type="button"
+                aria-pressed={!!r?.mine}
+                aria-expanded={open}
+                onClick={() => (noHover() && r?.users.length ? setPopover(open ? null : key) : onReact(post, emoji))}
+                className={`inline-flex h-6 items-center gap-1 rounded-full bg-[var(--tp-chip)] px-2 text-[11.5px] text-[var(--tp-chip-ink)] transition-transform hover:scale-105 ${
+                  r?.mine ? 'font-bold ring-1 ring-[var(--tm-primary-light)]' : r ? 'font-semibold' : 'opacity-60 hover:opacity-100'
+                }`}
+              >
+                <span>{emoji}</span>
+                {r && <span className="tabular-nums">{r.count}</span>}
+              </button>
+              {open && r && (
                 <>
-                  <AvatarStack
-                    size="xs"
-                    max={5}
-                    people={post.seen_by.map((u) => ({ id: u.id, name: u.name, avatarUrl: u.avatar_url ?? undefined }))}
-                  />
-                  <span>Seen by {post.seen_count}</span>
+                  {noHover() && <button type="button" aria-label="Close" className="fixed inset-0 z-30 cursor-default" onClick={() => setPopover(null)} />}
+                  <PeoplePopover title={`${emoji} ${r.count} ${r.count === 1 ? 'reaction' : 'reactions'}`} people={r.users} meId={me?.id}>
+                    {noHover() && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPopover(null);
+                          onReact(post, emoji);
+                        }}
+                        className="mt-1.5 w-full rounded-full bg-[var(--tp-chip)] py-1.5 text-[12px] font-bold text-[var(--tp-chip-ink)]"
+                      >
+                        {r.mine ? 'Remove my reaction' : `React ${emoji}`}
+                      </button>
+                    )}
+                  </PeoplePopover>
                 </>
-              ) : (
-                <span>Not seen yet</span>
               )}
             </div>
-            {post.can_resolve && (
-              <Button
-                size="sm"
-                variant={post.resolved ? 'outline' : 'secondary'}
-                onClick={() => onToggleResolved(post)}
-                leftIcon={post.resolved ? <RotateCcw className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+          );
+        })}
+      </div>
+
+      {/* Footer: seen by + resolve */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="relative flex min-w-0 items-center text-[11.5px] text-[var(--tm-ink-muted)]">
+          {post.seen_by.length > 0 ? (
+            <>
+              <button
+                type="button"
+                aria-expanded={popover === 'seen'}
+                onClick={() => setPopover((p) => (p === 'seen' ? null : 'seen'))}
+                className="flex min-w-0 items-center gap-2 rounded-full hover:text-[var(--tm-ink)]"
               >
-                {post.resolved ? 'Reopen' : 'Mark resolved'}
-              </Button>
-            )}
-          </div>
+                <AvatarStack size="xs" max={4} spreadOnHover={false} people={post.seen_by.map((u) => ({ id: u.id, name: u.name, avatarUrl: u.avatar_url ?? undefined }))} />
+                <span className="truncate">Seen by {post.seen_count}</span>
+              </button>
+              {popover === 'seen' && (
+                <>
+                  <button type="button" aria-label="Close" className="fixed inset-0 z-30 cursor-default" onClick={() => setPopover(null)} />
+                  <PeoplePopover title={`Seen by ${post.seen_count}`} people={post.seen_by} meId={me?.id} />
+                </>
+              )}
+            </>
+          ) : (
+            <span>Not seen yet</span>
+          )}
         </div>
+        {post.can_resolve && (
+          <button
+            type="button"
+            onClick={() => onToggleResolved(post)}
+            className="inline-flex h-7 shrink-0 items-center gap-1 rounded-full border border-[var(--tm-border-strong)] px-2.5 text-[11.5px] font-bold text-[var(--tm-ink)] transition-colors hover:bg-[var(--tp-chip)] focus-visible:outline-none focus-visible:shadow-glow"
+          >
+            {post.resolved ? <RotateCcw className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
+            {post.resolved ? 'Reopen' : 'Mark resolved'}
+          </button>
+        )}
       </div>
 
       {post.photo && (
-        <Modal isOpen={zoom} onClose={() => setZoom(false)} title={`${post.emoji} ${post.category_label}`} maxWidth="lg">
-          <AuthImage url={post.photo.url} alt="Full-size photo" className="max-h-[70vh] w-full rounded-lg object-contain" />
+        <Modal isOpen={zoom} onClose={() => setZoom(false)} title="Photo" maxWidth="lg">
+          <AuthImage url={post.photo.url} alt="Full-size photo" className="max-h-[70vh] w-full rounded-[var(--tm-radius-sm)] object-contain" />
         </Modal>
       )}
     </article>

@@ -1,8 +1,10 @@
+import { FadeIn } from '../../../components/ui/FadeIn';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { CalendarDays, Link2, RefreshCw, Unplug } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
+import { SkeletonRows } from '../../../components/ui/Skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Select } from '../../../components/ui/Select';
 import { StatusChip } from '../../../components/ui/StatusChip';
@@ -47,16 +49,16 @@ export const ConnectedAppsSection: React.FC = () => {
   }, [params, setParams, load]);
 
   if (loadError) {
-    return <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">{loadError}</div>;
+    return <div className="tm-error px-4 py-3 text-xs font-semibold">{loadError}</div>;
   }
-  if (!apps) return <p className="text-[13px] text-[var(--tm-ink-muted)]">Loading…</p>;
+  if (!apps) return <SkeletonRows count={3} />;
 
   return (
-    <>
+    <FadeIn>
       {apps.map((app) => (
         <AppCard key={app.key} app={app} confirm={confirm} onChange={load} />
       ))}
-    </>
+    </FadeIn>
   );
 };
 
@@ -141,7 +143,7 @@ const AppCard: React.FC<{ app: ConnectedApp; confirm: ReturnType<typeof useConfi
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)]">
+            <span className="grid h-10 w-10 place-items-center rounded-[var(--tm-radius-sm)] bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)]">
               <CalendarDays className="h-5 w-5" />
             </span>
             <div>
@@ -193,13 +195,13 @@ const AppCard: React.FC<{ app: ConnectedApp; confirm: ReturnType<typeof useConfi
             </dl>
 
             {conn.last_error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700" role="alert">
+              <div className="tm-error px-4 py-3 text-xs font-semibold" role="alert">
                 {conn.last_error}
                 {conn.last_error_at && <span className="ml-1 font-normal">({formatDistanceToNow(parseISO(conn.last_error_at))} ago)</span>}
               </div>
             )}
             {conn.config.push_error && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-800">
+              <div className="tm-warn px-4 py-3 text-xs font-semibold">
                 {conn.config.push_error} Syncing still runs every few minutes.
               </div>
             )}

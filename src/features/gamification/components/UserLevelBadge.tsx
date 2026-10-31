@@ -24,13 +24,13 @@ export const UserLevelBadge: React.FC = () => {
 
   const levelColor =
     stats.level === 'Legend'
-      ? 'from-[var(--tm-warning)] to-[var(--tm-warning)] text-white shadow-soft'
+      ? 'from-[var(--tm-warning)] to-[var(--tm-warning)] text-[var(--tm-on-primary)] shadow-soft'
       : stats.level === 'Pro'
-      ? 'from-[var(--tm-primary)] to-[var(--tm-primary)] text-white shadow-soft'
-      : 'from-[var(--tm-primary)] to-[var(--tm-primary)] text-white shadow-soft';
+      ? 'from-[var(--tm-primary)] to-[var(--tm-primary)] text-[var(--tm-on-primary)] shadow-soft'
+      : 'from-[var(--tm-primary)] to-[var(--tm-primary)] text-[var(--tm-on-primary)] shadow-soft';
 
   return (
-    <div className="flex items-center gap-3 bg-[rgba(22,33,28,0.32)] backdrop-blur-md px-3.5 py-1.5 rounded-full border border-[var(--tm-border-strong)] text-xs shadow-inner">
+    <div className="flex items-center gap-3 bg-[rgba(36,26,51,0.32)] backdrop-blur-md px-3.5 py-1.5 rounded-full border border-[var(--tm-border-strong)] text-xs shadow-inner">
       {/* Streak Counter */}
       <div className="flex items-center gap-1 text-[var(--tm-warning)] font-bold" title={`${stats.streak} day productive streak`}>
         <Flame className="w-4 h-4 text-[var(--tm-warning)] fill-[var(--tm-warning)] animate-pulse" />
@@ -41,7 +41,7 @@ export const UserLevelBadge: React.FC = () => {
 
       {/* Points & Level */}
       <div className="flex items-center gap-2">
-        <div className={`px-2 py-0.5 rounded-full bg-gradient-to-r ${levelColor} text-[10px] font-extrabold uppercase tracking-wider shadow-sm flex items-center gap-1`}>
+        <div className={`px-2 py-0.5 rounded-full bg-gradient-to-r ${levelColor} text-[10px] font-extrabold uppercase tracking-wider shadow-soft-xs flex items-center gap-1`}>
           <Trophy className="w-3 h-3" />
           {stats.level}
         </div>
