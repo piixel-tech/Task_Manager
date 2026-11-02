@@ -1,4 +1,5 @@
 import { FadeIn } from '../../../components/ui/FadeIn';
+import { InfoTile as Tile } from '../../../components/ui/InfoTile';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CalendarClock, Download, MessageSquare, ExternalLink, FileText, Link2, Pencil, Play, Send, Square, Trash2 } from 'lucide-react';
@@ -151,13 +152,14 @@ export const TaskDetailPage: React.FC = () => {
   const open = (a: Asset) => assetApi.open(a).catch((err) => toast.error('Could not open the file', err.message));
 
   return (
-    <FadeIn>
+    <FadeIn className="grid gap-4">
       <PageHeader
+        className="pb-1"
         title={
           <span className="flex flex-wrap items-center gap-3">
             {task.title}
-            <StatusChip status={task.status} />
-            <StatusChip status={task.priority} size="sm" />
+            <StatusChip status={task.status} className={TITLE_CHIP} />
+            <StatusChip status={task.priority} className={TITLE_CHIP} />
           </span>
         }
         description={
@@ -255,7 +257,7 @@ export const TaskDetailPage: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Tile label="Start date">
           {task.start_date ? (
             <span className="flex items-center gap-1.5">
@@ -286,7 +288,7 @@ export const TaskDetailPage: React.FC = () => {
         <Tile label="Progress">
           <div className="space-y-2">
             <span className="text-xl font-black tabular-nums">{progress}%</span>
-            <ProgressBar value={progress} tone={progressTone(task)} height={8} />
+            <ProgressBar value={progress} tone={progressTone(task)} hatchRemainder={false} height={4} />
           </div>
         </Tile>
         <Tile label="Assignee">
@@ -328,9 +330,9 @@ export const TaskDetailPage: React.FC = () => {
         </Tile>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
-      <div className="grid gap-6">
-        <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+      <div className="grid min-w-0 content-start gap-4 lg:col-span-3">
+        <div className="grid gap-4">
           <Card>
             <CardHeader>
               <CardTitle className="text-base font-extrabold">Description</CardTitle>
@@ -373,7 +375,7 @@ export const TaskDetailPage: React.FC = () => {
 
       </div>
 
-        <div className="xl:sticky xl:top-24 xl:self-start">
+        <div className="min-w-0 lg:sticky lg:top-24 lg:col-span-2 lg:self-start">
           <ActivityPanel task={task} />
         </div>
       </div>
@@ -384,10 +386,5 @@ export const TaskDetailPage: React.FC = () => {
   );
 };
 
-const Tile: React.FC<{ label: string; hint?: string; children: React.ReactNode }> = ({ label, hint, children }) => (
-  <div className="min-w-0 space-y-2 rounded-[var(--tm-radius-lg)] border border-[var(--tm-border)] bg-[var(--tm-card)] p-4">
-    <span className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--tm-ink-muted)]">{label}</span>
-    <div className="min-w-0 text-[13.5px] font-semibold text-[var(--tm-ink)]">{children}</div>
-    {hint && <span className="block text-[11.5px] text-[var(--tm-ink-muted)]">{hint}</span>}
-  </div>
-);
+/** The status and priority chips beside the title: sized to sit with the 30-40px heading. */
+const TITLE_CHIP = '!px-3.5 !py-1.5 !text-[14px] sm:!text-[16px]';

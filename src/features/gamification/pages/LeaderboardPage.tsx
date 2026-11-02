@@ -49,8 +49,8 @@ export const LeaderboardPage: React.FC = () => {
           const ranks = ['🥇 1st Place', '🥈 2nd Place', '🥉 3rd Place'];
           const borders = [
             'border-[var(--tm-warning-ring)] bg-gradient-to-br from-[var(--tm-warning-bg)] to-[var(--tm-card)] shadow-soft-sm',
-            'border-[var(--tm-border-strong)] bg-gradient-to-br from-[var(--tm-card-muted)] to-white',
-            'border-[var(--tm-warning-ring)] bg-gradient-to-br from-[var(--tm-warning-bg)] to-white'
+            'border-[var(--tm-border-strong)] bg-gradient-to-br from-[var(--tm-card-muted)] to-[var(--tm-card)]',
+            'border-[var(--tm-warning-ring)] bg-gradient-to-br from-[var(--tm-warning-bg)] to-[var(--tm-card)]'
           ];
 
           return (

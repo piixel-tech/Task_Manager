@@ -219,9 +219,9 @@ export const EmployeeWidgets: React.FC = () => {
               </RowLink>
             </li>
             <li>
-              <RowLink to="/app/inbox">
+              <RowLink to="/app/activity">
                 <span className="flex items-center gap-2 text-[13.5px] font-semibold text-[var(--tm-ink)]">
-                  Inbox notifications
+                  Activity notifications
                   {unreadInbox === 0 && <CheckCircle2 className="h-4 w-4 text-[var(--tm-success)]" />}
                 </span>
                 <span className="text-[16px] font-extrabold tabular-nums text-[var(--tm-ink)]"><CountUp value={unreadInbox} /></span>
@@ -249,8 +249,8 @@ export const EmployeeWidgets: React.FC = () => {
               .map((g) => ({ id: g.id, label: g.name, sub: g.last_message?.preview, trailing: String(g.unread_count), to: '/app/chat' }))
           },
           {
-            title: 'Inbox',
-            items: notifications.filter((n) => !n.read).map((n) => ({ id: n.id, label: n.title, sub: n.message, to: n.link || '/app/inbox' }))
+            title: 'Activity',
+            items: notifications.filter((n) => !n.read).map((n) => ({ id: n.id, label: n.title, sub: n.message, to: n.link || '/app/activity' }))
           }
         ]}
       />

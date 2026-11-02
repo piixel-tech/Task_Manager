@@ -34,7 +34,7 @@ vi.mock('./sections/AdminSections', () => ({
 
 const ME_TEAM = ['My profile', 'Change password', 'Notifications', 'Focus mode', 'Appearance', 'Connected apps', 'Keyboard shortcuts', 'Help'];
 const ME_CLIENT = ['My profile', 'Change password', 'Notifications', 'Appearance', 'Help'];
-const ADMIN_ONLY = ['People', 'Companies', 'Workspace settings', 'Trash', 'Export', 'Security'];
+const ADMIN_ONLY = ['People', 'Companies', 'Workspace settings', 'Festival theme', 'Trash', 'Export', 'Security'];
 
 const person = (role: UserRole, id = `${role}-1`): User =>
   ({ id, name: `${role} person`, jobTitle: 'Tester', company: 'piixel', role, loginId: `${role}@x.com`, active: true }) as User;

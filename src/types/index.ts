@@ -191,6 +191,8 @@ export interface AppNotification {
   link: string;
   createdAt: string;
   read: boolean;
+  /** The person who triggered it, when there is one (not for reminders and other system notifications). */
+  actor?: { id: string; name: string; avatarUrl: string | null };
 }
 
 /** Payload accepted by notificationService.addNotification(). */
@@ -269,14 +271,6 @@ export interface UserGamification {
   level: 'Rookie' | 'Pro' | 'Legend';
   badges: Badge[];
   kudosCount: number;
-}
-
-export interface DailyUpdate {
-  id: string;
-  userId: string;
-  date: string; // YYYY-MM-DD
-  summary: string;
-  createdAt: string;
 }
 
 export interface WeeklyReport {

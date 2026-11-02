@@ -9,7 +9,7 @@ import { getTodayDateString } from '../../utils/time';
 /** How often the date-based checks re-run while the app is open. */
 export const NOTIFICATION_CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
-/** 7. Today is [name]'s birthday 🎂 */
+/** 7. Today is [name]'s birthday */
 async function checkBirthdays(user: User, today: string): Promise<void> {
   const todayMMDD = today.slice(5);
   const users = await userService.getUsers();
@@ -21,7 +21,7 @@ async function checkBirthdays(user: User, today: string): Promise<void> {
     await notificationService.addNotificationOnceToday(user.id, `birthday:${other.id}`, {
       type: 'birthday',
       title: 'Birthday today',
-      message: `Today is ${other.name}'s birthday 🎂`,
+      message: `Today is ${other.name}'s birthday`,
       link: '/app/calendar'
     });
   }

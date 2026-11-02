@@ -10,6 +10,7 @@ export interface ApiNotification {
   link: string | null;
   read: boolean;
   created_at: string;
+  actor?: { id: string; name: string; avatar_url: string | null } | null;
 }
 
 /** Backend timestamps can come back without a zone; they are always UTC. */
@@ -24,7 +25,8 @@ export function toNotification(n: ApiNotification): AppNotification {
     message: n.body,
     link: n.link ?? '',
     createdAt: asUtc(n.created_at),
-    read: n.read
+    read: n.read,
+    actor: n.actor ? { id: n.actor.id, name: n.actor.name, avatarUrl: n.actor.avatar_url } : undefined
   };
 }
 
@@ -35,7 +37,7 @@ export const notificationApi = {
     });
     return data.items.map(toNotification);
   },
-  /** A page of the inbox, newest first. */
+  /** A page of the activity list, newest first. */
   async page(opts: { unreadOnly?: boolean; limit?: number; skip?: number } = {}): Promise<{ items: AppNotification[]; total: number }> {
     const { data } = await api.get<{ items: ApiNotification[]; total: number }>('/notifications', {
       params: { unread_only: opts.unreadOnly || undefined, limit: opts.limit ?? 30, skip: opts.skip ?? 0 }

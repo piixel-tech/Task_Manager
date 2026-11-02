@@ -21,7 +21,7 @@ export interface StatCardProps {
   deltaLabel?: string;
   /** Show a progress track under the figure (0–100). */
   progress?: number;
-  /** Hatch the progress remainder — reads as "still to go". */
+  /** Hatch the progress remainder (off by default: a plain thin track). */
   hatchRemainder?: boolean;
   tone?: 'primary' | 'ok' | 'warn' | 'bad' | 'neutral';
   /** A short series from data already on the page (e.g. per day); drawn as a mini chart beside the figure. */
@@ -45,11 +45,11 @@ const trendColour = {
 /** Tiny bar or line chart. Presentation only: it draws whatever series it is given. */
 export const MiniChart: React.FC<{ data: number[]; kind?: 'bar' | 'line'; color: string }> = ({ data, kind = 'bar', color }) => {
   if (data.length < 2) return null;
-  const W = 96;
-  const H = 32;
+  const W = 72;
+  const H = 24;
   const max = Math.max(...data, 1);
   if (kind === 'bar') {
-    const gap = 4;
+    const gap = 3;
     const bw = (W - gap * (data.length - 1)) / data.length;
     return (
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden focusable="false" className="shrink-0">
@@ -87,7 +87,7 @@ const barTones = {
   neutral: 'primary'
 } as const;
 
-/** White metric tile: label, animated figure, optional delta and progress. */
+/** Compact metric tile: icon and label on one row, the figure, an optional thin progress bar, and a small muted subtitle. */
 export const StatCard: React.FC<StatCardProps> = ({
   label,
   value,
@@ -101,7 +101,7 @@ export const StatCard: React.FC<StatCardProps> = ({
   progress,
   trend,
   trendKind = 'bar',
-  hatchRemainder = true,
+  hatchRemainder = false,
   tone = 'primary',
   to,
   onClick,
@@ -132,18 +132,15 @@ export const StatCard: React.FC<StatCardProps> = ({
             }
           : undefined
       }
-      className={`group bg-[var(--tm-card)] border border-[var(--tm-border)]/60
-        rounded-[var(--tm-radius-card)] p-5 shadow-soft-xs hover:shadow-soft
+      className={`group flex h-full min-w-0 flex-col bg-[var(--tm-card)] border border-[var(--tm-border)]/60
+        rounded-[var(--tm-radius-card)] p-4 shadow-soft-xs hover:shadow-soft
         transition-shadow duration-[var(--tm-dur-fast)]
         ${act ? 'cursor-pointer hover:border-[var(--tm-accent)] focus-visible:outline-none focus-visible:shadow-glow' : ''} ${className}`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--tm-ink-muted)]">
-          {label}
-        </span>
+      <div className="flex items-center gap-2">
         {(icon || act) && (
           <span
-            className={`relative grid h-9 w-9 shrink-0 place-items-center rounded-full [&_svg]:h-4 [&_svg]:w-4 ${iconTones[tone]}`}
+            className={`relative grid h-7 w-7 shrink-0 place-items-center rounded-full [&_svg]:h-3.5 [&_svg]:w-3.5 ${iconTones[tone]}`}
           >
             <span className={act ? 'transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0' : ''}>{icon}</span>
             {act && (
@@ -154,11 +151,12 @@ export const StatCard: React.FC<StatCardProps> = ({
             )}
           </span>
         )}
+        <span className="min-w-0 truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--tm-ink-muted)]">{label}</span>
       </div>
 
-      <div className="mt-3 flex items-end justify-between gap-3">
+      <div className="mt-2 flex items-end justify-between gap-3">
         <div className="flex items-end gap-2.5">
-          <span className="text-[34px] font-bold leading-none tracking-[-0.03em] text-[var(--tm-ink)] tabular-nums">
+          <span className="text-[28px] font-bold leading-none tracking-[-0.03em] text-[var(--tm-ink)] tabular-nums">
             {isNumeric ? (
               <CountUp value={value as number} decimals={decimals} prefix={prefix} suffix={suffix} />
             ) : (
@@ -192,15 +190,13 @@ export const StatCard: React.FC<StatCardProps> = ({
       </div>
 
       {progress !== undefined && (
-        <div className="mt-3">
-          <ProgressBar value={progress} tone={barTones[tone]} hatchRemainder={hatchRemainder} height={8} />
+        <div className="mt-2.5">
+          <ProgressBar value={progress} tone={barTones[tone]} hatchRemainder={hatchRemainder} height={4} />
         </div>
       )}
 
       {(hint || deltaLabel) && (
-        <p className="mt-3 inline-flex rounded-full bg-[var(--tm-card-muted)] px-2.5 py-1 text-[11px] font-semibold leading-none text-[var(--tm-ink-soft)]">
-          {hint ?? deltaLabel}
-        </p>
+        <p className="mt-1.5 text-[11.5px] font-medium leading-snug text-[var(--tm-ink-muted)]">{hint ?? deltaLabel}</p>
       )}
     </motion.div>
   );

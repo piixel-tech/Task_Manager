@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { useNotificationStore } from '../../store/useNotificationStore';
 import { toast } from '../../store/useToastStore';
+import { stripEmoji } from './notificationVisuals';
 import { socket } from '../../services/socket';
 import { amFocused } from '../../store/useFocusStore';
 import { useFocusSync } from '../focus/useFocusSync';
@@ -37,7 +38,7 @@ export function useNotificationSync(): void {
       const notification = toNotification(data);
       addLive(notification);
       // In Focus mode the server sends nothing live; this covers a notification already in flight.
-      if (!amFocused()) toast.info(notification.title, notification.message, notification.link || undefined);
+      if (!amFocused()) toast.info(stripEmoji(notification.title), stripEmoji(notification.message), notification.link || undefined);
     });
     // An admin ended this sign-in: leave straight away instead of waiting for the next request to fail.
     const offRevoked = socket.on('session:revoked', () => {

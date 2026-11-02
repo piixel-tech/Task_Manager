@@ -1,9 +1,10 @@
 """Per-person preferences: what they want to be told about, and how the app should look."""
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from app.models import User
+from app.services.themes import CUSTOM_PALETTE
 
 
 class NotifPrefs(BaseModel):
@@ -15,11 +16,37 @@ class NotifPrefs(BaseModel):
     bookings: bool = True
 
 
+BUILT_IN_PALETTES = (
+    "purple", "indigo", "blue", "sky", "teal", "green", "red", "coral", "pink", "orange", "gold", "brown", "olive", "grey", "monochrome"
+)
+_PALETTES = set(BUILT_IN_PALETTES)
+
+
+def _known_palette(v: str) -> bool:
+    """A built-in theme, or a custom one ("custom:<id>"; routers/me.py checks the person may use it)."""
+    return v in _PALETTES or bool(CUSTOM_PALETTE.match(v))
+
+
+def clean_stored(settings):
+    """Stored settings with a theme that no longer exists swapped for purple (saving still rejects unknown ones)."""
+    if isinstance(settings, dict) and not _known_palette(str(settings.get("palette"))):
+        return {**settings, "palette": "purple"} if "palette" in settings else settings
+    return settings
+
+
 class UserSettings(BaseModel):
-    theme: Literal["light", "dark", "system"] = "system"
+    theme: Literal["light", "dark", "system"] = "system"  # light / dark mode
+    palette: str = "purple"  # colour theme: a built-in name, or "custom:<id>"
     density: Literal["comfortable", "compact"] = "comfortable"
     sound: bool = True
     notif_prefs: NotifPrefs = NotifPrefs()
+
+    @field_validator("palette")
+    @classmethod
+    def _palette(cls, v: str) -> str:
+        if not _known_palette(v):
+            raise ValueError("Unknown theme")
+        return v
 
 
 # Notification type (or its prefix) -> the preference that controls it. Anything not listed is always delivered.
@@ -54,7 +81,7 @@ def category_of(notification_type: str) -> str | None:
 def settings_of(user: User) -> UserSettings:
     """The person's settings with defaults filled in (and anything unrecognised ignored)."""
     try:
-        return UserSettings.model_validate(user.settings or {})
+        return UserSettings.model_validate(clean_stored(user.settings or {}))
     except ValueError:
         return UserSettings()
 

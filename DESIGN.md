@@ -37,7 +37,7 @@ Tokens live in `src/styles/theme.css` (CSS variables, bridged to Tailwind in `@t
 ```
 
 - **Shell** (`AppShell`): `Topbar`, `SideNav` (desktop rail; the content leaves 132px on the left for it), `NavDrawer` (phones), `ProjectsPanel`, the routed page and `BottomTabBar`. Content max width 1600px.
-- **Nav items** come from one place, `navItems.tsx` (`WithNavItems`): `main` and `more` are listed one after the other in the left rail (the split only matters on phones, where the drawer shows `more` under a "More" heading). The rail and the phone drawer read the same model, so role-based visibility cannot drift. Admin main: Home, Projects, Task Hub, Chats, Office board; More: Inbox, Calendar, Reviews, Daily Updates, Team Members, Settings. Employee main: the same with My Tasks; More: Inbox, Calendar, Reviews, Monthly Wrapped, My Profile. Client main: Home, Chats, Approvals, Deliverables, Requirements; More: Book a meeting.
+- **Nav items** come from one place, `navItems.tsx` (`WithNavItems`): `main` and `more` are listed one after the other in the left rail (the split only matters on phones, where the drawer shows `more` under a "More" heading). The rail and the phone drawer read the same model, so role-based visibility cannot drift. Admin main: Home, Projects, Task Hub, Chats, Office board; More: Activity, Calendar, Reviews, Team Members, Settings. Employee main: the same with My Tasks; More: Activity, Calendar, Reviews, Settings. Client main: Home, Chats, Approvals, Deliverables, Requirements; More: Book a meeting.
 - **Header right** (desktop): status chip (full from 2xl, a round button below), focus menu, search (also Ctrl+K), calendar (team only), notifications, settings, avatar menu. Phones keep search, bell and avatar plus the ☰ drawer.
 - **Projects panel** (`ProjectsPanel`): the project → subfolder tree (`SidebarTree`, with all create / rename / move / delete / reorder actions) as a charcoal panel on the left of `/admin|app/projects…` only. It collapses to a round reopen button (remembered per browser in `localStorage`, `tm-projects-panel`). On phones it sits above the page as a "Projects & folders" bar that folds the tree. Clients have no Projects pages and no panel.
 - **Page header**: every page uses `PageHeader`: round back button (previous page, or the role's home when opened directly), big title, subtitle, and the page's main action on the right. Do not hand-roll an `<h1>` block.
@@ -79,7 +79,7 @@ Always use the variables (`bg-[var(--tm-card)]`), never hex, so dark mode keeps 
 | `--tm-on-primary` | white | `#2a2933` | text on a primary, success, warning or danger fill |
 | `--tm-accent` / `--tm-accent-ink` | `#c4b5e0` / `#2a2933` | `#c4b5e0` / `#2a2933` | counters, switch, checked checkbox, progress and the text on them |
 | `--tm-hero` / `--tm-hero-2` | `#2a2933` / `#3e3d4a` | `#111016` / `#2a2933` | dark hero/featured panels (white text), gradient end |
-| `--tm-detail` / `-2` / `-ink` | `#8f7fbf` / `#a99bd3` / white | `#7a6aae` / `#8f7fbf` / white | detail cards: lavender gradient with white text (Monthly Wrapped banner) |
+| `--tm-detail` / `-2` / `-ink` | `#8f7fbf` / `#a99bd3` / white | `#7a6aae` / `#8f7fbf` / white | detail cards: lavender gradient with white text |
 | `--tm-side-bg` | `#2a2933` | `#111016` | dark panels: left nav rail, projects panel, phone tab bar |
 | `--tm-success` / `-warning` / `-danger` / `-info` / `-neutral` (+ `-bg`, `-ring`) | unchanged status hues on pale tints | unchanged status hues on deep tints | status |
 

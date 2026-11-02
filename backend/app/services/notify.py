@@ -3,10 +3,23 @@ from typing import Iterable
 from beanie import PydanticObjectId
 
 from app.models import Notification, User
-from app.schemas.notification import NotificationOut
+from app.schemas.notification import Actor, NotificationOut
 from app.services.focus import focused_ids
 from app.services.prefs import wants
 from app.services.ws_manager import manager
+
+
+async def outs_with_actors(docs: Iterable[Notification]) -> list[NotificationOut]:
+    """Notifications as the API returns them, each with the name and photo of the person who triggered it."""
+    docs = list(docs)
+    ids = {d.actor_id for d in docs if d.actor_id}
+    actors = {u.id: u for u in await User.find({"_id": {"$in": list(ids)}}).to_list()} if ids else {}
+    out = []
+    for d in docs:
+        o = NotificationOut.model_validate(d, from_attributes=True)
+        a = actors.get(d.actor_id) if d.actor_id else None
+        out.append(o.model_copy(update={"actor": Actor(id=a.id, name=a.name, avatar_url=a.avatar_url) if a else None}))
+    return out
 
 
 async def notify(
@@ -36,9 +49,8 @@ async def notify(
 
     # Live push is best-effort: the notification is already stored. People in Focus find it in the bell later.
     quiet = await focused_ids(recipients)
-    for doc in docs:
+    for doc, out in zip(docs, await outs_with_actors(docs)):
         if doc.user_id in quiet:
             continue
-        payload = NotificationOut.model_validate(doc, from_attributes=True).model_dump(mode="json")
-        await manager.send_to_users([doc.user_id], "notification", payload)
+        await manager.send_to_users([doc.user_id], "notification", out.model_dump(mode="json"))
     return docs

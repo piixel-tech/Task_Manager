@@ -216,16 +216,12 @@ interface Particle {
   alpha: number;
 }
 
-const CONFETTI_COLORS = [
-  '#8b5cf6', // violet
-  '#a78bfa', // light violet
-  '#241a33', // aubergine
-  '#c4b5fd', // pale violet
-  '#efe9fc', // soft tint
-  '#2f6e50', // success
-  '#a24a55', // rose
-  '#3f5b8c'  // slate blue
-];
+/** Confetti is drawn on a canvas, which cannot use CSS variables, so read the current palette's colours. */
+const CONFETTI_VARS = ['--primary', '--accent', '--text', '--primary-soft', '--tm-primary-light', '--tm-success', '--tm-danger', '--tm-info'];
+const confettiColors = (): string[] => {
+  const style = getComputedStyle(document.documentElement);
+  return CONFETTI_VARS.map((v) => style.getPropertyValue(v).trim()).filter(Boolean);
+};
 
 export const TaskCompletionCelebration: React.FC = () => {
   const { active, clear } = useCelebrationStore();
@@ -254,6 +250,7 @@ export const TaskCompletionCelebration: React.FC = () => {
     const width = (canvas.width = window.innerWidth);
     const height = (canvas.height = window.innerHeight);
 
+    const colors = confettiColors();
     const isProject = active.type === 'project';
     const particleCount = isProject ? 120 : 28;
     const particles: Particle[] = [];
@@ -274,7 +271,7 @@ export const TaskCompletionCelebration: React.FC = () => {
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed - (isProject ? 2 : 3),
         size: Math.random() * 6 + 4,
-        color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+        color: colors[Math.floor(Math.random() * colors.length)],
         rotation: Math.random() * Math.PI * 2,
         vRot: (Math.random() - 0.5) * 0.2,
         alpha: 1

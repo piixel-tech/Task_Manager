@@ -18,7 +18,6 @@ const KEYS = {
   CURRENT_USER: 'tm_current_user',
   WEEK_OFFS: 'tm_week_offs',
   GAMIFICATION: 'tm_gamification',
-  DAILY_UPDATES: 'tm_daily_updates',
   KUDOS: 'tm_kudos',
   PAUSE_REASONS: 'tm_pause_reasons',
   TEAM_GOAL: 'tm_team_goal',
@@ -49,7 +48,7 @@ export function initializeStorage(forceReset = false) {
     localStorage.removeItem(KEYS.CURRENT_USER);
     localStorage.removeItem('tm_simulated_date');
     localStorage.removeItem(KEYS.GAMIFICATION);
-    localStorage.removeItem(KEYS.DAILY_UPDATES);
+    localStorage.removeItem('tm_daily_updates'); // legacy daily-update data
     localStorage.removeItem(KEYS.KUDOS);
     localStorage.removeItem(KEYS.PAUSE_REASONS);
     localStorage.removeItem(KEYS.TEAM_GOAL);

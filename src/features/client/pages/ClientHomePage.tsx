@@ -110,7 +110,7 @@ export const ClientHomePage: React.FC = () => {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 lg:col-span-12">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:col-span-12">
             <StatCard to="/client/approvals" label="Approvals" value={data.pending_approvals} icon={<ShieldQuestion className="h-5 w-5" />} tone="primary" hint="Waiting for your answer" trend={dailyCounts(data.approvals, (i) => i.approval.created_at, 7)} />
             <StatCard to="/client/deliverables" label="Deliverables done" value={data.deliverables.done} icon={<Layers className="h-5 w-5" />} tone="ok" hint={`${data.deliverables.remaining} remaining this month`} progress={data.deliverables.done + data.deliverables.remaining ? Math.round((100 * data.deliverables.done) / (data.deliverables.done + data.deliverables.remaining)) : 0} />
             <StatCard to="/client/chats" label="Unread chats" value={unread} icon={<MessageSquare className="h-5 w-5" />} tone="neutral" hint="Messages from the team" />

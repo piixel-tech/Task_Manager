@@ -77,7 +77,7 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
             m.deleted
               ? 'border border-dashed border-[var(--tm-border-strong)] bg-transparent'
               : mine
-                ? 'rounded-br-[6px] bg-[var(--tc-mine-bg)] text-[var(--tc-mine-ink)] [--tm-ink:#ffffff] [--tm-ink-soft:#e4e1ee] [--tm-ink-muted:#b9b6c6] [--tm-primary-dark:#c4b5e0] [--tm-card-muted:rgba(255,255,255,0.12)] [--tm-bg-sunken:rgba(255,255,255,0.14)]'
+                ? 'rounded-br-[6px] bg-[var(--tc-mine-bg)] text-[var(--tc-mine-ink)] [--tm-ink:var(--tc-mine-ink)] [--tm-ink-soft:color-mix(in_srgb,var(--tc-mine-ink)_90%,var(--tc-mine-bg))] [--tm-ink-muted:color-mix(in_srgb,var(--tc-mine-ink)_65%,var(--tc-mine-bg))] [--tm-primary-dark:var(--tm-accent-fixed)] [--tm-card-muted:color-mix(in_srgb,var(--tc-mine-ink)_12%,transparent)] [--tm-bg-sunken:color-mix(in_srgb,var(--tc-mine-ink)_14%,transparent)]'
                 : 'rounded-bl-[6px] border border-[var(--tc-other-border)] bg-[var(--tc-other-bg)] text-[var(--tm-ink)]'
           }`}
         >

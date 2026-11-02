@@ -5,6 +5,9 @@ import { SideNav } from './SideNav';
 import { ProjectsPanel } from './ProjectsPanel';
 import { BottomTabBar } from './BottomTabBar';
 import { RouteTransition } from './RouteTransition';
+import { FestivalBanner } from '../../features/festival/FestivalBanner';
+import { useFestivalSync } from '../../features/festival/useFestivalSync';
+import { AmbientEffects } from '../../features/effects/AmbientEffects';
 import { useAuthStore } from '../../store/authStore';
 import { useSidebarStore } from '../../store/useSidebarStore';
 
@@ -19,6 +22,7 @@ interface AppShellProps {
 export const AppShell: React.FC<AppShellProps> = ({ extras, banner }) => {
   // This person's own tree layout (open nodes, their order) follows them to any device.
   const userId = useAuthStore((s) => s.user?.id);
+  useFestivalSync();
   useEffect(() => {
     if (!userId) return;
     useSidebarStore.getState().init(useAuthStore.getState().user?.sidebarState);
@@ -26,7 +30,8 @@ export const AppShell: React.FC<AppShellProps> = ({ extras, banner }) => {
   }, [userId]);
 
   return (
-    <div className="min-h-screen bg-[var(--tm-bg)] pb-24 lg:pb-0">
+    <div className="relative isolate min-h-screen bg-[var(--tm-bg)] pb-24 lg:pb-0">
+      <AmbientEffects />
       {extras}
       <Topbar />
       <NavDrawer />
@@ -34,6 +39,7 @@ export const AppShell: React.FC<AppShellProps> = ({ extras, banner }) => {
       <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-5 px-4 pb-6 pt-2 sm:px-6 lg:flex-row lg:items-start lg:gap-7 lg:pb-8 lg:pl-[108px] lg:pr-8">
         <ProjectsPanel />
         <main className="min-w-0 flex-1">
+          <FestivalBanner />
           {banner}
           <RouteTransition className="space-y-6 lg:space-y-7" />
         </main>

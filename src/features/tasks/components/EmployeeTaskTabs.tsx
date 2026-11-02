@@ -7,6 +7,7 @@ import { Tabs } from '../../../components/ui/Tabs';
 import { formatHours } from '../../../utils/format';
 import { formatDate, getTodayDateString } from '../../../utils/time';
 import { useTaskStore } from '../../../store/useTaskStore';
+import { deadlineHeat, heatAttrs } from '../../../utils/deadlineHeat';
 
 interface EmployeeTaskTabsProps {
   userId: string;
@@ -144,7 +145,7 @@ export const EmployeeTaskTabs: React.FC<EmployeeTaskTabsProps> = ({ userId }) =>
                                         ? 'text-[var(--tm-danger)] fill-[var(--tm-danger)]/20'
                                         : t.priority === 'medium'
                                         ? 'text-[var(--tm-warning)] fill-[var(--tm-warning)]/20'
-                                        : 'text-gray-400 fill-gray-400/20'
+                                        : 'text-[var(--tm-ink-muted)] fill-[var(--tm-ink-muted)]/20'
                                     }`}
                                   />
                                 </span>
@@ -170,8 +171,9 @@ export const EmployeeTaskTabs: React.FC<EmployeeTaskTabsProps> = ({ userId }) =>
         ) : (
           currentTabTasks.map((t) => {
             const prj = projectMap.get(t.projectId);
+            const heat = heatAttrs(deadlineHeat(t.dueDate, t.status !== 'completed'));
             return (
-              <div key={t.id} className="px-5 py-3.5 bg-[var(--tm-card-muted)] rounded-[var(--tm-radius-md)] flex items-center justify-between text-xs gap-3 transition-all hover:-translate-y-px hover:shadow-soft-xs">
+              <div key={t.id} data-heat={heat['data-heat']} style={heat.style} className={`${heat.className ?? ''} px-5 py-3.5 bg-[var(--tm-card-muted)] rounded-[var(--tm-radius-md)] flex items-center justify-between text-xs gap-3 transition-all hover:-translate-y-px hover:shadow-soft-xs`}>
                 <div className="space-y-1 overflow-hidden">
                   <div className="flex items-center gap-2">
                     {prj && (
@@ -186,7 +188,7 @@ export const EmployeeTaskTabs: React.FC<EmployeeTaskTabsProps> = ({ userId }) =>
                             ? 'text-[var(--tm-danger)] fill-[var(--tm-danger)]/20'
                             : t.priority === 'medium'
                             ? 'text-[var(--tm-warning)] fill-[var(--tm-warning)]/20'
-                            : 'text-gray-400 fill-gray-400/20'
+                            : 'text-[var(--tm-ink-muted)] fill-[var(--tm-ink-muted)]/20'
                         }`}
                       />
                     </span>

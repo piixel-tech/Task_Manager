@@ -4,6 +4,14 @@ from beanie import PydanticObjectId
 from pydantic import BaseModel, Field
 
 
+class Actor(BaseModel):
+    """The person who triggered a notification (assigned you, commented, mentioned you, ...)."""
+
+    id: PydanticObjectId
+    name: str
+    avatar_url: str | None = None
+
+
 class NotificationOut(BaseModel):
     id: PydanticObjectId
     user_id: PydanticObjectId
@@ -12,6 +20,7 @@ class NotificationOut(BaseModel):
     body: str
     link: str | None
     actor_id: PydanticObjectId | None
+    actor: Actor | None = None
     read: bool
     created_at: datetime
 

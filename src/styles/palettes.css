@@ -1,0 +1,453 @@
+/* ==========================================================================
+   Colour palettes. Pick one with <html data-theme="purple|blue|brown|green|pink|red">
+   (purple is the default) and light/dark with <html data-mode="light|dark">.
+
+   Every palette sets the SAME eight variables:
+     --bg            page canvas
+     --surface       cards, inputs, popovers
+     --primary       links, icons, selected text (readable on --surface)
+     --primary-soft  selected rows, chips, tinted wells
+     --text          main text (also the dark panels and solid buttons in light mode)
+     --text-muted    secondary text
+     --border        hairlines
+     --accent        highlight fill: active pill, counters, switch, checkbox, progress
+   Colours come from the images in /themes; the shades on the canvas side (--bg,
+   --border, --primary-soft) are tints of them, and a few are nudged so text keeps
+   at least 4.5:1 contrast. The "mapping" section below turns the eight into the --tm-*
+   tokens the components use, so nothing else in the app names a colour.
+   ========================================================================== */
+
+/* ---- PURPLE (default): the original lavender look ------------------------ */
+:root,
+[data-theme='purple'] {
+  --bg: #f3f1f6;
+  --surface: #ffffff;
+  --primary: #8f7fbf;
+  --primary-soft: #e7e2f2;
+  --text: #2a2933;
+  --text-muted: #7b7986;
+  --border: #e6e2ee;
+  --accent: #c4b5e0;
+}
+:root[data-mode='dark'],
+[data-theme='purple'][data-mode='dark'] {
+  --bg: #16151c;
+  --surface: #22212b;
+  --primary: #c4b5e0;
+  --primary-soft: #2f2b40;
+  --text: #f1eff6;
+  --text-muted: #a19eaf;
+  --border: #33323f;
+  --accent: #c4b5e0;
+}
+
+/* ---- BLUE: #021024 #052659 #5483B3 #7DA0CA #C1E8FF ------------------------ */
+[data-theme='blue'] {
+  --bg: #eaf3fb;
+  --surface: #ffffff;
+  --primary: #3b6a9c; /* #5483B3 darkened for contrast on white */
+  --primary-soft: #dcedfb; /* tint of #C1E8FF */
+  --text: #021024;
+  --text-muted: #52667e;
+  --border: #d3e2f0;
+  --accent: #7da0ca;
+}
+[data-theme='blue'][data-mode='dark'] {
+  --bg: #021024;
+  --surface: #061c3a;
+  --primary: #7da0ca;
+  --primary-soft: #0d2f57; /* #052659 lifted */
+  --text: #e6f3ff;
+  --text-muted: #93aecb;
+  --border: #123560;
+  --accent: #7da0ca;
+}
+
+/* ---- BROWN: read from the swatches (the printed hex labels do not match) --- */
+[data-theme='brown'] {
+  --bg: #f4efe8;
+  --surface: #fffdfa;
+  --primary: #76614f;
+  --primary-soft: #eadfd2;
+  --text: #2b1a12;
+  --text-muted: #76604f;
+  --border: #e3d8c9;
+  --accent: #b8a28e;
+}
+[data-theme='brown'][data-mode='dark'] {
+  --bg: #1d130e;
+  --surface: #2a1c15;
+  --primary: #b8a28e;
+  --primary-soft: #3a2a1f;
+  --text: #f3ece4;
+  --text-muted: #b3a08e;
+  --border: #43322a;
+  --accent: #b8a28e;
+}
+
+/* ---- GREEN: a true green (the image's teal was swapped out) */
+[data-theme='green'] {
+  --bg: #edf8ee;
+  --surface: #ffffff;
+  --primary: #1e7a38;
+  --primary-soft: #d3f1d9;
+  --text: #0b2412;
+  --text-muted: #4a6a52;
+  --border: #cde7d2;
+  --accent: #4ade80;
+}
+[data-theme='green'][data-mode='dark'] {
+  --bg: #07200f;
+  --surface: #0d3018;
+  --primary: #4ade80;
+  --primary-soft: #124a26;
+  --text: #e6fbe9;
+  --text-muted: #8fc79b;
+  --border: #17482a;
+  --accent: #4ade80;
+}
+
+/* ---- PINK: #4B0F1E #6D1D32 #8E2B44 #B23C59 #CC5671 #E07A94 #F7D6DC --------- */
+[data-theme='pink'] {
+  --bg: #fbeff2;
+  --surface: #fffafb;
+  --primary: #b23c59;
+  --primary-soft: #f7d6dc;
+  --text: #4b0f1e;
+  --text-muted: #855a67;
+  --border: #f0d3da;
+  --accent: #e07a94;
+}
+[data-theme='pink'][data-mode='dark'] {
+  --bg: #2b0a14;
+  --surface: #3a1220;
+  --primary: #e07a94;
+  --primary-soft: #5a1d31;
+  --text: #fbe9ed;
+  --text-muted: #d49aa9;
+  --border: #5a2536;
+  --accent: #e07a94;
+}
+
+/* ---- RED: #DF2531 + white + black (45% / 65% tints) ----------------------- */
+[data-theme='red'] {
+  --bg: #f8f1f1;
+  --surface: #ffffff;
+  --primary: #d4202c; /* #DF2531 darkened a step for 4.5:1 text on white */
+  --primary-soft: #fbe2e3;
+  --text: #14090a;
+  --text-muted: #765f60;
+  --border: #eedcdc;
+  --accent: #f2a3a8; /* a light tint of #DF2531 so dark text sits on it */
+}
+[data-theme='red'][data-mode='dark'] {
+  --bg: #0c0606;
+  --surface: #1a0d0e;
+  --primary: #ff6a73;
+  --primary-soft: #3a1114;
+  --text: #fbeeee;
+  --text-muted: #b99a9b;
+  --border: #3a2224;
+  --accent: #ff6a73;
+}
+
+/* ---- CORAL: #F76A6A #FB9280 #FFB996 #FFD6B9 #FFF3DB */
+[data-theme='coral'] {
+  --bg: #fff5e6;
+  --surface: #fffdfa;
+  --primary: #a74645;
+  --primary-soft: #ffe0cf;
+  --text: #4a1d1a;
+  --text-muted: #815c56;
+  --border: #f6dcc8;
+  --accent: #fb9280;
+}
+[data-theme='coral'][data-mode='dark'] {
+  --bg: #2a100f;
+  --surface: #3f1918;
+  --primary: #f9877f;
+  --primary-soft: #5f2727;
+  --text: #ffebe0;
+  --text-muted: #baa49d;
+  --border: #5b2625;
+  --accent: #f9877f;
+}
+
+/* ---- GOLD: #FCFCF7 #ECDCAB #DFC57B #BF932A #9E6200 */
+[data-theme='gold'] {
+  --bg: #faf6e8;
+  --surface: #fffefb;
+  --primary: #925b02;
+  --primary-soft: #f3e8c4;
+  --text: #33250a;
+  --text-muted: #76663b;
+  --border: #eadfb8;
+  --accent: #dfc57b;
+}
+[data-theme='gold'][data-mode='dark'] {
+  --bg: #1f1705;
+  --surface: #2c1e04;
+  --primary: #be943e;
+  --primary-soft: #402a04;
+  --text: #f7f1da;
+  --text-muted: #a59e89;
+  --border: #3d2904;
+  --accent: #be943e;
+}
+
+/* ---- GREY: #1A2D42 #2E4156 #AAB7B7 #C0C8CA #D4D8DD */
+[data-theme='grey'] {
+  --bg: #e9ecee;
+  --surface: #ffffff;
+  --primary: #2e4156;
+  --primary-soft: #d4d8dd;
+  --text: #1a2d42;
+  --text-muted: #4f6070;
+  --border: #cfd5d8;
+  --accent: #aab7b7;
+}
+[data-theme='grey'][data-mode='dark'] {
+  --bg: #121e2c;
+  --surface: #152230;
+  --primary: #89969d;
+  --primary-soft: #192737;
+  --text: #e4e6ea;
+  --text-muted: #949aa2;
+  --border: #192636;
+  --accent: #89969d;
+}
+
+/* ---- INDIGO: #192338 #1E2E4F #31487A #8FB3E2 #D9E1F1 */
+[data-theme='indigo'] {
+  --bg: #eef1f8;
+  --surface: #ffffff;
+  --primary: #31487a;
+  --primary-soft: #d9e1f1;
+  --text: #192338;
+  --text-muted: #55637f;
+  --border: #d3dbec;
+  --accent: #8fb3e2;
+}
+[data-theme='indigo'][data-mode='dark'] {
+  --bg: #0f1626;
+  --surface: #121b2e;
+  --primary: #758fb9;
+  --primary-soft: #18233c;
+  --text: #e6ebf6;
+  --text-muted: #949aa7;
+  --border: #17223a;
+  --accent: #758fb9;
+}
+
+/* ---- MONOCHROME: #0D0D0D #6B6B6B #B5B5B5 #C0C0C0 #ECECEC */
+[data-theme='monochrome'] {
+  --bg: #efefef;
+  --surface: #ffffff;
+  --primary: #4d4d4d;
+  --primary-soft: #e0e0e0;
+  --text: #0f0f0f;
+  --text-muted: #616161;
+  --border: #d9d9d9;
+  --accent: #b5b5b5;
+}
+[data-theme='monochrome'][data-mode='dark'] {
+  --bg: #0d0d0d;
+  --surface: #131313;
+  --primary: #8a8a8a;
+  --primary-soft: #1e1e1e;
+  --text: #ebebeb;
+  --text-muted: #979797;
+  --border: #1c1c1c;
+  --accent: #8a8a8a;
+}
+
+/* ---- OLIVE: #E9F5DB #CFE1B9 #B5C99A #97A97C #87986A #718355 */
+[data-theme='olive'] {
+  --bg: #eef5e4;
+  --surface: #fcfff8;
+  --primary: #5c6c44;
+  --primary-soft: #dcebc8;
+  --text: #222c14;
+  --text-muted: #5d6b4a;
+  --border: #d3e1bf;
+  --accent: #b5c99a;
+}
+[data-theme='olive'][data-mode='dark'] {
+  --bg: #161d0d;
+  --surface: #1f2714;
+  --primary: #93a678;
+  --primary-soft: #2e3820;
+  --text: #e9f2dc;
+  --text-muted: #99a18d;
+  --border: #2c351e;
+  --accent: #93a678;
+}
+
+/* ---- ORANGE: #9B3C00 #B6520F #D2691E #EA9247 #FFBB6E */
+[data-theme='orange'] {
+  --bg: #fff3e6;
+  --surface: #fffdfa;
+  --primary: #a1490c;
+  --primary-soft: #ffe0bd;
+  --text: #3a1800;
+  --text-muted: #7d5233;
+  --border: #f4d9bc;
+  --accent: #ffbb6e;
+}
+[data-theme='orange'][data-mode='dark'] {
+  --bg: #1f0e02;
+  --surface: #2e1503;
+  --primary: #da863e;
+  --primary-soft: #462005;
+  --text: #ffebd5;
+  --text-muted: #aa9785;
+  --border: #431e05;
+  --accent: #da863e;
+}
+
+/* ---- SKY: #EDF4FA #CFE3F1 #8FB6D8 #5F86A6 #243A5E */
+[data-theme='sky'] {
+  --bg: #edf4fa;
+  --surface: #ffffff;
+  --primary: #446481;
+  --primary-soft: #cfe3f1;
+  --text: #1b2d4a;
+  --text-muted: #4c647f;
+  --border: #d3e3f0;
+  --accent: #8fb6d8;
+}
+[data-theme='sky'][data-mode='dark'] {
+  --bg: #0e1a2e;
+  --surface: #16253a;
+  --primary: #81a5c3;
+  --primary-soft: #23364d;
+  --text: #e0edf6;
+  --text-muted: #9ca9b5;
+  --border: #21344b;
+  --accent: #81a5c3;
+}
+
+/* ---- TEAL: #A5E6E2 #77DAD7 #36B8B7 #0A858C #0B757B */
+[data-theme='teal'] {
+  --bg: #e8f7f6;
+  --surface: #ffffff;
+  --primary: #0b7177;
+  --primary-soft: #c9efed;
+  --text: #032f33;
+  --text-muted: #41696b;
+  --border: #c3e5e3;
+  --accent: #77dad7;
+}
+[data-theme='teal'][data-mode='dark'] {
+  --bg: #021f22;
+  --surface: #03282b;
+  --primary: #41a8a9;
+  --primary-soft: #043539;
+  --text: #dcf5f4;
+  --text-muted: #89a4a4;
+  --border: #043437;
+  --accent: #41a8a9;
+}
+
+/* ==========================================================================
+   Mapping: the eight variables -> the --tm-* tokens. Same for every palette.
+   ========================================================================== */
+:root {
+  --tm-bg: var(--bg);
+  --tm-bg-sunken: color-mix(in srgb, var(--bg) 96%, var(--text));
+  --tm-card: var(--surface);
+  --tm-card-muted: color-mix(in srgb, var(--surface) 55%, var(--bg));
+  --tm-border: var(--border);
+  --tm-border-strong: color-mix(in srgb, var(--border) 86%, var(--text));
+
+  --tm-ink: var(--text);
+  --tm-ink-soft: color-mix(in srgb, var(--text) 88%, var(--surface));
+  --tm-ink-muted: var(--text-muted);
+  --tm-ink-invert: var(--surface);
+
+  /* Solid controls (circle buttons, active tab, bell): the dark ink in light mode. */
+  --tm-solid: color-mix(in srgb, var(--text) 90%, var(--surface));
+  --tm-solid-ink: var(--surface);
+  --tm-solid-hover: var(--text);
+  --tm-solid-accent: var(--accent);
+
+  --tm-primary: var(--tm-solid);
+  --tm-primary-dark: var(--primary);
+  --tm-primary-hover: var(--text);
+  --tm-primary-light: var(--accent);
+  --tm-primary-soft: var(--primary-soft);
+  --tm-subfolder-bg: var(--primary-soft);
+  --tm-primary-softer: color-mix(in srgb, var(--primary-soft) 55%, var(--surface));
+  --tm-on-primary: var(--surface);
+  --tm-accent: var(--accent);
+  --tm-accent-fixed: var(--accent); /* --tm-accent, but not re-pointed inside dark panels */
+  --tm-accent-ink: var(--text);
+
+  --tm-hero: var(--text);
+  --tm-hero-2: color-mix(in srgb, var(--text) 90%, var(--surface));
+  --tm-side-bg: var(--text);
+  --tm-on-dark: var(--surface); /* text colour on --tm-side-bg and --tm-hero */
+  --tm-detail: var(--primary);
+  --tm-detail-2: color-mix(in srgb, var(--primary) 82%, var(--surface));
+  --tm-detail-ink: var(--surface);
+
+  --tm-shadow-xs: 0 1px 2px color-mix(in srgb, var(--text) 4%, transparent);
+  --tm-shadow-sm: 0 2px 12px color-mix(in srgb, var(--text) 4.5%, transparent);
+  --tm-shadow-md: 0 6px 20px color-mix(in srgb, var(--text) 7%, transparent);
+  --tm-shadow-lg: 0 14px 36px color-mix(in srgb, var(--text) 11%, transparent);
+  --tm-shadow-hero: 0 12px 32px color-mix(in srgb, var(--text) 20%, transparent);
+  --tm-glow: 0 0 0 4px color-mix(in srgb, var(--tm-primary) 30%, transparent);
+
+  /* Glass: overlays only (header, modals, popovers, dropdowns, toasts) */
+  --tm-glass-bg: color-mix(in srgb, var(--surface) 78%, transparent);
+  --tm-glass-bg-strong: color-mix(in srgb, var(--surface) 94%, transparent);
+  --tm-glass-blur: 22px;
+  --tm-glass-blur-strong: 28px;
+  --tm-glass-border: color-mix(in srgb, var(--surface) 75%, transparent);
+  --tm-glass-border-strong: color-mix(in srgb, var(--text) 10%, transparent);
+  --tm-glass-shadow: 0 12px 40px color-mix(in srgb, var(--text) 12%, transparent);
+  --tm-glass-shadow-strong: 0 24px 64px color-mix(in srgb, var(--text) 22%, transparent),
+    0 4px 14px color-mix(in srgb, var(--text) 8%, transparent);
+  --tm-scrim: color-mix(in srgb, var(--text) 45%, transparent);
+}
+
+/* Dark mode: the accent colour becomes the solid fill, panels go darker than the canvas. */
+:root[data-mode='dark'] {
+  --tm-bg-sunken: color-mix(in srgb, var(--bg) 70%, #000);
+  --tm-card-muted: color-mix(in srgb, var(--surface) 96%, var(--text));
+
+  --tm-solid: var(--primary);
+  --tm-solid-ink: var(--bg);
+  --tm-solid-hover: color-mix(in srgb, var(--primary) 82%, var(--text));
+  --tm-solid-accent: var(--bg);
+
+  --tm-primary: var(--primary);
+  --tm-primary-hover: color-mix(in srgb, var(--primary) 82%, var(--text));
+  --tm-primary-light: color-mix(in srgb, var(--primary) 85%, var(--bg));
+  --tm-subfolder-bg: var(--tm-card-muted);
+  --tm-primary-softer: color-mix(in srgb, var(--primary-soft) 70%, var(--bg));
+  --tm-on-primary: var(--bg);
+  --tm-accent-ink: var(--bg);
+
+  --tm-hero: color-mix(in srgb, var(--bg) 70%, #000);
+  --tm-hero-2: var(--tm-card-muted);
+  --tm-side-bg: color-mix(in srgb, var(--bg) 70%, #000);
+  --tm-on-dark: var(--text);
+  --tm-detail: color-mix(in srgb, var(--primary) 55%, var(--bg));
+  --tm-detail-2: color-mix(in srgb, var(--primary) 66%, var(--bg));
+  --tm-detail-ink: var(--text);
+
+  --tm-shadow-xs: 0 1px 2px color-mix(in srgb, #000 40%, transparent);
+  --tm-shadow-sm: 0 2px 10px color-mix(in srgb, #000 40%, transparent);
+  --tm-shadow-md: 0 8px 24px color-mix(in srgb, #000 45%, transparent);
+  --tm-shadow-lg: 0 20px 48px color-mix(in srgb, #000 55%, transparent);
+  --tm-shadow-hero: 0 18px 44px color-mix(in srgb, #000 50%, transparent);
+
+  --tm-glass-bg: color-mix(in srgb, var(--surface) 62%, transparent);
+  --tm-glass-border: color-mix(in srgb, var(--text) 9%, transparent);
+  --tm-glass-border-strong: color-mix(in srgb, var(--text) 12%, transparent);
+  --tm-glass-shadow: 0 16px 48px color-mix(in srgb, #000 55%, transparent);
+  --tm-glass-shadow-strong: 0 24px 64px color-mix(in srgb, #000 70%, transparent),
+    0 4px 14px color-mix(in srgb, #000 40%, transparent);
+  --tm-scrim: color-mix(in srgb, #000 65%, transparent);
+}

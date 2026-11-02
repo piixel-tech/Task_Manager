@@ -6,6 +6,7 @@ import { ProfileSection } from './sections/ProfileSection';
 import { basePath, settingsGroupsFor } from './settingsMenu';
 import { ConnectedAppsSection } from './sections/ConnectedAppsSection';
 import { AppearanceSection, FocusSection, HelpSection, NotificationsSection, PasswordSection, ShortcutsSection } from './sections/PreferenceSections';
+import { FestivalSection } from './sections/FestivalSection';
 import { CompaniesSection, ExportSection, PeopleSection, SecuritySection, TrashSection, WorkspaceSection } from './sections/AdminSections';
 
 const RENDER: Record<string, () => React.ReactNode> = {
@@ -20,6 +21,7 @@ const RENDER: Record<string, () => React.ReactNode> = {
   people: () => <PeopleSection />,
   companies: () => <CompaniesSection />,
   workspace: () => <WorkspaceSection />,
+  festival: () => <FestivalSection />,
   trash: () => <TrashSection />,
   export: () => <ExportSection />,
   security: () => <SecuritySection />

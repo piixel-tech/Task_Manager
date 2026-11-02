@@ -30,7 +30,7 @@ export const UserLevelBadge: React.FC = () => {
       : 'from-[var(--tm-primary)] to-[var(--tm-primary)] text-[var(--tm-on-primary)] shadow-soft';
 
   return (
-    <div className="flex items-center gap-3 bg-[rgba(36,26,51,0.32)] backdrop-blur-md px-3.5 py-1.5 rounded-full border border-[var(--tm-border-strong)] text-xs shadow-inner">
+    <div className="flex items-center gap-3 bg-[color-mix(in_srgb,var(--tm-hero)_32%,transparent)] backdrop-blur-md px-3.5 py-1.5 rounded-full border border-[var(--tm-border-strong)] text-xs shadow-inner">
       {/* Streak Counter */}
       <div className="flex items-center gap-1 text-[var(--tm-warning)] font-bold" title={`${stats.streak} day productive streak`}>
         <Flame className="w-4 h-4 text-[var(--tm-warning)] fill-[var(--tm-warning)] animate-pulse" />

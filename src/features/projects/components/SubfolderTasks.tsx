@@ -214,7 +214,7 @@ export const SubfolderTasksTab: React.FC<TabProps> = ({ data, filter, onFilter }
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="In progress" value={c.in_progress} icon={<Clock className="h-5 w-5" />} tone="warn" hint="Being worked on or in review" onClick={() => toggle('in_progress')} />
         <StatCard label="Upcoming" value={c.upcoming} icon={<CalendarClock className="h-5 w-5" />} tone="primary" hint="Not started yet" onClick={() => toggle('upcoming')} />
         <StatCard label="Overdue" value={c.overdue} icon={<AlertTriangle className="h-5 w-5" />} tone="bad" hint="Past the due date" onClick={() => toggle('overdue')} />

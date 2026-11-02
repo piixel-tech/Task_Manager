@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   addMinutes,
@@ -33,20 +33,19 @@ import { useConfirm } from '../../../hooks/useConfirm';
 import { socket } from '../../../services/socket';
 import { bookingApi, statusApi, type Booking, type StatusEntry } from '../../../services/http/calendarApi';
 import { externalEventApi, type ExternalEvent } from '../../../services/http/integrationApi';
-import { DAY_STATUSES, statusMeta } from '../../status/statusMeta';
+import { statusMeta } from '../../status/statusMeta';
 import { useMotionPrefs } from '../../../components/ui/useMotionPrefs';
 import { popoverVariants } from '../../../components/ui/motion';
+import { MonthStatusBoard } from '../components/MonthStatusBoard';
+import { KIND_META, type DayKind } from '../dayStatusMeta';
 
 const DAY_START_HOUR = 0; // the whole day is bookable, day and night
 const DAY_END_HOUR = 24;
-const OFFICE_START_HOUR = 9; // where the grid opens when it isn't today
 const STEP_MINUTES = 30;
 const DURATIONS = [30, 60, 90, 120];
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-const HOURS = Array.from({ length: DAY_END_HOUR - DAY_START_HOUR }, (_, i) => DAY_START_HOUR + i);
-const HOUR_PX = 56;
-/** Soft tints for booking blocks, from the status/accent tokens so dark mode follows. */
+/** Soft tints for booking rows, from the status/accent tokens so dark mode follows. */
 const PASTELS = [
   'color-mix(in srgb, var(--tm-primary-light) 38%, var(--tm-card))',
   'var(--tm-info-bg)',
@@ -54,17 +53,8 @@ const PASTELS = [
   'var(--tm-success-bg)'
 ];
 
-interface GridBlock {
-  key: string;
-  start: Date;
-  end: Date;
-  title: string;
-  tint: number;
-  external: boolean;
-  people: { user_id: string; name: string; avatar_url: string | null }[];
-  lane: number;
-  lanes: number;
-}
+/** The mini month's legend: the four statuses and holidays, in fixed colours. */
+const MINI_LEGEND: DayKind[] = ['present', 'wfh', 'half_day', 'leave', 'holiday'];
 
 const ymd = (d: Date) => format(d, 'yyyy-MM-dd');
 
@@ -84,6 +74,7 @@ export const CalendarPage: React.FC = () => {
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
   const [selected, setSelected] = useState(() => startOfDay(new Date()));
   const [statuses, setStatuses] = useState<StatusEntry[]>([]);
+  const [team, setTeam] = useState<StatusEntry[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [external, setExternal] = useState<ExternalEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,13 +107,16 @@ export const CalendarPage: React.FC = () => {
     const from = ymd(gridDays[0]);
     const to = ymd(gridDays[gridDays.length - 1]);
     try {
-      const [s, b, x] = await Promise.all([
+      const [s, b, x, t] = await Promise.all([
         statusApi.range(hostId, from, to),
         bookingApi.list(hostId, from, to),
         // Connected calendars (Google) are optional: the calendar still works if they can't be loaded.
-        externalEventApi.list(hostId, from, to).catch(() => [] as ExternalEvent[])
+        externalEventApi.list(hostId, from, to).catch(() => [] as ExternalEvent[]),
+        // The team view and day popover are extras: the calendar still works without them.
+        statusApi.team(from, to).catch(() => [] as StatusEntry[])
       ]);
       setStatuses(s);
+      setTeam(t);
       setBookings(b);
       setExternal(x);
       setLoadError(null);
@@ -242,70 +236,6 @@ export const CalendarPage: React.FC = () => {
 
   const todayStatus = statusMeta(statusByDate.get(ymd(new Date())));
 
-  // Open the grid at the current time (when this week has today) or at the office start.
-  const gridScroll = useRef<HTMLDivElement>(null);
-  const weekKey = ymd(startOfWeek(selected, { weekStartsOn: 1 }));
-  useEffect(() => {
-    const el = gridScroll.current;
-    if (!el) return;
-    const now = new Date();
-    const thisWeek = ymd(startOfWeek(now, { weekStartsOn: 1 })) === weekKey;
-    const hour = thisWeek ? Math.max(0, now.getHours() - 1) : OFFICE_START_HOUR;
-    el.scrollTop = hour * HOUR_PX;
-  }, [weekKey, hostId]);
-
-  // --- Look only: the week shown in the grid, derived from what is already loaded ------------------------
-  const weekDays = eachDayOfInterval({
-    start: startOfWeek(selected, { weekStartsOn: 1 }),
-    end: endOfWeek(selected, { weekStartsOn: 1 })
-  });
-  const pending = slotStart && canBook ? { start: slotStart, end: addMinutes(slotStart, duration) } : null;
-  const labelFor = (b: Booking) => (b.title === 'Busy' && !isOwn ? 'Busy' : b.title);
-
-  const dayBlocks = (day: Date): GridBlock[] => {
-    const items: Omit<GridBlock, 'lane' | 'lanes'>[] = [
-      ...bookings
-        .filter((b) => isSameDay(parseISO(b.start), day))
-        .map((b, i) => ({
-          key: b.id,
-          start: parseISO(b.start),
-          end: parseISO(b.end),
-          title: labelFor(b),
-          tint: i % PASTELS.length,
-          external: false,
-          people: [people.get(b.host_user_id), people.get(b.booked_by)].filter(
-            (p, idx, all): p is NonNullable<typeof p> => !!p && all.indexOf(p) === idx
-          )
-        })),
-      ...externalOn(day)
-        .filter((e) => !e.all_day)
-        .map((e) => ({
-          key: e.id,
-          start: parseISO(e.start),
-          end: parseISO(e.end),
-          title: isOwn ? e.title : 'Busy',
-          tint: 0,
-          external: true,
-          people: []
-        }))
-    ].sort((a, b) => a.start.getTime() - b.start.getTime());
-
-    const laneEnds: Date[] = [];
-    const placed = items.map((it) => {
-      let lane = laneEnds.findIndex((end) => end <= it.start);
-      if (lane === -1) lane = laneEnds.length;
-      laneEnds[lane] = it.end;
-      return { ...it, lane };
-    });
-    return placed.map((it) => ({ ...it, lanes: Math.max(laneEnds.length, 1) }));
-  };
-
-  const place = (start: Date, end: Date) => {
-    const from = Math.max(0, (start.getHours() * 60 + start.getMinutes() - DAY_START_HOUR * 60) / 60);
-    const to = Math.min(HOURS.length, (end.getHours() * 60 + end.getMinutes() - DAY_START_HOUR * 60) / 60 || HOURS.length);
-    return { top: from * HOUR_PX, height: Math.max((to - from) * HOUR_PX, 22) };
-  };
-
   const eyebrow = 'text-[10.5px] font-bold uppercase tracking-[0.14em] text-[var(--tm-ink-muted)]';
 
   return (
@@ -380,41 +310,54 @@ export const CalendarPage: React.FC = () => {
               <div className={`mt-1 grid grid-cols-7 gap-y-1 ${loading ? 'opacity-60' : ''}`}>
                 {gridDays.map((day) => {
                   const key = ymd(day);
-                  const meta = statusMeta(statusByDate.get(key));
+                  const inMonth = isSameMonth(day, month);
+                  const status = inMonth ? statusByDate.get(key) : undefined;
+                  const off = inMonth ? dayOff(day) : null;
+                  const holiday = off?.kind === 'holiday';
+                  const weekend = off?.kind === 'weekoff';
                   const isSelected = isSameDay(day, selected);
                   const isToday = isSameDay(day, new Date());
-                  const inWeek = weekDays.some((d) => isSameDay(d, day));
+                  const label = `${format(day, 'EEEE d MMMM')}${holiday ? `, ${off.name}` : weekend ? ', weekly off' : ''}${status ? `, ${KIND_META[status].long}` : ''}`;
+                  // One meaning per style: today = solid circle, selected = thin ring, weekend = muted number, holiday = purple number + dot,
+                  // my status = the 6px dot underneath. Days of other months stay faint and show no dots.
                   return (
                     <button
                       key={key}
                       type="button"
                       onClick={() => setSelected(day)}
-                      aria-label={`${format(day, 'EEEE d MMMM')}${meta ? `, ${meta.label}` : ''}`}
+                      aria-label={label}
                       aria-pressed={isSelected}
-                      className={`relative mx-auto grid h-9 w-9 place-items-center rounded-full text-[12.5px] font-bold transition-colors ${
-                        isSelected
-                          ? 'bg-[var(--tm-solid)] text-[var(--tm-solid-ink)]'
-                          : `text-[var(--tm-ink)] hover:bg-[var(--tm-bg-sunken)] ${inWeek ? 'bg-[var(--tm-bg-sunken)]' : ''}`
-                      } ${isToday && !isSelected ? 'ring-2 ring-[var(--tm-accent)]' : ''} ${isSameMonth(day, month) ? '' : 'opacity-40'}`}
-                      style={!isSelected && dayOff(day) ? { background: 'color-mix(in srgb, var(--tm-primary-light) 24%, transparent)' } : undefined}
-                      title={dayOff(day)?.name}
+                      title={holiday ? off.name : undefined}
+                      className={`relative mx-auto flex h-11 w-9 flex-col items-center gap-0.5 ${inMonth ? '' : 'opacity-30'}`}
                     >
-                      {format(day, 'd')}
-                      {meta && (
-                        <span
-                          className="absolute bottom-1 h-1.5 w-1.5 rounded-full ring-1 ring-[var(--tm-card)]"
-                          style={{ background: meta.color }}
-                        />
-                      )}
+                      <span
+                        className={`grid h-8 w-8 place-items-center rounded-full text-[12.5px] font-bold transition-shadow ${
+                          isToday
+                            ? 'bg-[var(--primary)] text-[var(--tm-on-primary)]'
+                            : holiday
+                              ? 'text-[var(--st-holiday)]'
+                              : weekend
+                                ? 'text-[var(--tm-ink-muted)]'
+                                : 'text-[var(--tm-ink)]'
+                        } ${
+                          isSelected
+                            ? `ring-[1.5px] ring-[var(--primary)] ${isToday ? 'ring-offset-2 ring-offset-[var(--tm-card)]' : ''}`
+                            : 'hover:ring-1 hover:ring-[var(--tm-border-strong)]'
+                        }`}
+                      >
+                        {format(day, 'd')}
+                      </span>
+                      {holiday && <span aria-hidden className="absolute right-0.5 top-0.5 h-1 w-1 rounded-full" style={{ background: 'var(--st-holiday)' }} />}
+                      {status && <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{ background: KIND_META[status].color }} />}
                     </button>
                   );
                 })}
               </div>
               <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-[11.5px] text-[var(--tm-ink-muted)]">
-                {DAY_STATUSES.map((s) => (
-                  <span key={s.value} className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
-                    {s.label}
+                {MINI_LEGEND.map((k) => (
+                  <span key={k} className="flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: KIND_META[k].color }} />
+                    {KIND_META[k].label}
                   </span>
                 ))}
               </div>
@@ -457,189 +400,22 @@ export const CalendarPage: React.FC = () => {
           )}
         </div>
 
-        {/* Main: week grid, then the selected day */}
+        {/* Main: the month with every day's status, then the week grid and the selected day */}
         <div className="min-w-0 space-y-6">
-          <div className="relative">
-            <Card className={`overflow-hidden !p-0 ${loading ? 'opacity-70' : ''}`}>
-              <div className="flex items-center justify-between px-6 pb-3 pt-5">
-                <h3 className="text-[18px] font-extrabold text-[var(--tm-ink)]">
-                  {format(weekDays[0], 'd MMM')} - {format(weekDays[6], 'd MMM yyyy')}
-                </h3>
-              </div>
-              <div className="overflow-x-auto">
-                <div className="min-w-[760px] px-4 pb-4">
-                  {/* Day headers tinted by daily status */}
-                  <div className="grid grid-cols-[48px_repeat(7,minmax(0,1fr))] gap-1.5">
-                    <div />
-                    {weekDays.map((day) => {
-                      const meta = statusMeta(statusByDate.get(ymd(day)));
-                      const isSelected = isSameDay(day, selected);
-                      const allDay = externalOn(day).filter((e) => e.all_day);
-                      return (
-                        <button
-                          key={ymd(day)}
-                          type="button"
-                          onClick={() => setSelected(day)}
-                          aria-pressed={isSelected}
-                          className={`flex flex-col items-center rounded-[var(--tm-radius-md)] px-2 py-2.5 transition-colors ${
-                            isSelected ? 'bg-[var(--tm-solid)] text-[var(--tm-solid-ink)]' : 'text-[var(--tm-ink)]'
-                          }`}
-                          style={
-                            isSelected
-                              ? undefined
-                              : { background: `color-mix(in srgb, ${meta?.color ?? 'var(--tm-border-strong)'} 16%, var(--tm-card-muted))` }
-                          }
-                        >
-                          <span className="text-[11px] font-bold uppercase tracking-wider opacity-70">{format(day, 'EEE')}</span>
-                          <span className="text-[22px] font-extrabold leading-tight tabular-nums">{format(day, 'd')}</span>
-                          <span className="mt-0.5 flex h-4 items-center gap-1 text-[10.5px] font-semibold opacity-80">
-                            {meta && <span className="h-1.5 w-1.5 rounded-full" style={{ background: meta.color }} />}
-                            <span className="truncate" title={dayOff(day)?.name}>{meta ? meta.label : dayOff(day) ? dayOff(day)!.name : allDay.length > 0 ? (isOwn ? 'All day' : 'Busy') : ''}</span>
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Hours x days */}
-                  <div ref={gridScroll} className="mt-2 grid max-h-[560px] grid-cols-[48px_repeat(7,minmax(0,1fr))] gap-1.5 overflow-y-auto">
-                    <div className="relative" style={{ height: HOURS.length * HOUR_PX }}>
-                      {HOURS.map((h, i) => (
-                        <span
-                          key={h}
-                          className="absolute right-2 -translate-y-1/2 text-[10.5px] font-semibold tabular-nums text-[var(--tm-ink-muted)]"
-                          style={{ top: i * HOUR_PX + 8 }}
-                        >
-                          {format(addMinutes(startOfDay(new Date()), h * 60), 'h a')}
-                        </span>
-                      ))}
-                    </div>
-                    {weekDays.map((day) => {
-                      const status = statusByDate.get(ymd(day));
-                      const blocks = dayBlocks(day);
-                      const showPending = pending && isSameDay(pending.start, day);
-                      return (
-                        <div
-                          key={ymd(day)}
-                          className="relative overflow-hidden rounded-[var(--tm-radius-sm)] bg-[var(--tm-card-muted)]"
-                          style={{
-                            height: HOURS.length * HOUR_PX,
-                            backgroundImage: `repeating-linear-gradient(to bottom, transparent 0, transparent ${HOUR_PX - 1}px, var(--tm-border) ${HOUR_PX - 1}px, var(--tm-border) ${HOUR_PX}px)`
-                          }}
-                        >
-                          {dayOff(day) && (
-                            <div aria-hidden className="absolute inset-0" style={{ background: 'color-mix(in srgb, var(--tm-primary-light) 22%, transparent)' }}>
-                              <span className="sticky top-1 mx-1 mt-1 block truncate rounded-full bg-[var(--tm-card)]/70 px-2 py-0.5 text-center text-[10.5px] font-bold text-[var(--tm-primary-dark)]">{dayOff(day)!.name}</span>
-                            </div>
-                          )}
-                          {status === 'leave' && (
-                            <div
-                              aria-hidden
-                              className="absolute inset-0"
-                              style={{
-                                background:
-                                  'repeating-linear-gradient(135deg, color-mix(in srgb, var(--tm-danger) 14%, transparent) 0 6px, transparent 6px 12px)'
-                              }}
-                            />
-                          )}
-                          {status === 'half_day' && (
-                            <div
-                              aria-hidden
-                              className="absolute inset-x-0 bottom-0 h-1/2"
-                              style={{ background: 'color-mix(in srgb, var(--tm-warning) 14%, transparent)' }}
-                            />
-                          )}
-                          {blocks.map((b) => {
-                            const { top, height } = place(b.start, b.end);
-                            const pastel = PASTELS[b.tint];
-                            return (
-                              <div
-                                key={b.key}
-                                className="absolute overflow-hidden rounded-[12px] px-2 py-1.5 text-[var(--tm-ink)]"
-                                style={{
-                                  top,
-                                  height: height - 2,
-                                  left: `calc(${(b.lane / b.lanes) * 100}% + 2px)`,
-                                  width: `calc(${100 / b.lanes}% - 4px)`,
-                                  background: b.external
-                                    ? 'repeating-linear-gradient(135deg, var(--tm-bg-sunken) 0 6px, var(--tm-card-muted) 6px 12px)'
-                                    : pastel
-                                }}
-                                title={`${b.title}, ${format(b.start, 'HH:mm')} - ${format(b.end, 'HH:mm')}`}
-                              >
-                                <div className="truncate text-[11.5px] font-bold leading-tight">{b.title}</div>
-                                <div className="truncate text-[10px] font-semibold tabular-nums text-[var(--tm-ink-soft)]">
-                                  {format(b.start, 'HH:mm')} - {format(b.end, 'HH:mm')}
-                                </div>
-                                {height > 54 && b.people.length > 0 && (
-                                  <div className="mt-1.5 flex items-center">
-                                    {b.people.map((p, i) => (
-                                      <span key={p.user_id} className={i === 0 ? '' : '-ml-1.5'}>
-                                        <Avatar name={p.name} src={p.avatar_url ?? undefined} size="xs" ring />
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                          {showPending && pending && (
-                            <div
-                              aria-hidden
-                              className="absolute inset-x-[2px] rounded-[12px] border-2 border-dashed border-[var(--tm-primary)] bg-[var(--tm-accent)]/30"
-                              style={place(pending.start, pending.end)}
-                            />
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            {/* Booking form: a floating glass popup over the grid */}
-            <AnimatePresence>
-              {slotStart && canBook && (
-                <motion.div
-                  key="booking-popup"
-                  role="dialog"
-                  aria-label="New booking"
-                  variants={reduced ? undefined : popoverVariants}
-                  initial={reduced ? false : 'hidden'}
-                  animate="show"
-                  exit={reduced ? undefined : 'exit'}
-                  onKeyDown={(e) => e.key === 'Escape' && setSlotStart(null)}
-                  className="glass-strong absolute right-4 top-16 z-20 w-[min(320px,calc(100%-2rem))] space-y-3 rounded-[var(--tm-radius-lg)] p-5"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className={eyebrow}>{format(slotStart, 'EEE d MMM')}</div>
-                      <p className="mt-0.5 flex items-center gap-1.5 text-[13px] font-bold tabular-nums text-[var(--tm-ink)]">
-                        <Clock className="h-3.5 w-3.5" />
-                        {format(slotStart, 'HH:mm')} - {format(addMinutes(slotStart, duration), 'HH:mm')}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      aria-label="Close"
-                      onClick={() => setSlotStart(null)}
-                      className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[var(--tm-solid)] text-[var(--tm-solid-ink)]"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <Input label="Title" placeholder="e.g. Design review" value={title} onChange={(e) => setTitle(e.target.value)} />
-                  <Textarea label="Note (optional)" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
-                  <Button className="w-full" disabled={!title.trim()} onClick={submitBooking}>
-                    Book slot
-                  </Button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <MonthStatusBoard
+            month={month}
+            days={gridDays}
+            selected={selected}
+            onSelect={setSelected}
+            onMonth={changeMonth}
+            hostName={isOwn ? 'My status' : (host?.name ?? 'Person')}
+            hostStatuses={statusByDate}
+            team={team}
+            people={people}
+            dayOff={dayOff}
+            loading={loading}
+          />
+          <div className="relative grid grid-cols-1 gap-6 lg:grid-cols-2">
             {/* Selected day */}
             <Card>
               <CardHeader>
@@ -784,6 +560,46 @@ export const CalendarPage: React.FC = () => {
                 )}
               </CardContent>
             </Card>
+
+            {/* Booking form: a floating glass popup over the day */}
+            <AnimatePresence>
+              {slotStart && canBook && (
+                <motion.div
+                  key="booking-popup"
+                  role="dialog"
+                  aria-label="New booking"
+                  variants={reduced ? undefined : popoverVariants}
+                  initial={reduced ? false : 'hidden'}
+                  animate="show"
+                  exit={reduced ? undefined : 'exit'}
+                  onKeyDown={(e) => e.key === 'Escape' && setSlotStart(null)}
+                  className="glass-strong absolute right-4 top-4 z-20 w-[min(320px,calc(100%-2rem))] space-y-3 rounded-[var(--tm-radius-lg)] p-5"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className={eyebrow}>{format(slotStart, 'EEE d MMM')}</div>
+                      <p className="mt-0.5 flex items-center gap-1.5 text-[13px] font-bold tabular-nums text-[var(--tm-ink)]">
+                        <Clock className="h-3.5 w-3.5" />
+                        {format(slotStart, 'HH:mm')} - {format(addMinutes(slotStart, duration), 'HH:mm')}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label="Close"
+                      onClick={() => setSlotStart(null)}
+                      className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[var(--tm-solid)] text-[var(--tm-solid-ink)]"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <Input label="Title" placeholder="e.g. Design review" value={title} onChange={(e) => setTitle(e.target.value)} />
+                  <Textarea label="Note (optional)" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+                  <Button className="w-full" disabled={!title.trim()} onClick={submitBooking}>
+                    Book slot
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>

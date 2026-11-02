@@ -297,7 +297,7 @@ export const Composer: React.FC<Props> = ({ group, meId, replyTo, onCancelReply,
                     aria-expanded={menu}
                     disabled={busy}
                     onClick={() => setMenu((m) => !m)}
-                    className="ml-1 !rounded-full !bg-[#C4B5E0] !text-[#2A2933] px-2 hover:!bg-[#D2C6E9]"
+                    className="ml-1 !rounded-full !bg-[var(--tm-accent)] !text-[var(--tm-accent-ink)] px-2 hover:!brightness-95"
                   >
                     <ChevronDown className="h-4 w-4" />
                   </Button>

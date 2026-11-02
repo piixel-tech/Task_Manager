@@ -4,7 +4,6 @@ import type {
   Badge,
   BadgeType,
   Kudos,
-  DailyUpdate,
   TaskPauseReason,
   WeeklyReport,
   Task
@@ -141,38 +140,6 @@ export class MockGamificationService implements IGamificationService {
     await delay();
     const allKudos = getStoredData<Kudos[]>(KEYS.KUDOS) || [];
     return allKudos.filter((k) => k.taskId === taskId);
-  }
-
-  async saveDailyUpdate(userId: string, summary: string): Promise<DailyUpdate> {
-    await delay();
-    const allUpdates = getStoredData<DailyUpdate[]>(KEYS.DAILY_UPDATES) || [];
-    const today = getTodayDateString();
-
-    const existingIndex = allUpdates.findIndex((u) => u.userId === userId && u.date === today);
-
-    const updateRecord: DailyUpdate = {
-      id: existingIndex >= 0 ? allUpdates[existingIndex].id : `upd_${Date.now()}`,
-      userId,
-      date: today,
-      summary,
-      createdAt: new Date().toISOString()
-    };
-
-    if (existingIndex >= 0) {
-      allUpdates[existingIndex] = updateRecord;
-    } else {
-      allUpdates.push(updateRecord);
-    }
-
-    setStoredData(KEYS.DAILY_UPDATES, allUpdates);
-    return updateRecord;
-  }
-
-  async getDailyUpdates(date?: string): Promise<DailyUpdate[]> {
-    await delay();
-    const allUpdates = getStoredData<DailyUpdate[]>(KEYS.DAILY_UPDATES) || [];
-    const filterDate = date || getTodayDateString();
-    return allUpdates.filter((u) => u.date === filterDate);
   }
 
   async logTaskPauseReason(taskId: string, userId: string, reason: string, note?: string): Promise<TaskPauseReason> {

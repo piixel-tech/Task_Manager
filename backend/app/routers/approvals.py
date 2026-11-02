@@ -85,7 +85,7 @@ async def answer_approval(approval_id: PydanticObjectId, body: ApprovalAnswer, u
         group.member_ids,
         user,
         type="approval_answered",
-        title=f"{'✅ Approved' if body.decision == 'approved' else '❌ Rejected'}: {_snippet(approval.question, 60)}",
+        title=f"{'Approved' if body.decision == 'approved' else 'Rejected'}: {_snippet(approval.question, 60)}",
         body=f"{user.name} chose “{label}”." + (f" Reason: {body.reason}" if body.reason else ""),
         group_id=group.id,
     )

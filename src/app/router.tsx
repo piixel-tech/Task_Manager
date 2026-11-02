@@ -18,7 +18,7 @@ import { PersonProfilePage } from '../features/people/PersonProfilePage';
 import { DashboardPage } from '../features/dashboard/pages/DashboardPage';
 
 import { CalendarPage } from '../features/calendar/pages/CalendarPage';
-import { InboxPage } from '../features/notifications/pages/InboxPage';
+import { ActivityPage } from '../features/notifications/pages/ActivityPage';
 import { OfficePage } from '../features/office/pages/OfficePage';
 import { ProjectsPage } from '../features/projects/pages/ProjectsPage';
 import { ProjectDetailPage } from '../features/projects/pages/ProjectDetailPage';
@@ -26,8 +26,6 @@ import { SubfolderPage } from '../features/projects/pages/SubfolderPage';
 import { TasksPage } from '../features/tasks/pages/TasksPage';
 import { TaskDetailPage } from '../features/tasks/pages/TaskDetailPage';
 import { ChatPage } from '../features/chat/pages/ChatPage';
-import { DailyUpdatesPage } from '../features/gamification/pages/DailyUpdatesPage';
-import { MonthlyWrappedPage } from '../features/gamification/pages/MonthlyWrappedPage';
 import { ProfilePage } from '../features/employee/pages/ProfilePage';
 
 import { ReviewsPage } from '../features/reviews/pages/ReviewsPage';
@@ -51,12 +49,6 @@ const RootRedirect: React.FC = () => {
   if (!user) return <Navigate to="/login" replace />;
   if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
   return <Navigate to={homeForRole(user.role)} replace />;
-};
-
-const WrappedRedirect: React.FC = () => {
-  const { user } = useAuthStore();
-  if (user?.role === 'admin') return <Navigate to="/admin/wrapped" replace />;
-  return <Navigate to="/app/wrapped" replace />;
 };
 
 export const router = createBrowserRouter([
@@ -101,7 +93,6 @@ export const router = createBrowserRouter([
       { path: 'dashboard', element: <AdminDashboardPage /> },
       { path: 'liveboard', element: <Navigate to="/admin/dashboard" replace /> },
       { path: 'attendance', element: <Navigate to="/admin/dashboard" replace /> },
-      { path: 'daily-updates', element: <DailyUpdatesPage /> },
       { path: 'workload', element: <Navigate to="/admin/dashboard" replace /> },
       { path: 'users', element: <AdminUsersPage /> },
       { path: 'projects', element: <ProjectsPage /> },
@@ -114,9 +105,9 @@ export const router = createBrowserRouter([
       { path: 'calendar', element: <CalendarPage /> },
       { path: 'calendar/:userId', element: <CalendarPage /> },
       { path: 'office', element: <OfficePage /> },
-      { path: 'inbox', element: <InboxPage /> },
+      { path: 'activity', element: <ActivityPage /> },
+      { path: 'inbox', element: <Navigate to="../activity" replace /> },
       { path: 'chat', element: <ChatPage /> },
-      { path: 'wrapped', element: <Navigate to="/admin/dashboard" replace /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'settings/:section', element: <SettingsPage /> },
       { path: 'people/:userId', element: <PersonProfilePage /> },
@@ -143,9 +134,9 @@ export const router = createBrowserRouter([
       { path: 'calendar', element: <CalendarPage /> },
       { path: 'calendar/:userId', element: <CalendarPage /> },
       { path: 'office', element: <OfficePage /> },
-      { path: 'inbox', element: <InboxPage /> },
+      { path: 'activity', element: <ActivityPage /> },
+      { path: 'inbox', element: <Navigate to="../activity" replace /> },
       { path: 'chat', element: <ChatPage /> },
-      { path: 'wrapped', element: <MonthlyWrappedPage /> },
       { path: 'profile', element: <ProfilePage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'settings/:section', element: <SettingsPage /> },
@@ -153,14 +144,6 @@ export const router = createBrowserRouter([
       { path: 'gamification', element: <Navigate to="/app/dashboard" replace /> },
       { path: '*', element: <Navigate to="/app/dashboard" replace /> }
     ]
-  },
-  {
-    path: '/wrapped',
-    element: (
-      <AuthGuard>
-        <WrappedRedirect />
-      </AuthGuard>
-    )
   },
   {
     path: '/client',

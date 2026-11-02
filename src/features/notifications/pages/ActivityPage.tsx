@@ -12,7 +12,7 @@ import type { AppNotification } from '../../../types';
 const PAGE = 30;
 
 /** Everything the bell has ever shown, with the unread ones first to hand. */
-export const InboxPage: React.FC = () => {
+export const ActivityPage: React.FC = () => {
   const navigate = useNavigate();
   const unreadCount = useNotificationStore((s) => s.unreadCount);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
@@ -29,7 +29,7 @@ export const InboxPage: React.FC = () => {
         setTotal(p.total);
         setError(null);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Could not load your inbox'));
+      .catch((err) => setError(err instanceof Error ? err.message : 'Could not load your activity'));
   }, [filter]);
 
   useEffect(() => {
@@ -68,7 +68,7 @@ export const InboxPage: React.FC = () => {
   return (
     <>
       <PageHeader
-        title="Inbox"
+        title="Activity"
         description="Everything that was sent to you: assignments, reviews, mentions, chats and more."
         actions={
           unreadCount > 0 && (

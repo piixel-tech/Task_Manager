@@ -97,7 +97,7 @@ export const WorkloadPage: React.FC = () => {
         description="Open tasks and logged hours per employee, flagging anyone well above the team average."
       />
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Team average"
           value={Math.round(avgHours * 10) / 10}

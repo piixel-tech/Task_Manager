@@ -9,7 +9,7 @@ export const Ticks: React.FC<{ status: MessageStatus; className?: string }> = ({
   const Icon = status === 'sent' ? Check : CheckCheck;
   return (
     <span className={`inline-flex ${className}`} title={LABEL[status]}>
-      <Icon className={`h-4 w-4 ${status === 'seen' ? 'text-sky-500' : 'text-[var(--tm-ink-muted)]'}`} />
+      <Icon className={`h-4 w-4 ${status === 'seen' ? 'text-[var(--tm-info)]' : 'text-[var(--tm-ink-muted)]'}`} />
       <span className="sr-only">{LABEL[status]}</span>
     </span>
   );

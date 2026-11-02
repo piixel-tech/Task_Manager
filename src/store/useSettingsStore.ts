@@ -1,7 +1,9 @@
 import { create } from 'zustand';
-import { accountApi, DEFAULT_SETTINGS, type NotifPrefs, type UserSettings } from '../services/http/accountApi';
+import { accountApi, coercePalette, DEFAULT_SETTINGS, type NotifPrefs, type UserSettings } from '../services/http/accountApi';
 import { setSoundPreference } from '../features/tasks/components/TaskCompletionCelebration';
 import { useAuthStore } from './authStore';
+import { isFestivalApplied, useFestivalStore } from './useFestivalStore';
+import { isAvailablePalette, themeAttr } from './useCustomThemesStore';
 import { toast } from './useToastStore';
 
 interface SettingsStore {
@@ -14,6 +16,7 @@ interface SettingsStore {
 }
 
 const MODE_KEY = 'tm.mode';
+const PALETTE_KEY = 'tm.palette';
 const DENSITY_KEY = 'tm.density';
 
 const remember = (key: string, value: string) => {
@@ -27,12 +30,16 @@ const remember = (key: string, value: string) => {
 const darkQuery = () => window.matchMedia?.('(prefers-color-scheme: dark)');
 
 /** Light or dark on the page, and compact or comfortable spacing. "System" follows the device. */
-export function applyAppearance(s: Pick<UserSettings, 'theme' | 'density'>): void {
+export function applyAppearance(s: Pick<UserSettings, 'theme' | 'density'> & { palette?: UserSettings['palette'] }): void {
   const dark = s.theme === 'dark' || (s.theme === 'system' && !!darkQuery()?.matches);
   const root = document.documentElement;
-  root.setAttribute('data-theme', dark ? 'dark' : 'light');
+  root.setAttribute('data-mode', dark ? 'dark' : 'light');
+  // A live festival theme takes over unless this browser switched back to the person's own theme.
+  root.setAttribute('data-theme', isFestivalApplied(useFestivalStore.getState()) ? 'festival' : themeAttr(isAvailablePalette(s.palette ?? 'purple') ? (s.palette ?? 'purple') : 'purple'));
   root.setAttribute('data-density', s.density);
   remember(MODE_KEY, s.theme);
+  remember(PALETTE_KEY, s.palette ?? 'purple');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', getComputedStyle(root).getPropertyValue('--bg').trim() || '#f3f1f6');
   remember(DENSITY_KEY, s.density);
 }
 
@@ -40,7 +47,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   settings: DEFAULT_SETTINGS,
 
   init: (saved) => {
-    const settings = saved ? { ...DEFAULT_SETTINGS, ...saved, notif_prefs: { ...DEFAULT_SETTINGS.notif_prefs, ...saved.notif_prefs } } : DEFAULT_SETTINGS;
+    const settings = saved ? { ...DEFAULT_SETTINGS, ...saved, palette: coercePalette(saved.palette), notif_prefs: { ...DEFAULT_SETTINGS.notif_prefs, ...saved.notif_prefs } } : DEFAULT_SETTINGS;
     applyAppearance(settings);
     setSoundPreference(settings.sound); // the existing sound code reads this local copy
     set({ settings });
@@ -48,6 +55,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   update: async (patch) => {
     const before = get().settings;
+    if (patch.palette && patch.palette !== before.palette) useFestivalStore.getState().useOwnTheme(); // picking a theme means "use mine"
     const next: UserSettings = { ...before, ...patch, notif_prefs: { ...before.notif_prefs, ...patch.notif_prefs } };
     applyAppearance(next);
     setSoundPreference(next.sound);

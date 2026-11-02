@@ -22,6 +22,7 @@ import { formatDate, getTodayDateString } from '../../../utils/time';
 import { formatDuration } from '../../../utils/format';
 import { dailyCounts, weekTrend } from '../../../utils/trend';
 import { isOverdue, StatusDot } from '../components/TaskMeta';
+import { deadlineHeat } from '../../../utils/deadlineHeat';
 import { TaskFormModal } from '../components/TaskFormModal';
 
 const STATUS_OPTIONS: { value: '' | ApiTaskStatus; label: string }[] = [
@@ -356,6 +357,7 @@ export const TasksPage: React.FC = () => {
               <MasterRow
                 variant="dark"
                 key={t.id}
+                heat={deadlineHeat(t.due_date, OPEN_STATUSES.includes(t.status))}
                 selected={t.id === selected?.id}
                 onSelect={() => select(t.id)}
                 avatar={t.assignee && <Avatar name={t.assignee.name} src={t.assignee.avatar_url ?? undefined} size="md" className="!h-9 !w-9" />}
@@ -381,14 +383,14 @@ export const TasksPage: React.FC = () => {
               onAction={() => setCreating(true)}
             />
           ) : (
-            <div key={selected.id} className="animate-fade-in">
+            <div key={selected.id} data-focus-keep className="animate-fade-in">
               <DetailCard
                 variant="dark"
                 corner={
                   <button
                     type="button"
                     onClick={() => navigate(`${prefix}/tasks/${selected.id}`)}
-                    className="inline-flex h-10 items-center gap-2 rounded-full border border-[#E7E2F2] bg-white px-4 text-[13px] font-semibold text-[#2A2933] shadow-sm transition-colors hover:border-[#C4B5E0] hover:bg-[#C4B5E0]"
+                    className="inline-flex h-10 items-center gap-2 rounded-full border border-[var(--tm-primary-soft)] bg-[var(--tm-card)] px-4 text-[13px] font-semibold text-[#2A2933] shadow-sm transition-colors hover:border-[#C4B5E0] hover:bg-[#C4B5E0]"
                   >
                     Open task <ArrowUpRight className="h-4 w-4" />
                   </button>
@@ -415,7 +417,7 @@ export const TasksPage: React.FC = () => {
                         type="button"
                         disabled={busy}
                         onClick={selected.timer_running ? stopTimer : startTimer}
-                        className={`${ACTION_BTN} bg-[#C4B5E0] text-[#2A2933] hover:bg-[#D2C6E9]`}
+                        className={`${ACTION_BTN} bg-[var(--tm-accent)] text-[var(--tm-accent-ink)] hover:brightness-95`}
                       >
                         {selected.timer_running ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                         {selected.timer_running ? 'Stop timer' : 'Start timer'}

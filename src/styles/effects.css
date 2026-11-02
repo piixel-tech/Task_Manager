@@ -1,0 +1,166 @@
+/* ==========================================================================
+   Theme effects. Everything here is built from the theme variables, so it follows
+   whichever palette (or festival theme) is active.
+   ========================================================================== */
+
+/* ---- Focus mode: grayscale + dim everything except [data-focus-keep] ----------
+   A fixed, click-through veil sits above the page (and below dialogs and toasts) and
+   filters whatever is behind it. The active task card lifts above the veil, so it
+   keeps its colour. <html data-focus="on"> is set while Focus mode is on. */
+.tm-focus-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  pointer-events: none;
+  opacity: 0;
+  -webkit-backdrop-filter: grayscale(0) brightness(1);
+  backdrop-filter: grayscale(0) brightness(1);
+  transition: opacity 600ms var(--tm-ease), backdrop-filter 600ms var(--tm-ease), -webkit-backdrop-filter 600ms var(--tm-ease);
+}
+html[data-focus='on'] .tm-focus-veil {
+  opacity: 1;
+  -webkit-backdrop-filter: grayscale(1) brightness(0.86);
+  backdrop-filter: grayscale(1) brightness(0.86);
+}
+html[data-focus='on'] [data-focus-keep] {
+  position: relative;
+  z-index: 46;
+}
+
+/* ---- Deadline heat: task rows and cards tint as the due date nears -------------
+   Set data-heat="amber|red" and --heat (0..1, how strong) from utils/deadlineHeat.
+   The tint is a soft wash from the left edge plus a thin edge line; text colours are
+   untouched, and the strongest wash is still only ~22% of the status colour. */
+.tm-heat {
+  --heat-c: var(--tm-warning);
+  background-image: linear-gradient(90deg, color-mix(in srgb, var(--heat-c) calc(var(--heat, 0) * 22%), transparent), transparent 85%);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--heat-c) calc(var(--heat, 0) * 70%), transparent);
+}
+.tm-heat[data-heat='red'] {
+  --heat-c: var(--tm-danger);
+}
+
+/* ---- Living background: slow, soft colour blobs behind the glass ---------------
+   Three radial-gradient discs drift with transform only (compositor, no repaint).
+   Colours are the theme's accent / primary. Hidden for Reduce motion; paused while
+   the tab is hidden (<html data-tab-hidden>). */
+.tm-living-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.tm-living-bg > i {
+  position: absolute;
+  width: 60vmax;
+  height: 60vmax;
+  border-radius: 50%;
+  opacity: 0.5;
+  will-change: transform;
+  animation: tm-blob 48s ease-in-out infinite alternate;
+}
+.tm-living-bg > i:nth-child(1) {
+  top: -22vmax;
+  left: -14vmax;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 38%, transparent), transparent 68%);
+}
+.tm-living-bg > i:nth-child(2) {
+  right: -20vmax;
+  bottom: -26vmax;
+  background: radial-gradient(circle, color-mix(in srgb, var(--primary) 26%, transparent), transparent 68%);
+  animation-duration: 62s;
+  animation-delay: -18s;
+}
+.tm-living-bg > i:nth-child(3) {
+  top: 28%;
+  left: 38%;
+  width: 44vmax;
+  height: 44vmax;
+  background: radial-gradient(circle, color-mix(in srgb, var(--primary-soft) 60%, transparent), transparent 68%);
+  animation-duration: 74s;
+  animation-delay: -36s;
+}
+@keyframes tm-blob {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(7vmax, 5vmax, 0) scale(1.12); }
+  to { transform: translate3d(-5vmax, 9vmax, 0) scale(0.94); }
+}
+html[data-tab-hidden] .tm-living-bg > i {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tm-living-bg { display: none; }
+  .tm-focus-veil { transition: none; }
+}
+
+/* ---- Festival banner ---------------------------------------------------------- */
+.tm-festival-banner {
+  background-image: linear-gradient(90deg, color-mix(in srgb, var(--accent) 45%, var(--surface)), color-mix(in srgb, var(--primary-soft) 80%, var(--surface)));
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  color: var(--text);
+}
+
+/* ---- Sidebar: the active item is an inverted-curve tab merged into the page ---
+   The tab is a soft tint of the theme (--primary-soft blended with white; the plain soft tint in dark mode), sits inside
+   the rail and ends exactly on the rail's right edge. The two curves above and below are quarter-circle cut-outs in
+   the rail's colour (--tm-side-bg) with the same radius as the tab's own corners (--tab-r), so the outline runs
+   smoothly: rail edge, curve, tab edge, rounded corner. The rail has extra top and bottom padding so they clear
+   its rounded ends. */
+.tm-nav-tab {
+  --tab-r: 14px;
+  --tab-fill: color-mix(in srgb, var(--primary-soft) 75%, #fff);
+  background: var(--tab-fill);
+  border-radius: var(--tab-r) 0 0 var(--tab-r);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 15%, transparent);
+}
+:root[data-mode='dark'] .tm-nav-tab {
+  --tab-fill: var(--primary-soft);
+}
+.tm-nav-tab-curve {
+  position: absolute;
+  right: 0;
+  width: var(--tab-r);
+  height: var(--tab-r);
+  pointer-events: none;
+}
+.tm-nav-tab-curve-top {
+  bottom: 100%;
+  background: radial-gradient(circle at 0 0, var(--tm-side-bg) calc(var(--tab-r) - 0.5px), var(--tab-fill) var(--tab-r));
+}
+.tm-nav-tab-curve-bottom {
+  top: 100%;
+  background: radial-gradient(circle at 0 100%, var(--tm-side-bg) calc(var(--tab-r) - 0.5px), var(--tab-fill) var(--tab-r));
+}
+
+/* A small pop on the icon when its item becomes active (the tab itself slides). */
+.tm-nav-icon-pop {
+  animation: tm-nav-pop 200ms var(--tm-ease);
+}
+@keyframes tm-nav-pop {
+  from { transform: scale(0.9); }
+  to { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tm-nav-icon-pop { animation: none; }
+}
+
+/* ---- Calendar day statuses: fixed colours, the same in every theme --------------
+   Each status also has an icon and a label, so colour is never the only signal. */
+:root {
+  --st-present: #1b7444;
+  --st-wfh: #1d56b8;
+  --st-half_day: #855400;
+  --st-leave: #b01e2c;
+  --st-holiday: #6a3bcc;
+  --st-weekend: #5b626c;
+}
+:root[data-mode='dark'] {
+  --st-present: #5fd49a;
+  --st-wfh: #86b6ff;
+  --st-half_day: #f2bf5a;
+  --st-leave: #ff909a;
+  --st-holiday: #bda0ff;
+  --st-weekend: #a9b0ba;
+}

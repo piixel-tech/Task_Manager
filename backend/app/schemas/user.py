@@ -1,10 +1,10 @@
 from datetime import datetime
 
 from beanie import PydanticObjectId
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.models.user import Role
-from app.services.prefs import UserSettings
+from app.services.prefs import UserSettings, clean_stored
 
 
 class UserOut(BaseModel):
@@ -23,6 +23,11 @@ class UserOut(BaseModel):
     focus_until: datetime | None = None
     sidebar_state: dict = Field(default_factory=dict)
     created_at: datetime
+
+    @field_validator("settings", mode="before")
+    @classmethod
+    def _fallback_theme(cls, v):
+        return clean_stored(v)
 
 
 class PersonProfile(BaseModel):

@@ -22,6 +22,7 @@ class User(Document):
     settings: dict = Field(default_factory=dict)  # theme, density, sound, notification preferences
     is_active: bool = True
     focus_until: datetime | None = None  # Focus mode: quiet until then
+    custom_themes: list[dict] = Field(default_factory=list)  # up to 5 themes this person built (routers/themes.py)
     sidebar_state: dict = Field(default_factory=dict)  # which sidebar nodes are open, and their order
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

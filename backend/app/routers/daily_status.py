@@ -91,6 +91,21 @@ async def overview(
     ]
 
 
+@router.get("/team", response_model=list[StatusOut])
+async def team_range(
+    start: date = Query(..., alias="from"),
+    end: date = Query(..., alias="to"),
+    user: User = Depends(get_current_user),
+) -> list[DailyStatus]:
+    """Everyone's statuses between two dates (inclusive): who is in the office, working from home, on half days or on leave, per day."""
+    require(user, "calendar.view")
+    if end < start or (end - start).days > 92:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Range must be 0-92 days")
+    return await DailyStatus.find(
+        {"user_id": {"$in": await _staff_ids()}, "date": {"$gte": start.isoformat(), "$lte": end.isoformat()}}
+    ).sort("+date").to_list()
+
+
 @router.get("/users/{user_id}", response_model=list[StatusOut])
 async def user_range(
     user_id: PydanticObjectId,

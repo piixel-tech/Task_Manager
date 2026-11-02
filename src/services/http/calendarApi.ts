@@ -55,6 +55,9 @@ export const statusApi = {
     call<StatusEntry>(() => api.put('/daily-status/today', { status }), 'Could not save your status'),
   overview: (date?: string) =>
     call<TodayRow[]>(() => api.get('/daily-status', { params: { date } }), 'Could not load the team status'),
+  /** Everyone's statuses in a date range (the calendar's team view and day popover). */
+  team: (from: string, to: string) =>
+    call<StatusEntry[]>(() => api.get('/daily-status/team', { params: { from, to } }), 'Could not load the team calendar'),
   range: (userId: string, from: string, to: string) =>
     call<StatusEntry[]>(
       () => api.get(`/daily-status/users/${userId}`, { params: { from, to } }),

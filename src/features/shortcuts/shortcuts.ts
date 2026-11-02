@@ -12,7 +12,7 @@ export const SHORTCUTS: Shortcut[] = [
   { keys: ['Ctrl', 'K'], label: 'Search and jump to anything' },
   { keys: ['?'], label: 'Show these shortcuts' },
   { keys: ['g', 'h'], label: 'Go to Home' },
-  { keys: ['g', 'i'], label: 'Go to Inbox' },
+  { keys: ['g', 'i'], label: 'Go to Activity' },
   { keys: ['g', 'c'], label: 'Go to Chats' },
   { keys: ['g', 't'], label: 'Go to Tasks' },
   { keys: ['g', 'p'], label: 'Go to Projects' },
@@ -30,7 +30,7 @@ interface ShortcutsStore {
 
 export const useShortcutsStore = create<ShortcutsStore>((set) => ({ open: false, setOpen: (open) => set({ open }) }));
 
-const GO_TO: Record<string, string> = { h: 'dashboard', i: 'inbox', c: 'chat', t: 'tasks', p: 'projects', k: 'calendar', o: 'office', s: 'settings' };
+const GO_TO: Record<string, string> = { h: 'dashboard', i: 'activity', c: 'chat', t: 'tasks', p: 'projects', k: 'calendar', o: 'office', s: 'settings' };
 const CHORD_MS = 1200;
 
 const typingIn = (el: EventTarget | null) => {

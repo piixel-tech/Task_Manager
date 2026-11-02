@@ -11,7 +11,6 @@ import type {
   Badge,
   BadgeType,
   Kudos,
-  DailyUpdate,
   TaskPauseReason,
   WeeklyReport
 } from '../types';
@@ -106,8 +105,6 @@ export interface IGamificationService {
   giveKudos(taskId: string, fromUserId: string, toUserId: string): Promise<Kudos>;
   getKudosForUser(userId: string): Promise<Kudos[]>;
   getKudosForTask(taskId: string): Promise<Kudos[]>;
-  saveDailyUpdate(userId: string, summary: string): Promise<DailyUpdate>;
-  getDailyUpdates(date?: string): Promise<DailyUpdate[]>;
   logTaskPauseReason(taskId: string, userId: string, reason: string, note?: string): Promise<TaskPauseReason>;
   getTaskPauseReasons(taskId: string): Promise<TaskPauseReason[]>;
   getTeamMonthlyGoal(): Promise<{ finished: number; goal: number }>;

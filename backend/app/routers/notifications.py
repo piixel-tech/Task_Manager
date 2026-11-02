@@ -11,7 +11,7 @@ from app.schemas.notification import (
     TestNotification,
     UnreadCount,
 )
-from app.services.notify import notify
+from app.services.notify import notify, outs_with_actors
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -28,7 +28,7 @@ async def list_notifications(
         query = query.find(Notification.read == False)  # noqa: E712 (Beanie expression)
     total = await query.count()
     items = await query.sort("-created_at").skip(skip).limit(limit).to_list()
-    out = [NotificationOut.model_validate(n, from_attributes=True) for n in items]
+    out = await outs_with_actors(items)
     return NotificationPage(items=out, total=total, limit=limit, skip=skip)
 
 

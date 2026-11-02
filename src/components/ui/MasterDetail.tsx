@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { PillTabs, type PillTabItem } from './PillTabs';
+import { heatAttrs, type Heat } from '../../utils/deadlineHeat';
 
 /** Which row is open, and (on a phone, where the list and detail take turns) whether the detail is showing. Defaults to the first row on a wide screen. */
 export function useMasterSelection<T extends { id: string }>(rows: T[]) {
@@ -96,12 +97,18 @@ export const MasterRow: React.FC<{
   subtitle?: React.ReactNode;
   chip?: React.ReactNode;
   variant?: 'default' | 'dark';
-}> = ({ selected, onSelect, avatar, title, subtitle, chip, variant = 'default' }) => (
+  /** Deadline tint (see utils/deadlineHeat). Not shown on the selected row, which has its own fill. */
+  heat?: Heat | null;
+}> = ({ selected, onSelect, avatar, title, subtitle, chip, variant = 'default', heat = null }) => {
+  const h = selected ? {} : heatAttrs(heat);
+  return (
   <button
     type="button"
     onClick={onSelect}
     aria-current={selected}
-    className={`flex w-full items-center gap-3 px-3 py-3 text-left transition-colors ${
+    data-heat={h['data-heat']}
+    style={h.style}
+    className={`${h.className ?? ''} flex w-full items-center gap-3 px-3 py-3 text-left transition-colors ${
       variant === 'dark' ? 'rounded-2xl' : 'rounded-[var(--tm-radius-md)]'
     } ${
       variant === 'dark'
@@ -124,7 +131,8 @@ export const MasterRow: React.FC<{
     </span>
     {chip && <span className="shrink-0">{chip}</span>}
   </button>
-);
+  );
+};
 
 /** The detail: a lavender gradient card with a white title block, actions on the right, and the content below as sub-cards. */
 export const DetailCard: React.FC<{
@@ -141,6 +149,7 @@ export const DetailCard: React.FC<{
 }> = ({ title, subtitle, badges, actions, children, variant = 'default', corner }) =>
   variant === 'dark' ? (
     <article
+      data-focus-keep
       className="relative rounded-[24px] bg-[var(--tp-detail)] p-5 text-[var(--tp-text)] sm:p-6"
       style={{ backgroundImage: 'radial-gradient(ellipse 80% 140px at 50% 0%, var(--tp-glow), transparent 70%)' }}
     >
@@ -155,6 +164,7 @@ export const DetailCard: React.FC<{
     </article>
   ) : (
   <article
+    data-focus-keep
     className="rounded-[var(--tm-radius-xl)] p-5 text-[var(--tm-detail-ink)] sm:p-6"
     style={{ backgroundImage: 'linear-gradient(135deg, var(--tm-detail) 0%, var(--tm-detail-2) 100%)' }}
   >

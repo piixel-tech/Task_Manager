@@ -7,20 +7,20 @@ import { spring } from '../ui/motion';
 import { CountBadge } from '../ui/CountBadge';
 import { WithNavItems, type NavItem, type NavModel } from './navItems';
 
-/** Every item is the same size: icon over a one-line label. */
-const ITEM =
-  'relative flex h-14 w-[60px] flex-col items-center justify-center gap-1 rounded-[20px] text-center ' +
+/** Every item is the same size: icon over a one-line label. On short screens the rail goes "dense": slightly lower items, tighter gaps. */
+const itemClass = (dense: boolean) =>
+  `relative flex ${dense ? 'h-[52px]' : 'h-14'} w-[60px] flex-col items-center justify-center gap-1 rounded-[20px] text-center ` +
   'transition-colors duration-[var(--tm-dur-fast)]';
 
-const ITEM_H = 56;
-const GAP = 4;
-const DIVIDER_H = 13; // h-px + my-1.5
+/** Sizes the fit calculation needs, in px, for the normal and the dense rail. */
+const METRICS = {
+  normal: { item: 56, gap: 4, divider: 13, pad: 80 }, // divider = h-px + my-1.5; pad = py-10 top and bottom
+  dense: { item: 52, gap: 2, divider: 9, pad: 64 } // my-1; py-8
+};
 
 /** Rail-only short labels; the full name stays in the tooltip. */
 const SHORT_LABEL: Record<string, string> = {
   'Office board': 'Board',
-  'Monthly Wrapped': 'Wrapped',
-  'Daily Updates': 'Daily',
   'Team Members': 'Team',
   'Book a meeting': 'Meetings',
   Deliverables: 'Deliver',
@@ -28,20 +28,52 @@ const SHORT_LABEL: Record<string, string> = {
 };
 
 /** Group order inside the rail. Anything not listed lands in "work", so no item is ever dropped. */
-const MAIN = ['Home', 'Projects', 'My Tasks', 'Task Hub', 'Chats', 'Inbox', 'Calendar'];
-const WORK = ['Reviews', 'Office board', 'Monthly Wrapped'];
-const BOTTOM = ['My Profile', 'Settings'];
+const MAIN = ['Home', 'Projects', 'My Tasks', 'Task Hub', 'Chats', 'Activity', 'Calendar'];
+const WORK = ['Reviews', 'Office board'];
+const BOTTOM = ['Settings'];
+
+/** Never moved into More. */
+const PINNED = ['Home', 'Calendar'];
+/** When the rail is too short, these move into More first, in this order. Then the rest from the bottom up. */
+const MOVE_FIRST = ['Office board', 'Reviews', 'Activity'];
 
 const rank = (order: string[], item: NavItem) => order.indexOf(item.label);
 
-const Divider: React.FC = () => <span aria-hidden className="my-1.5 h-px w-8 shrink-0 bg-[var(--tm-border)]" />;
+const Divider: React.FC<{ dense: boolean }> = ({ dense }) => (
+  <span aria-hidden className={`${dense ? 'my-1' : 'my-1.5'} h-px w-8 shrink-0 bg-[var(--tm-border)]`} />
+);
+
+interface Entry {
+  item: NavItem;
+  group: number;
+}
+
+/** What fits in `avail` px: everything at normal spacing if it can, else the dense rail with items moved into More one by one. */
+export function fitRail(ordered: Entry[], avail: number): { dense: boolean; hidden: string[] } {
+  const labels = ordered.map((o) => o.item.label);
+  const cutOrder = [
+    ...MOVE_FIRST.filter((l) => labels.includes(l)),
+    ...[...labels].reverse().filter((l) => !MOVE_FIRST.includes(l) && !PINNED.includes(l))
+  ];
+  const heightOf = (list: Entry[], m: (typeof METRICS)['normal']) =>
+    list.reduce((h, o, k) => h + m.item + (k > 0 ? m.gap + (o.group !== list[k - 1].group ? m.divider + m.gap : 0) : 0), 0);
+  const fits = (list: Entry[], m: (typeof METRICS)['normal'], withMore: boolean) =>
+    heightOf(list, m) + (withMore ? m.gap + m.divider + m.gap + m.item : 0) <= avail - m.pad;
+
+  if (fits(ordered, METRICS.normal, false)) return { dense: false, hidden: [] };
+  for (let k = 0; k <= cutOrder.length; k++) {
+    const cut = cutOrder.slice(0, k);
+    if (fits(ordered.filter((o) => !cut.includes(o.item.label)), METRICS.dense, k > 0)) return { dense: true, hidden: cut };
+  }
+  return { dense: true, hidden: cutOrder };
+}
 
 const SideNavBody: React.FC<NavModel> = ({ main, more }) => {
   const { reduced } = useMotionPrefs();
   const location = useLocation();
   const navRef = useRef<HTMLElement>(null);
   const moreRef = useRef<HTMLButtonElement>(null);
-  const [visibleCount, setVisibleCount] = useState(Infinity);
+  const [fit, setFit] = useState<{ dense: boolean; hidden: string }>({ dense: false, hidden: '' });
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ left: 0, bottom: 0 });
   const all = [...main, ...more];
@@ -56,34 +88,21 @@ const SideNavBody: React.FC<NavModel> = ({ main, more }) => {
       return (ra < 0 ? 99 : ra) - (rb < 0 ? 99 : rb);
     });
 
-  // One priority-ordered list with each item's group, so the tail can be cut when the screen is short.
-  const ordered = [
+  // One list in display order with each item's group.
+  const ordered: Entry[] = [
     ...top.map((item) => ({ item, group: 0 })),
     ...work.map((item) => ({ item, group: 1 })),
     ...bottom.map((item) => ({ item, group: 2 }))
   ];
-  const total = ordered.length;
   const key = ordered.map((o) => `${o.item.label}:${o.group}`).join('|');
 
   useLayoutEffect(() => {
     const el = navRef.current;
     if (!el) return;
     const measure = () => {
-      const avail = el.clientHeight - 24; // py-3
-      const heightOf = (n: number) => {
-        let h = 0;
-        for (let k = 0; k < n; k++) {
-          if (k > 0) h += GAP + (ordered[k].group !== ordered[k - 1].group ? DIVIDER_H + GAP : 0);
-          h += ITEM_H;
-        }
-        return h;
-      };
-      if (heightOf(total) <= avail) return setVisibleCount(total);
-      // Reserve room for the More button and its divider.
-      const reserve = GAP + DIVIDER_H + GAP + ITEM_H;
-      let n = 0;
-      while (n < total && heightOf(n + 1) + reserve <= avail) n++;
-      setVisibleCount(n);
+      const r = fitRail(ordered, el.clientHeight);
+      const hidden = r.hidden.join('|');
+      setFit((cur) => (cur.dense === r.dense && cur.hidden === hidden ? cur : { dense: r.dense, hidden }));
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -96,8 +115,11 @@ const SideNavBody: React.FC<NavModel> = ({ main, more }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  const shown = ordered.slice(0, visibleCount);
-  const hidden = ordered.slice(visibleCount).map((o) => o.item);
+  const dense = fit.dense;
+  const hiddenLabels = fit.hidden ? fit.hidden.split('|') : [];
+  const shown = ordered.filter((o) => !hiddenLabels.includes(o.item.label));
+  const hidden = ordered.filter((o) => hiddenLabels.includes(o.item.label)).map((o) => o.item);
+  const ITEM = itemClass(dense);
   const hiddenActive = hidden.some((i) => location.pathname.startsWith(i.path));
   const hiddenCount = hidden.reduce((n, i) => n + (i.count ?? 0), 0);
 
@@ -132,22 +154,27 @@ const SideNavBody: React.FC<NavModel> = ({ main, more }) => {
           <span
             className={`${ITEM} ${
               isActive
-                ? 'text-[var(--tm-solid-ink)]'
-                : 'text-[var(--tm-ink-soft)] hover:bg-[var(--tm-bg-sunken)] hover:text-[var(--tm-ink)]'
+                ? 'text-[var(--primary)]'
+                : 'text-[var(--tm-ink-soft)] hover:bg-[color-mix(in_srgb,var(--tm-on-dark)_6%,transparent)] hover:text-[var(--tm-ink)]'
             }`}
           >
             {isActive && (
               <motion.span
+                aria-hidden
                 layoutId={reduced ? undefined : 'sidenav-pill'}
                 transition={reduced ? { duration: 0 } : { ...spring, stiffness: 520, damping: 30 }}
-                className="absolute inset-0 rounded-[20px] bg-[var(--tm-solid)]"
-              />
+                className="tm-nav-tab pointer-events-none absolute inset-y-0 left-px right-[-5px]"
+              >
+                {/* The concave corners above and below, cut out in the rail's colour and kept inside the rail. */}
+                <i className="tm-nav-tab-curve tm-nav-tab-curve-top" />
+                <i className="tm-nav-tab-curve tm-nav-tab-curve-bottom" />
+              </motion.span>
             )}
-            <span className="relative grid h-5 w-5 shrink-0 place-items-center">
+            <span className={`relative grid h-5 w-5 shrink-0 place-items-center ${isActive ? 'tm-nav-icon-pop' : ''}`}>
               <Icon className="h-5 w-5" strokeWidth={2} />
               <CountBadge count={item.count} className="absolute -right-2.5 -top-2" />
             </span>
-            <span className="relative w-full overflow-hidden text-ellipsis whitespace-nowrap px-1 text-[10px] font-bold leading-none">
+            <span className={`relative w-full overflow-hidden text-ellipsis whitespace-nowrap px-1 text-[10px] leading-none ${isActive ? 'font-semibold' : 'font-bold'}`}>
               {SHORT_LABEL[item.label] ?? item.label}
             </span>
           </span>
@@ -161,23 +188,23 @@ const SideNavBody: React.FC<NavModel> = ({ main, more }) => {
       <nav
         ref={navRef}
         aria-label="Main"
-        className="tm-sidebar fixed bottom-4 left-4 top-[88px] z-30 hidden w-[72px] flex-col items-center gap-1 overflow-hidden
-          rounded-full px-1.5 py-3 lg:flex"
+        className={`tm-sidebar fixed bottom-4 left-4 top-[88px] z-30 hidden w-[72px] flex-col items-center overflow-hidden
+          rounded-full px-1.5 lg:flex ${dense ? 'gap-0.5 py-8' : 'gap-1 py-10'}`}
       >
         {shown.map(({ item, group }, k) => (
           <React.Fragment key={item.path}>
-            {k > 0 && group !== shown[k - 1].group && <Divider />}
+            {k > 0 && group !== shown[k - 1].group && <Divider dense={dense} />}
             {/* With nothing hidden, the last group sits at the bottom of the rail. */}
             {hidden.length === 0 && group === 2 && shown[k - 1]?.group !== 2 ? (
-              <div className="mt-auto flex flex-col items-center gap-1">{renderItem(item)}</div>
+              <div className={`mt-auto flex flex-col items-center ${dense ? 'gap-0.5' : 'gap-1'}`}>{renderItem(item)}</div>
             ) : (
               renderItem(item)
             )}
           </React.Fragment>
         ))}
         {hidden.length > 0 && (
-          <div className="mt-auto flex flex-col items-center gap-1">
-            <Divider />
+          <div className={`mt-auto flex flex-col items-center ${dense ? 'gap-0.5' : 'gap-1'}`}>
+            <Divider dense={dense} />
             <button
               ref={moreRef}
               type="button"
@@ -188,7 +215,7 @@ const SideNavBody: React.FC<NavModel> = ({ main, more }) => {
               className={`${ITEM} ${
                 open || hiddenActive
                   ? 'bg-[var(--tm-solid)] text-[var(--tm-solid-ink)]'
-                  : 'text-[var(--tm-ink-soft)] hover:bg-[var(--tm-bg-sunken)] hover:text-[var(--tm-ink)]'
+                  : 'text-[var(--tm-ink-soft)] hover:bg-[color-mix(in_srgb,var(--tm-on-dark)_6%,transparent)] hover:text-[var(--tm-ink)]'
               }`}
             >
               <span className="relative grid h-5 w-5 place-items-center">

@@ -4,7 +4,6 @@ import type {
   Badge,
   BadgeType,
   Kudos,
-  DailyUpdate,
   TaskPauseReason,
   WeeklyReport
 } from '../../types';
@@ -26,12 +25,6 @@ export class SupabaseGamificationService implements IGamificationService {
     throw new Error('Supabase integration not configured');
   }
   async getKudosForTask(_taskId: string): Promise<Kudos[]> {
-    throw new Error('Supabase integration not configured');
-  }
-  async saveDailyUpdate(_userId: string, _summary: string): Promise<DailyUpdate> {
-    throw new Error('Supabase integration not configured');
-  }
-  async getDailyUpdates(_date?: string): Promise<DailyUpdate[]> {
     throw new Error('Supabase integration not configured');
   }
   async logTaskPauseReason(_taskId: string, _userId: string, _reason: string, _note?: string): Promise<TaskPauseReason> {

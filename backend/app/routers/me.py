@@ -11,6 +11,7 @@ from app.core.security import hash_password, verify_password
 from app.models import File, Session, User
 from app.schemas.user import UserOut
 from app.services.prefs import UserSettings
+from app.services.themes import CUSTOM_PALETTE
 
 router = APIRouter(prefix="/me", tags=["me"])
 
@@ -70,6 +71,11 @@ async def _check_avatar(value: str | None, user: User) -> str | None:
 @router.put("/settings", response_model=UserSettings)
 async def save_settings(body: UserSettings, user: User = Depends(get_current_user)) -> UserSettings:
     """Appearance, sound and which notifications you want. Notifications you switch off are not saved or shown at all."""
+    if CUSTOM_PALETTE.match(body.palette):
+        from app.routers.themes import can_use  # a custom theme must be yours, or shared with you
+
+        if not await can_use(user, body.palette.split(":", 1)[1]):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "That theme isn't available to you")
     user.settings = body.model_dump()
     await user.save()
     return body

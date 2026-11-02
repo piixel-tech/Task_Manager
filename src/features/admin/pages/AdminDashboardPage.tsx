@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Clock,
   Coffee,
+  FolderKanban,
   Play,
   Plus,
   Users
@@ -24,7 +25,6 @@ import { useDailyStatusStore } from '../../../store/useDailyStatusStore';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { CornerButton } from '../../../components/ui/CornerButton';
-import { CountUp } from '../../../components/ui/CountUp';
 import { ItemsDrawer } from '../../../components/ui/ItemsDrawer';
 import { StatCard } from '../../../components/ui/StatCard';
 import { HeroCard, HeroStat } from '../../../components/ui/HeroCard';
@@ -121,7 +121,7 @@ export const AdminDashboardPage: React.FC = () => {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Hero card */}
         <HeroCard
-          className="lg:col-span-8"
+          className="lg:col-span-12"
 
           title={`${runningTasks.length} active tasks & ${presentToday.length} members in today`}
           description="Real-time workspace operation across Piixel Studio & Unwork SaaS."
@@ -157,34 +157,7 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
         </HeroCard>
 
-        {/* Projects summary */}
-        <Card
-          lift
-          role="link"
-          tabIndex={0}
-          aria-label="Open projects"
-          onClick={() => navigate('/admin/projects')}
-          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), navigate('/admin/projects'))}
-          className="flex cursor-pointer flex-col justify-between focus-visible:outline-none focus-visible:shadow-glow lg:col-span-4"
-        >
-          <CardHeader>
-            <div>
-              <CardTitle className="text-base font-extrabold">Projects</CardTitle>
-              <p className="mt-1 text-[12.5px] text-[var(--tm-ink-muted)]">Each project is split into subfolders with their own heads.</p>
-            </div>
-            <CornerButton label="Manage projects" onClick={() => navigate('/admin/projects')} />
-          </CardHeader>
-          <CardContent className="flex flex-col items-start gap-3 pt-2">
-            <span className="text-[72px] font-extrabold leading-none tracking-[-0.04em] tabular-nums text-[var(--tm-ink)]">
-              <CountUp value={filteredProjects.length} />
-            </span>
-            <span className="rounded-full bg-[var(--tm-accent)] px-3 py-1.5 text-[11px] font-bold uppercase leading-none tracking-wide text-[var(--tm-accent-ink)]">
-              Active projects
-            </span>
-          </CardContent>
-        </Card>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 lg:col-span-12">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 lg:col-span-12">
           <StatCard
             label="Working today"
             onClick={() => setDrawer('present')}
@@ -192,7 +165,6 @@ export const AdminDashboardPage: React.FC = () => {
             icon={<Clock className="h-5 w-5" />}
             tone="ok"
             hint={`${filteredUsers.length} total team members`}
-            progress={filteredUsers.length ? Math.round((presentToday.length / filteredUsers.length) * 100) : 0}
           />
 
           <StatCard
@@ -202,7 +174,6 @@ export const AdminDashboardPage: React.FC = () => {
             icon={<Coffee className="h-5 w-5" />}
             tone="warn"
             hint="Marked leave for today"
-            progress={filteredUsers.length ? Math.round((onLeaveToday.length / filteredUsers.length) * 100) : 0}
           />
 
           <StatCard
@@ -212,6 +183,15 @@ export const AdminDashboardPage: React.FC = () => {
             icon={<Play className="h-5 w-5" />}
             tone="primary"
             hint="Timers active right now"
+          />
+
+          <StatCard
+            label="Active projects"
+            to="/admin/projects"
+            value={filteredProjects.length}
+            icon={<FolderKanban className="h-5 w-5" />}
+            tone="neutral"
+            hint="Open the projects page"
           />
         </div>
 

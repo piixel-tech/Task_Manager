@@ -122,7 +122,7 @@ async def set_resolved(post_id: PydanticObjectId, body: ResolveSet, user: User =
             await tell_everyone(
                 user,
                 type="office_resolved" if body.resolved else "office_reopened",
-                title=f"{'✅ Resolved' if body.resolved else '🔄 Reopened'}: {post.emoji} {CATEGORIES[post.category][0]}",
+                title=f"{'Resolved' if body.resolved else 'Reopened'}: {CATEGORIES[post.category][0]}",
                 body=f"{user.name} {'resolved' if body.resolved else 'reopened'}: {snippet(post.text, 100)}",
             )
     return await _one(post.id, user)

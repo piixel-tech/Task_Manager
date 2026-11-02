@@ -44,7 +44,7 @@ export const ClientDeliverablesPage: React.FC = () => {
   return (
     <>
       <PageHeader title="Deliverables" description="Where each piece of work is, from writing to posted." />
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard onClick={() => setDrawer('done')} label="Done" value={done} icon={<CheckCircle2 className="h-5 w-5" />} tone="ok" hint="Posted this month" progress={done + remaining ? Math.round((100 * done) / (done + remaining)) : 0} />
         <StatCard onClick={() => setDrawer('remaining')} label="Remaining" value={remaining} icon={<Hourglass className="h-5 w-5" />} tone="warn" hint="Still in progress" trend={rows.map((g) => g.deliverables.remaining)} />
         <StatCard onClick={() => setDrawer('folders')} label="Folders" value={rows.length} icon={<Layers className="h-5 w-5" />} tone="primary" hint="With work planned" />

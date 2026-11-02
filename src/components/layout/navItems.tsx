@@ -6,17 +6,14 @@ import {
   CheckSquare,
   ClipboardCheck,
   ClipboardList,
-  FileText,
   Home,
-  Inbox,
+  Activity,
   Layers,
   LayoutDashboard,
   Megaphone,
-  MessageSquare,
+  MessagesSquare,
   Settings,
   ShieldQuestion,
-  Sparkles,
-  User,
   Users
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
@@ -48,7 +45,7 @@ const ClientSource: React.FC<{ children: Render }> = ({ children }) => {
       {children({
         main: [
           { label: 'Home', icon: Home, path: '/client/home' },
-          { label: 'Chats', icon: MessageSquare, path: '/client/chats', count: counts.unreadChats },
+          { label: 'Chats', icon: MessagesSquare, path: '/client/chats', count: counts.unreadChats },
           { label: 'Approvals', icon: ShieldQuestion, path: '/client/approvals', count: pending.length },
           { label: 'Deliverables', icon: Layers, path: '/client/deliverables' },
           { label: 'Requirements', icon: ClipboardList, path: '/client/requirements' }
@@ -70,23 +67,21 @@ const TeamSource: React.FC<{ children: Render }> = ({ children }) => {
     { label: 'Home', icon: LayoutDashboard, path: `${prefix}/dashboard` },
     { label: 'Projects', icon: Briefcase, path: `${prefix}/projects` },
     { label: isAdmin ? 'Task Hub' : 'My Tasks', icon: CheckSquare, path: `${prefix}/tasks`, count: counts.tasksUnseen },
-    { label: 'Chats', icon: MessageSquare, path: `${prefix}/chat`, count: counts.unreadChats },
+    { label: 'Chats', icon: MessagesSquare, path: `${prefix}/chat`, count: counts.unreadChats },
     { label: 'Office board', icon: Megaphone, path: `${prefix}/office`, count: counts.officeUnseen }
   ];
 
   const more: NavItem[] = [
-    { label: 'Inbox', icon: Inbox, path: `${prefix}/inbox`, count: unreadNotifications },
+    { label: 'Activity', icon: Activity, path: `${prefix}/activity`, count: unreadNotifications },
     { label: 'Calendar', icon: Calendar, path: `${prefix}/calendar` },
     { label: 'Reviews', icon: ClipboardCheck, path: `${prefix}/reviews`, count: counts.pendingSubmissions },
     ...(isAdmin
       ? [
-          { label: 'Daily Updates', icon: FileText, path: `${prefix}/daily-updates` },
           { label: 'Team Members', icon: Users, path: `${prefix}/users` },
           { label: 'Settings', icon: Settings, path: `${prefix}/settings` }
         ]
       : [
-          { label: 'Monthly Wrapped', icon: Sparkles, path: '/wrapped' },
-          { label: 'My Profile', icon: User, path: `${prefix}/settings/profile` }
+          { label: 'Settings', icon: Settings, path: `${prefix}/settings/profile` }
         ])
   ];
 

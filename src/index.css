@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 @import './styles/theme.css';
+@import './styles/palettes.css';
+@import './styles/effects.css';
 @config '../tailwind.config.ts';
 
 /* ==========================================================================
@@ -85,8 +87,8 @@
 @utility hatch-neutral {
   background-image: repeating-linear-gradient(
     45deg,
-    rgba(36, 26, 51, 0.1) 0,
-    rgba(36, 26, 51, 0.1) 2px,
+    color-mix(in srgb, var(--tm-ink) 10%, transparent) 0,
+    color-mix(in srgb, var(--tm-ink) 10%, transparent) 2px,
     transparent 2px,
     transparent 6px
   );

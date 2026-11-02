@@ -1,5 +1,5 @@
 import type React from 'react';
-import { Bell, Building2, Download, HelpCircle, Keyboard, KeyRound, Moon, Palette, Plug, Settings2, ShieldCheck, Trash2, User, Users } from 'lucide-react';
+import { Bell, Building2, Download, HelpCircle, Keyboard, KeyRound, Moon, Palette, PartyPopper, Plug, Settings2, ShieldCheck, Trash2, User, Users } from 'lucide-react';
 import type { UserRole } from '../../types';
 
 export interface SettingsItem {
@@ -29,6 +29,7 @@ export const ADMIN_ITEMS: SettingsItem[] = [
   { id: 'people', label: 'People', icon: Users, roles: ['admin'] },
   { id: 'companies', label: 'Companies', icon: Building2, roles: ['admin'] },
   { id: 'workspace', label: 'Workspace settings', icon: Settings2, roles: ['admin'] },
+  { id: 'festival', label: 'Festival theme', icon: PartyPopper, roles: ['admin'] },
   { id: 'trash', label: 'Trash', icon: Trash2, roles: ['admin'] },
   { id: 'export', label: 'Export', icon: Download, roles: ['admin'] },
   { id: 'security', label: 'Security', icon: ShieldCheck, roles: ['admin'] }

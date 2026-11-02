@@ -80,7 +80,7 @@ export const GroupList: React.FC<Props> = ({ groups, loaded, activeId, meId, onS
                     aria-current={g.id === activeId}
                     className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors ${
                       g.id === activeId
-                        ? 'bg-[var(--tc-row-sel)] [--tm-ink:#2a2933] [--tm-ink-muted:#4f4d5c] [--tm-primary-dark:#2a2933] [--tm-solid:#2a2933] [--tm-solid-ink:#ffffff]'
+                        ? 'bg-[var(--tc-row-sel)] [--tm-ink:var(--tm-accent-ink)] [--tm-ink-muted:color-mix(in_srgb,var(--tm-accent-ink)_75%,var(--tm-accent))] [--tm-primary-dark:var(--tm-accent-ink)] [--tm-solid:var(--tm-accent-ink)] [--tm-solid-ink:var(--tm-accent)]'
                         : 'hover:bg-[var(--tp-row-hover)]'
                     }`}
                   >

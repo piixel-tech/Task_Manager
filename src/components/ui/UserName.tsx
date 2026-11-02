@@ -67,7 +67,7 @@ export const UserName: React.FC<UserNameProps> = ({
 
         {isBirthday && (
           <span
-            className="inline-flex items-center gap-0.5 rounded-full bg-pink-100 px-2 py-0.5 text-[10.5px] font-extrabold text-pink-700 dark:bg-pink-950/60 dark:text-pink-300"
+            className="inline-flex items-center gap-0.5 rounded-full bg-[var(--tm-primary-soft)] px-2 py-0.5 text-[10.5px] font-extrabold text-[var(--tm-primary-dark)]"
             title="Happy Birthday!"
           >
             🎂 HBD
