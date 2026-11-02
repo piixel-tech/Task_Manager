@@ -1,12 +1,14 @@
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    MONGO_URL: str
+    # MONGODB_URI is the name to use on Render; MONGO_URL is still accepted so existing .env files keep working.
+    MONGO_URL: str = Field(validation_alias=AliasChoices("MONGODB_URI", "MONGO_URL"))
     DB_NAME: str = "task_manager"
-    CORS_ORIGINS: list[str] = ["http://localhost:5173"]
+    CORS_ORIGINS: list[str] = []  # optional extra allowed origins (JSON list); FRONTEND_URL is always allowed
 
     JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"
@@ -38,6 +40,11 @@ class Settings(BaseSettings):
 
     ADMIN_EMAIL: str | None = None
     ADMIN_PASSWORD: str | None = None
+
+    @property
+    def cors_allow_origins(self) -> list[str]:
+        origins = [self.FRONTEND_URL, *self.CORS_ORIGINS]
+        return list(dict.fromkeys(o.strip().rstrip("/") for o in origins if o.strip()))
 
 
 settings = Settings()

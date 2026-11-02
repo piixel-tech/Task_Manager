@@ -12,7 +12,7 @@ pip install -r requirements.txt
 copy .env.example .env            # macOS/Linux: cp .env.example .env
 ```
 
-Edit `.env` and set `MONGO_URL` to your Atlas `mongodb+srv://` string
+Edit `.env` and set `MONGODB_URI` to your Atlas `mongodb+srv://` string
 (and allow your IP in Atlas > Network Access).
 
 ## Run

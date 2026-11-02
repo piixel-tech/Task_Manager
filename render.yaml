@@ -1,0 +1,49 @@
+services:
+  - type: web
+    name: taskmanager-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: ENVIRONMENT
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: DB_NAME
+        value: task_manager
+      - key: JWT_SECRET
+        generateValue: true
+      - key: INTEGRATIONS_FERNET_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: GOOGLE_PIIXEL_CLIENT_ID
+        sync: false
+      - key: GOOGLE_PIIXEL_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_PIIXEL_API_KEY
+        sync: false
+      - key: GOOGLE_UNWORK_CLIENT_ID
+        sync: false
+      - key: GOOGLE_UNWORK_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_UNWORK_API_KEY
+        sync: false
+  - type: web
+    name: taskmanager-web
+    runtime: static
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

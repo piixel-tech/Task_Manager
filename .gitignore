@@ -26,6 +26,10 @@ dist-ssr
 # Backend
 backend/.venv
 backend/.env
+.env
+.env.*
+!.env.example
+!backend/.env.example
 __pycache__/
 
 backend/uploads/
