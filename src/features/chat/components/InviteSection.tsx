@@ -41,7 +41,7 @@ export const InviteSection: React.FC<{ group: ChatGroup }> = ({ group }) => {
     confirm({
       title: 'Create an invite link?',
       message: 'Anyone who has the link can join this group as a client for the next 7 days. You can revoke it at any time.',
-      confirmLabel: 'Create link',
+      confirmLabel: 'Create link', send: true,
       action: async () => {
         const invite = await chatApi.createInvite(group.id);
         setInvites((cur) => [invite, ...(cur ?? [])]);

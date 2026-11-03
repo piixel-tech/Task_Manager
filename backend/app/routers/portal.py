@@ -3,7 +3,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.deps import require_role
 from app.core.timeutil import today_local
 from app.models import DeliverablePlan, Project, Subfolder, User
-from app.models.deliverable import STAGES
 from app.models.requirement import Requirement
 from app.routers.approvals import list_approvals
 from app.schemas.deliverable import MONTH_RE
@@ -96,6 +95,12 @@ def _valid_month(month: str | None) -> str:
     return month
 
 
+def _position(d) -> float:
+    """How many items' worth of progress a subfolder has: each item counts its place along that subfolder's own stages (0 to 1)."""
+    top = len(d.stages) - 1
+    return sum(d.stages.index(key) * n for key, n in d.by_stage.items() if key in d.stages) / top if top > 0 else 0.0
+
+
 @router.get("/summary", response_model=PortalSummary)
 async def summary(month: str | None = None, user: User = Depends(only_clients)) -> PortalSummary:
     """Everything the portal home shows: waiting approvals, this month's deliverables, the latest requirements."""
@@ -105,19 +110,23 @@ async def summary(month: str | None = None, user: User = Depends(only_clients)) 
     groups = await _month_outs(user, month)
     items = [d.deliverables for d in groups]
     total = sum(d.total for d in items)
-    done = sum(d.by_stage.get(STAGES[-1], 0) for d in items)
-    position = sum(STAGES.index(stage) * n for d in items for stage, n in d.by_stage.items())
-    progress = round(100 * position / (total * (len(STAGES) - 1))) if total else 0
+    done = sum(d.done for d in items)
+    progress = round(100 * sum(_position(d) for d in items) / total) if total else 0
 
-    stages = {stage: sum(d.by_stage.get(stage, 0) for d in items) for stage in STAGES}
+    # Subfolders can have different stages, so the breakdown is by stage name.
+    stages: dict[str, int] = {}
+    for d in items:
+        for key, n in d.by_stage.items():
+            name = d.stage_labels.get(key, key)
+            stages[name] = stages.get(name, 0) + n
     per_project: dict = {}
     for g in groups:
-        row = per_project.setdefault(g.project.id, [g.project.name, 0, 0, 0])
+        row = per_project.setdefault(g.project.id, [g.project.name, 0, 0, 0.0])
         row[1] += g.deliverables.total
-        row[2] += g.deliverables.by_stage.get(STAGES[-1], 0)
-        row[3] += sum(STAGES.index(stage) * n for stage, n in g.deliverables.by_stage.items())
+        row[2] += g.deliverables.done
+        row[3] += _position(g.deliverables)
     project_progress = [
-        ProjectProgress(id=pid, name=n, total=t, done=dn, progress=round(100 * pos / (t * (len(STAGES) - 1))) if t else 0)
+        ProjectProgress(id=pid, name=n, total=t, done=dn, progress=round(100 * pos / t) if t else 0)
         for pid, (n, t, dn, pos) in per_project.items()
     ]
 

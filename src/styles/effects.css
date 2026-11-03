@@ -13,14 +13,17 @@
   z-index: 45;
   pointer-events: none;
   opacity: 0;
-  -webkit-backdrop-filter: grayscale(0) brightness(1);
-  backdrop-filter: grayscale(0) brightness(1);
+  -webkit-backdrop-filter: grayscale(0) brightness(1) blur(0);
+  backdrop-filter: grayscale(0) brightness(1) blur(0);
   transition: opacity 600ms var(--tm-ease), backdrop-filter 600ms var(--tm-ease), -webkit-backdrop-filter 600ms var(--tm-ease);
 }
 html[data-focus='on'] .tm-focus-veil {
   opacity: 1;
-  -webkit-backdrop-filter: grayscale(1) brightness(0.86);
-  backdrop-filter: grayscale(1) brightness(0.86);
+  -webkit-backdrop-filter: grayscale(1) brightness(0.86) blur(1.5px);
+  backdrop-filter: grayscale(1) brightness(0.86) blur(1.5px);
+}
+html[data-focus='on'] .tm-topbar {
+  z-index: 46;
 }
 html[data-focus='on'] [data-focus-keep] {
   position: relative;
@@ -163,4 +166,44 @@ html[data-tab-hidden] .tm-living-bg > i {
   --st-leave: #ff909a;
   --st-holiday: #bda0ff;
   --st-weekend: #a9b0ba;
+}
+
+/* ==========================================================================
+   Hold to Delete, Focus mode toggle, Download button (visual extras)
+   ========================================================================== */
+@keyframes tm-shake {
+  0%, 100% { transform: translateX(0); }
+  18% { transform: translateX(-5px); }
+  36% { transform: translateX(5px); }
+  54% { transform: translateX(-4px); }
+  72% { transform: translateX(3px); }
+}
+.tm-shake {
+  animation: tm-shake 340ms var(--tm-ease);
+}
+
+@keyframes tm-twinkle {
+  0%, 100% { opacity: 0.25; transform: scale(0.7); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+.tm-twinkle {
+  animation: tm-twinkle 2.4s ease-in-out infinite;
+}
+
+@keyframes tm-spin-arc {
+  to { transform: rotate(360deg); }
+}
+.tm-spin-arc {
+  transform-origin: 50% 50%;
+  animation: tm-spin-arc 0.9s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tm-shake,
+  .tm-twinkle {
+    animation: none;
+  }
+  .tm-twinkle {
+    opacity: 0.8;
+  }
 }

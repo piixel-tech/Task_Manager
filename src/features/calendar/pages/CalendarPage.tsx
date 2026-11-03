@@ -37,6 +37,7 @@ import { statusMeta } from '../../status/statusMeta';
 import { MonthStatusBoard } from '../components/MonthStatusBoard';
 import { MeetLink } from '../../google/MeetButtons';
 import { Modal } from '../../../components/ui/Modal';
+import { BookingConfirmedModal } from '../components/BookingConfirmedModal';
 import { EmailInvite, guestPayload, MemberSelect, type GuestPerson } from '../components/GuestFields';
 import { directoryApi } from '../../../services/http/directoryApi';
 import { KIND_META, type DayKind } from '../dayStatusMeta';
@@ -83,6 +84,8 @@ export const CalendarPage: React.FC = () => {
 
   // Booking form
   const [slotStart, setSlotStart] = useState<Date | null>(null);
+  /** The booking that was just saved: shows the confirmation popup. */
+  const [confirmed, setConfirmed] = useState<Booking | null>(null);
   const [duration, setDuration] = useState(60);
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
@@ -209,19 +212,21 @@ export const CalendarPage: React.FC = () => {
     if (!slotStart) return;
     const end = addMinutes(slotStart, duration);
     const label = `${format(slotStart, 'EEE d MMM, HH:mm')} - ${format(end, 'HH:mm')}`;
+    const saved: { booking: Booking | null } = { booking: null };
     await confirm({
       title: `Book ${label}?`,
       message: `${host?.name ?? 'This person'} will be notified.`,
-      confirmLabel: 'Book slot',
-      action: () =>
-        bookingApi.create({
+      confirmLabel: 'Book slot', send: true,
+      action: async () => {
+        saved.booking = await bookingApi.create({
           host_user_id: hostId,
           start: slotStart.toISOString(),
           end: end.toISOString(),
           title: title.trim(),
           note: note.trim(),
           attendees: guestPayload(memberIds, emails)
-        }),
+        });
+      },
       successTitle: 'Slot booked',
       successMessage:
         memberIds.length + emails.length
@@ -235,6 +240,7 @@ export const CalendarPage: React.FC = () => {
         setMemberIds([]);
         setEmails([]);
         load();
+        if (saved.booking) setConfirmed(saved.booking);
       }
     });
   };
@@ -623,6 +629,15 @@ export const CalendarPage: React.FC = () => {
             </div>
 
             {/* Booking form: a dialog (portal), so it always opens centred and on top whatever the page layout does */}
+            <BookingConfirmedModal
+              booking={confirmed}
+              host={host ? { name: host.name, avatar_url: host.avatar_url } : null}
+              guests={(confirmed?.attendees ?? []).map((a) => ({
+                name: a.name || a.email,
+                avatar_url: (a.user_id && team2?.find((t) => t.id === a.user_id)?.avatar_url) || null
+              }))}
+              onClose={() => setConfirmed(null)}
+            />
             <Modal
               isOpen={!!slotStart && canBook}
               onClose={() => setSlotStart(null)}

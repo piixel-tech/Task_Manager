@@ -97,10 +97,18 @@ export const trashApi = {
 export type ExportKind = 'tasks' | 'status' | 'deliverables';
 
 /** Fetch a CSV (with the login token) and hand it to the browser as a download. */
-export async function downloadExport(kind: ExportKind, params: Record<string, string | undefined>): Promise<void> {
+export async function downloadExport(
+  kind: ExportKind,
+  params: Record<string, string | undefined>,
+  onProgress?: (percent: number | null) => void
+): Promise<void> {
   try {
     const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v));
-    const res = await api.get<Blob>(`/export/${kind}.csv`, { params: clean, responseType: 'blob' });
+    const res = await api.get<Blob>(`/export/${kind}.csv`, {
+      params: clean,
+      responseType: 'blob',
+      onDownloadProgress: onProgress ? (e) => onProgress(e.total ? (100 * e.loaded) / e.total : null) : undefined
+    });
     const name = /filename="?([^";]+)"?/.exec(res.headers['content-disposition'] ?? '')?.[1] ?? `${kind}.csv`;
     const href = URL.createObjectURL(res.data);
     const a = document.createElement('a');

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { ProgressBar } from '../../../components/ui/ProgressRing';
-import { STAGE_LABEL, type Deliverables } from '../../../services/http/deliverableApi';
+import { type Deliverables } from '../../../services/http/deliverableApi';
 import { StageStepper } from '../../projects/components/DeliverablesTab';
 
 /** One subfolder's deliverables for a month, read-only: each type's done/remaining and every item's stage stepper. */
@@ -34,9 +34,9 @@ export const DeliverablesView: React.FC<{ title: string; data: Deliverables }> =
                 <li key={i.id} className="space-y-3 rounded-[var(--tm-radius-md)] bg-[var(--tm-card-muted)] p-4">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[13.5px] font-bold text-[var(--tm-ink)]">{i.title}</span>
-                    <span className="text-[12px] font-semibold text-[var(--tm-ink-soft)]">{STAGE_LABEL[i.stage]}</span>
+                    <span className="text-[12px] font-semibold text-[var(--tm-ink-soft)]">{data.stage_labels[i.stage] ?? i.stage}</span>
                   </div>
-                  <StageStepper stages={data.stages} stage={i.stage} />
+                  <StageStepper stages={data.stages} stage={i.stage} labels={data.stage_labels} />
                 </li>
               ))}
             </ul>

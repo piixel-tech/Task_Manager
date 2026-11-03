@@ -72,7 +72,7 @@ export const SubmitReviewModal: React.FC<Props> = ({ isOpen, onClose, task, onSu
     const ok = await confirm({
       title: `Submit “${task.title}” for review?`,
       message: `${approver?.name ?? 'The approver'} is notified. Your timer stops and progress is locked until they decide.`,
-      confirmLabel: 'Submit',
+      confirmLabel: 'Submit', send: true,
       action: async () => {
         await reviewApi.submit(task.id, { note: note.trim(), approver_id: approverId, file_ids: files.map((f) => f.id) });
       },

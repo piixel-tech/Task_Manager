@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Download, ImagePlus, LogOut, Pencil, RotateCcw, Trash2, UserPlus, Users } from 'lucide-react';
+import { Building2, ImagePlus, LogOut, Pencil, RotateCcw, Trash2, UserPlus, Users } from 'lucide-react';
 import { Avatar } from '../../../components/ui/Avatar';
 import { AuthImage } from '../../../components/ui/AuthImage';
 import { Button } from '../../../components/ui/Button';
+import { DownloadButton } from '../../../components/ui/DownloadButton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { Input } from '../../../components/ui/Input';
@@ -567,7 +568,6 @@ export const TrashSection: React.FC = () => {
 
 // --- Export ---------------------------------------------------------------------------------------------------------------------
 export const ExportSection: React.FC = () => {
-  const [busy, setBusy] = useState<ExportKind | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState({ project_id: '', status: '', created_from: '', created_to: '' });
   const [status, setStatus] = useState({ date_from: '', date_to: '' });
@@ -577,16 +577,9 @@ export const ExportSection: React.FC = () => {
     projectApi.list().then(setProjects).catch(() => {});
   }, []);
 
-  const run = async (kind: ExportKind, params: Record<string, string>) => {
-    setBusy(kind);
-    try {
-      await downloadExport(kind, params);
-      toast.success('Download started', 'The file opens in a spreadsheet.');
-    } catch (err) {
-      toast.error('Could not export', errorOf(err, ''));
-    } finally {
-      setBusy(null);
-    }
+  const run = async (kind: ExportKind, params: Record<string, string>, progress: (percent: number | null) => void) => {
+    await downloadExport(kind, params, progress);
+    toast.success('Download started', 'The file opens in a spreadsheet.');
   };
 
   const block = ({ kind, title, note, params, children }: { kind: ExportKind; title: string; note: string; params: Record<string, string>; children: React.ReactNode }) => (
@@ -597,9 +590,14 @@ export const ExportSection: React.FC = () => {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">{children}</div>
-        <Button isLoading={busy === kind} leftIcon={<Download className="h-4 w-4" />} onClick={() => void run(kind, params)}>
-          Download CSV
-        </Button>
+        <div className="flex items-center gap-3">
+          <DownloadButton
+            label={`Download ${title} CSV`}
+            onDownload={(progress) => run(kind, params, progress)}
+            onError={(err) => toast.error('Could not export', errorOf(err, ''))}
+          />
+          <span className="text-[13px] font-semibold text-[var(--tm-ink-soft)]">Download CSV</span>
+        </div>
       </CardContent>
     </Card>
   );

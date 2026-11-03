@@ -2,7 +2,7 @@ import { FadeIn } from '../../../components/ui/FadeIn';
 import { InfoTile as Tile } from '../../../components/ui/InfoTile';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { CalendarClock, Download, Eye, MessageSquare, ExternalLink, FileText, Link2, Pencil, Play, Send, Square, Trash2 } from 'lucide-react';
+import { CalendarClock, Eye, MessageSquare, ExternalLink, FileText, Link2, Pencil, Play, Send, Square, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Avatar } from '../../../components/ui/Avatar';
@@ -31,6 +31,7 @@ import { ActivityPanel } from '../../activity/components/ActivityPanel';
 import { DriveFileViewer } from '../../google/DriveFileViewer';
 import { DriveKindIcon } from '../../google/DriveKindIcon';
 import { AttachMenu } from '../../google/AttachMenu';
+import { AssetDownloadButton } from '../../../components/ui/AssetDownloadButton';
 import { KIND_LABEL } from '../../google/googleUtils';
 
 /** Progress is automatic: it follows the status (there are no per-task subtasks or checklist to count). */
@@ -235,6 +236,18 @@ export const TaskDetailPage: React.FC = () => {
             <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {task.assets.map((a) => (
                 <li key={a.id} className="flex items-stretch gap-2">
+                  {a.kind !== 'link' ? (
+                    <div className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-[var(--tm-radius-md)] bg-[var(--tm-card-muted)] px-4 py-3">
+                      <span className="flex min-w-0 items-center gap-3">
+                        <FileText className="h-4 w-4 shrink-0 text-[var(--tm-primary-dark)]" />
+                        <span className="min-w-0 leading-tight">
+                          <span className="block truncate text-[13px] font-bold text-[var(--tm-ink)]">{a.name}</span>
+                          <span className="block truncate text-[11.5px] text-[var(--tm-ink-muted)]">{formatSize(a.size)}</span>
+                        </span>
+                      </span>
+                      <AssetDownloadButton asset={a} size="md" />
+                    </div>
+                  ) : (
                   <button
                     type="button"
                     onClick={() => open(a)}
@@ -255,8 +268,9 @@ export const TaskDetailPage: React.FC = () => {
                         </span>
                       </span>
                     </span>
-                    {a.kind === 'link' ? <ExternalLink className="h-4 w-4 shrink-0" /> : <Download className="h-4 w-4 shrink-0" />}
+                    <ExternalLink className="h-4 w-4 shrink-0" />
                   </button>
+                  )}
                   {a.drive && (
                     <button
                       type="button"

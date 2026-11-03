@@ -93,7 +93,7 @@ export const Topbar: React.FC = () => {
   return (
     <>
       <header
-        className="sticky top-0 z-30 bg-[color-mix(in_srgb,var(--tm-bg)_84%,transparent)] backdrop-blur-xl"
+        className="tm-topbar sticky top-0 z-30 bg-[color-mix(in_srgb,var(--tm-bg)_84%,transparent)] backdrop-blur-xl"
       >
         <div className="relative mx-auto flex h-[76px] w-full max-w-[1600px] items-center justify-between gap-3 px-4 sm:px-6 lg:pl-[108px] lg:pr-8">
           {/* Left: menu toggle (phones) + logo */}

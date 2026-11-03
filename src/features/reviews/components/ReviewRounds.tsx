@@ -1,5 +1,6 @@
 import React from 'react';
-import { Download, ExternalLink, FileText, Link2 } from 'lucide-react';
+import { ExternalLink, FileText, Link2 } from 'lucide-react';
+import { AssetDownloadButton } from '../../../components/ui/AssetDownloadButton';
 import { Avatar } from '../../../components/ui/Avatar';
 import { PersonLink } from '../../../components/ui/PersonLink';
 import { toast } from '../../../store/useToastStore';
@@ -29,15 +30,23 @@ export const SubmissionFiles: React.FC<{ files: Asset[] }> = ({ files }) => {
     <ul className="flex flex-wrap gap-2">
       {files.map((a) => (
         <li key={a.id}>
-          <button
-            type="button"
-            onClick={() => open(a)}
-            className="flex items-center gap-2 rounded-full bg-[var(--tm-card-muted)] px-3 py-1.5 text-[12px] font-semibold text-[var(--tm-ink)] transition-colors hover:bg-[var(--tm-bg-sunken)]"
-          >
-            {a.kind === 'link' ? <Link2 className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
-            <span className="max-w-[200px] truncate">{a.name}</span>
-            {a.kind === 'link' ? <ExternalLink className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
-          </button>
+          {a.kind === 'link' ? (
+            <button
+              type="button"
+              onClick={() => open(a)}
+              className="flex items-center gap-2 rounded-full bg-[var(--tm-card-muted)] px-3 py-1.5 text-[12px] font-semibold text-[var(--tm-ink)] transition-colors hover:bg-[var(--tm-bg-sunken)]"
+            >
+              <Link2 className="h-3.5 w-3.5" />
+              <span className="max-w-[200px] truncate">{a.name}</span>
+              <ExternalLink className="h-3.5 w-3.5" />
+            </button>
+          ) : (
+            <span className="flex items-center gap-2 rounded-full bg-[var(--tm-card-muted)] py-1 pl-3 pr-1 text-[12px] font-semibold text-[var(--tm-ink)]">
+              <FileText className="h-3.5 w-3.5" />
+              <span className="max-w-[200px] truncate">{a.name}</span>
+              <AssetDownloadButton asset={a} />
+            </span>
+          )}
         </li>
       ))}
     </ul>

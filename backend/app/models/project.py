@@ -4,6 +4,8 @@ from beanie import Document, PydanticObjectId
 from pydantic import Field
 from pymongo import IndexModel
 
+from app.models.deliverable import StageDef
+
 
 class Project(Document):
     name: str
@@ -25,6 +27,7 @@ class Subfolder(Document):
     head_ids: list[PydanticObjectId] = Field(default_factory=list)
     member_ids: list[PydanticObjectId] = Field(default_factory=list)  # always includes the heads
     file_ids: list[PydanticObjectId] = Field(default_factory=list)  # Google Docs / Sheets / Drive files linked to the subfolder
+    deliverable_stages: list[StageDef] | None = None  # None = the legacy seven stages (see models/deliverable.py)
     created_by: PydanticObjectId
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

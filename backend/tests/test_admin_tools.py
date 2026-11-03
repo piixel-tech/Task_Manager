@@ -184,7 +184,7 @@ async def test_deliverables_export(client, team):
     await DeliverablePlan(subfolder_id=team.design.id, month="2030-07", items=[DeliverableItem(id="c", type="Posts", number=1, title="Posts 1", stage="posted")]).insert()
     rows = rows_of(await client.get("/export/deliverables.csv", headers=team.admin.headers))
     assert rows[0] == ["month", "project", "subfolder", "type", "number", "title", "stage"] and len(rows) == 4
-    assert rows[1] == ["2030-06", "Acme", "Design", "Reels", "1", "Reels 1", "editing"]
+    assert rows[1] == ["2030-06", "Acme", "Design", "Reels", "1", "Reels 1", "Editing"]
     assert len(rows_of(await client.get("/export/deliverables.csv", params={"month": "2030-07"}, headers=team.admin.headers))) == 2
     assert (await client.get("/export/deliverables.csv", params={"month": "June"}, headers=team.admin.headers)).status_code == 422
 

@@ -52,7 +52,7 @@ export const ApprovalRequestModal: React.FC<Props> = ({ group, onClose }) => {
     const ok = await confirm({
       title: 'Send this approval request?',
       message: `${clients.map((c) => c.name).join(', ')} ${clients.length === 1 ? 'is' : 'are'} asked to answer “${approveLabel.trim()}” or “${rejectLabel.trim()}”. They get a reminder every 24 hours until someone answers.`,
-      confirmLabel: 'Send request',
+      confirmLabel: 'Send request', send: true,
       action: async () => {
         upsertMessage(
           await chatApi.requestApproval(group.id, {

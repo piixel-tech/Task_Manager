@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckCircle2, Download, ExternalLink, FileText, Link2, MessageSquareReply, SmilePlus, Trash2, UserRound } from 'lucide-react';
+import { CheckCircle2, ExternalLink, FileText, Link2, MessageSquareReply, SmilePlus, Trash2, UserRound } from 'lucide-react';
 import { Avatar } from '../../../components/ui/Avatar';
 import { PersonLink } from '../../../components/ui/PersonLink';
 import { RichText } from '../../../components/editor/RichText';
@@ -11,6 +11,7 @@ import { assetApi } from '../../../services/http/taskApi';
 import { formatTimeAgo } from '../../../utils/time';
 import { REACTIONS } from '../../chat/chatUtils';
 import { EntryComposer } from './EntryComposer';
+import { AssetDownloadButton } from '../../../components/ui/AssetDownloadButton';
 
 interface Props {
   entry: ActivityEntry;
@@ -89,11 +90,19 @@ export const Entry: React.FC<Props> = ({ entry: e, replies, meId, people, highli
           <ul className="mt-2 flex flex-wrap gap-2">
             {e.files.map((f) => (
               <li key={f.id}>
-                <button type="button" onClick={() => open(f)} className="flex items-center gap-1.5 rounded-full bg-[var(--tm-bg-sunken)] px-3 py-1 text-[12px] font-semibold text-[var(--tm-ink)] hover:bg-[var(--tm-border)]">
-                  {f.kind === 'link' ? <Link2 className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
-                  <span className="max-w-[10rem] truncate">{f.name}</span>
-                  {f.kind === 'link' ? <ExternalLink className="h-3 w-3" /> : <Download className="h-3 w-3" />}
-                </button>
+                {f.kind === 'link' ? (
+                  <button type="button" onClick={() => open(f)} className="flex items-center gap-1.5 rounded-full bg-[var(--tm-bg-sunken)] px-3 py-1 text-[12px] font-semibold text-[var(--tm-ink)] hover:bg-[var(--tm-border)]">
+                    <Link2 className="h-3.5 w-3.5" />
+                    <span className="max-w-[10rem] truncate">{f.name}</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </button>
+                ) : (
+                  <span className="flex items-center gap-1.5 rounded-full bg-[var(--tm-bg-sunken)] py-1 pl-3 pr-1 text-[12px] font-semibold text-[var(--tm-ink)]">
+                    <FileText className="h-3.5 w-3.5" />
+                    <span className="max-w-[10rem] truncate">{f.name}</span>
+                    <AssetDownloadButton asset={f} />
+                  </span>
+                )}
               </li>
             ))}
           </ul>

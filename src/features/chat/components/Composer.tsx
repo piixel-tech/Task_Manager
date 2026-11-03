@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { SendFlight } from '../../../components/ui/SendButton';
 import { CalendarClock, ChevronDown, Mic, Send, ShieldQuestion, Square, Trash2, X } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
@@ -67,6 +68,8 @@ export const Composer: React.FC<Props> = ({ group, meId, replyTo, onCancelReply,
   }, [replyTo]);
 
   const canSend = !empty || attachments.length > 0;
+  /** Counts sends, so the little plane flies once per message. */
+  const [flights, setFlights] = useState(0);
 
   /** Send one message; failures are reported and re-thrown so the caller keeps what is left. */
   const post = async (input: SendInput) => {
@@ -82,6 +85,7 @@ export const Composer: React.FC<Props> = ({ group, meId, replyTo, onCancelReply,
   const send = async () => {
     if (!canSend || busy) return;
     setBusy(true);
+    setFlights((n) => n + 1);
     const html = editor.current?.isEmpty() ? '' : (editor.current?.html() ?? '');
     try {
       if (attachments.length === 0) {
@@ -290,9 +294,12 @@ export const Composer: React.FC<Props> = ({ group, meId, replyTo, onCancelReply,
             trailing={
               canSend ? (
                 <div className="relative flex items-center">
-                  <Button type="button" size="sm" aria-label="Send" isLoading={busy} onClick={send} className="!rounded-full !bg-[#C4B5E0] !text-[#2A2933] hover:!bg-[#D2C6E9]">
-                    <Send className="h-4 w-4" />
-                  </Button>
+                  <span className="relative">
+                    <SendFlight fire={flights} />
+                    <Button type="button" size="sm" aria-label="Send" isLoading={busy} onClick={send} className="!rounded-full !bg-[#C4B5E0] !text-[#2A2933] hover:!bg-[#D2C6E9]">
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </span>
                   <Button
                     type="button"
                     size="sm"

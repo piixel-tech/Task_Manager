@@ -17,6 +17,7 @@ import { ApprovalCard } from './ApprovalCard';
 import { Ticks } from './Ticks';
 import { DriveFileViewer } from '../../google/DriveFileViewer';
 import { DriveKindIcon } from '../../google/DriveKindIcon';
+import { AssetDownloadButton } from '../../../components/ui/AssetDownloadButton';
 import { KIND_LABEL } from '../../google/googleUtils';
 
 interface Props {
@@ -126,6 +127,18 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
               )}
               {m.type === 'file' && m.file && (
                 <div className="mb-1 flex w-full max-w-xs items-stretch gap-1.5">
+                  {!m.file.drive ? (
+                    <div className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[var(--tm-radius-sm)] bg-[var(--tm-card-muted)] p-3">
+                      <FileText className="h-6 w-6 shrink-0 text-[var(--tm-primary-dark)]" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-bold">{m.file.name}</span>
+                        <span className="text-[11px] text-[var(--tm-ink-muted)]">
+                          {(m.file.size / 1024).toFixed(m.file.size > 1024 * 100 ? 0 : 1)} KB
+                        </span>
+                      </span>
+                      <AssetDownloadButton asset={m.file} size="md" />
+                    </div>
+                  ) : (
                   <button
                     type="button"
                     onClick={open}
@@ -145,6 +158,7 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
                       </span>
                     </span>
                   </button>
+                  )}
                   {m.file.drive && (
                     <button
                       type="button"

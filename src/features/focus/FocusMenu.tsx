@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Moon } from 'lucide-react';
+import { FocusBeam, FocusPill } from './FocusToggle';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { toast } from '../../store/useToastStore';
@@ -115,19 +116,18 @@ export const FocusMenu: React.FC = () => {
 
   return (
     <div className="relative" ref={box}>
+      <FocusBeam on={!!until} />
       <button
         type="button"
+        role="switch"
+        aria-checked={!!until}
+        aria-haspopup="dialog"
         onClick={() => setOpen((o) => !o)}
         aria-label={until ? `Focus mode on until ${focusEndLabel(until)}` : 'Focus mode'}
-        aria-expanded={open}
         title={until ? `In focus until ${focusEndLabel(until)}` : 'Focus mode'}
-        className={`grid h-10 w-10 place-items-center rounded-full border transition-colors ${
-          until
-            ? 'border-[var(--tm-primary)] bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)]'
-            : 'border-[var(--tm-border)] bg-[var(--tm-card)] text-[var(--tm-ink-soft)] hover:border-[var(--tm-border-strong)] hover:text-[var(--tm-ink)]'
-        }`}
+        className="relative z-10 block rounded-full outline-none transition-transform hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-[var(--tm-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--tm-bg)]"
       >
-        <Moon className="h-4 w-4" />
+        <FocusPill on={!!until} />
       </button>
 
       {open && (

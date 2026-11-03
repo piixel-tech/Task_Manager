@@ -82,7 +82,7 @@ export const ClientMeetingsPage: React.FC = () => {
     const ok = await confirm({
       title: `Book ${host.name}?`,
       message: `${new Date(slot.start).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}, ${time(slot.start)} to ${time(slot.end)}. ${host.name} is notified.`,
-      confirmLabel: 'Book meeting',
+      confirmLabel: 'Book meeting', send: true,
       action: async () => {
         await bookingApi.create({ host_user_id: host.id, start: slot.start, end: slot.end, title: title.trim(), note: note.trim() });
       },

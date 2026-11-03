@@ -7,7 +7,7 @@ from fastapi import HTTPException, status
 
 from app.core.permissions import can
 from app.models import ChecklistItem, DeliverablePlan, File, Subfolder, User
-from app.models.deliverable import STAGES, DeliverableItem
+from app.models.deliverable import LEGACY_STAGES, DeliverableItem, StageDef
 from app.schemas.file import FileOut
 from app.schemas.checklist import ChecklistFileOut, ChecklistItemOut
 from app.schemas.deliverable import MAX_COUNT, MAX_TYPES, DeliverableItemOut, DeliverablesOut, TypeSummary
@@ -73,19 +73,26 @@ async def delete_subfolder_content(subfolder_ids: list[PydanticObjectId]) -> Non
 
 
 # --- Deliverables ----------------------------------------------------------------------------------------
-def _done(items: list[DeliverableItem]) -> int:
+def stages_of(sub: Subfolder) -> list[StageDef]:
+    """The subfolder's stages in order. Subfolders that never edited them keep the legacy seven."""
+    return list(sub.deliverable_stages) if sub.deliverable_stages else list(LEGACY_STAGES)
+
+
+def _done(items: list[DeliverableItem], keys: list[str]) -> int:
     """An item is done once it reaches the last stage."""
-    return sum(1 for i in items if i.stage == STAGES[-1])
+    return sum(1 for i in items if i.stage == keys[-1])
 
 
-def _pct(items: list[DeliverableItem]) -> int:
+def _pct(items: list[DeliverableItem], keys: list[str]) -> int:
     if not items:
         return 0
-    top = len(STAGES) - 1
-    return round(100 * sum(STAGES.index(i.stage) for i in items) / (len(items) * top))
+    top = len(keys) - 1
+    return round(100 * sum(keys.index(i.stage) if i.stage in keys else 0 for i in items) / (len(items) * top))
 
 
 async def deliverables_out(sub: Subfolder, month: str, plan: DeliverablePlan | None, viewer: User) -> DeliverablesOut:
+    stages = stages_of(sub)
+    keys = [s.key for s in stages]
     items = sorted(plan.items if plan else [], key=lambda i: (i.type.lower(), i.number))
     people = await load_users(i.updated_by for i in items if i.updated_by)
     types: dict[str, list[DeliverableItem]] = {}
@@ -93,19 +100,22 @@ async def deliverables_out(sub: Subfolder, month: str, plan: DeliverablePlan | N
         types.setdefault(i.type, []).append(i)
 
     def by_stage(group: list[DeliverableItem]) -> dict[str, int]:
-        return {s: sum(1 for i in group if i.stage == s) for s in STAGES}
+        return {s: sum(1 for i in group if i.stage == s) for s in keys}
 
     return DeliverablesOut(
         subfolder_id=sub.id,
         month=month,
-        stages=list(STAGES),
+        stages=keys,
+        stage_labels={s.key: s.label for s in stages},
         total=len(items),
-        done=_done(items),
-        remaining=len(items) - _done(items),
-        progress=_pct(items),
+        done=_done(items, keys),
+        remaining=len(items) - _done(items, keys),
+        progress=_pct(items, keys),
         by_stage=by_stage(items),
         types=[
-            TypeSummary(type=t, total=len(g), by_stage=by_stage(g), done=_done(g), remaining=len(g) - _done(g), progress=_pct(g))
+            TypeSummary(
+                type=t, total=len(g), by_stage=by_stage(g), done=_done(g, keys), remaining=len(g) - _done(g, keys), progress=_pct(g, keys)
+            )
             for t, g in types.items()
         ],
         items=[
@@ -142,11 +152,11 @@ async def get_or_create_plan(sub_id: PydanticObjectId, month: str) -> Deliverabl
         return plan
 
 
-async def apply_counts(plan: DeliverablePlan, counts: dict[str, int], user: User) -> list[str]:
+async def apply_counts(plan: DeliverablePlan, counts: dict[str, int], user: User, first: StageDef) -> list[str]:
     """Grow or shrink each named type to the requested count. Returns a readable list of what changed.
 
     Growing adds the next numbers. Shrinking removes the highest numbers, but only items still in
-    `writing`: work that has moved on is never deleted silently. Types not mentioned are left alone.
+    the first stage: work that has moved on is never deleted silently. Types not mentioned are left alone.
     """
     now = datetime.now(timezone.utc)
     existing: dict[str, list[DeliverableItem]] = {}
@@ -165,16 +175,16 @@ async def apply_counts(plan: DeliverablePlan, counts: dict[str, int], user: User
             for k in range(1, n - have + 1):
                 add.append(
                     DeliverableItem(
-                        id=uuid.uuid4().hex, type=label, number=top + k, title=f"{label} {top + k}", updated_by=user.id, updated_at=now
+                        id=uuid.uuid4().hex, type=label, number=top + k, title=f"{label} {top + k}", stage=first.key, updated_by=user.id, updated_at=now
                     ).model_dump()
                 )
         elif n < have:
             doomed = group[n:]
-            moved = [d.title for d in doomed if d.stage != "writing"]
+            moved = [d.title for d in doomed if d.stage != first.key]
             if moved:
                 raise HTTPException(
                     status.HTTP_409_CONFLICT,
-                    f"Can't remove {', '.join(moved)}: already past writing. Keep the count or move it back first.",
+                    f"Can't remove {', '.join(moved)}: already past {first.label.lower()}. Keep the count or move it back first.",
                 )
             drop.extend(d.id for d in doomed)
         if n != have:
@@ -187,7 +197,7 @@ async def apply_counts(plan: DeliverablePlan, counts: dict[str, int], user: User
     return changes
 
 
-async def add_items(plan: DeliverablePlan, type_name: str, count: int, user: User) -> str:
+async def add_items(plan: DeliverablePlan, type_name: str, count: int, user: User, first: StageDef) -> str:
     """Append `count` items to a type (created if new), numbered after the highest existing one. Returns the type label."""
     group = [i for i in plan.items if i.type.lower() == type_name.lower()]
     label = group[0].type if group else type_name  # keep the first spelling used
@@ -198,7 +208,9 @@ async def add_items(plan: DeliverablePlan, type_name: str, count: int, user: Use
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"At most {MAX_TYPES} types")
     now = datetime.now(timezone.utc)
     new = [
-        DeliverableItem(id=uuid.uuid4().hex, type=label, number=top + k, title=f"{label} {top + k}", updated_by=user.id, updated_at=now).model_dump()
+        DeliverableItem(
+            id=uuid.uuid4().hex, type=label, number=top + k, title=f"{label} {top + k}", stage=first.key, updated_by=user.id, updated_at=now
+        ).model_dump()
         for k in range(1, count + 1)
     ]
     await DeliverablePlan.find({"_id": plan.id}).update({"$push": {"items": {"$each": new}}})

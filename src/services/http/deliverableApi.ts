@@ -1,24 +1,14 @@
 import { api, getErrorMessage } from '../api';
 import type { UserBrief } from './projectApi';
 
-export type Stage =
-  | 'writing'
-  | 'shoot_pending'
-  | 'shoot'
-  | 'editing'
-  | 'waiting_approval'
-  | 'approved'
-  | 'posted';
+/** A stage's key. Each subfolder has its own list of stages (`Deliverables.stages`, with names in `stage_labels`) that heads can edit. */
+export type Stage = string;
 
-export const STAGE_LABEL: Record<Stage, string> = {
-  writing: 'Writing',
-  shoot_pending: 'Shoot pending',
-  shoot: 'Shoot',
-  editing: 'Editing',
-  waiting_approval: 'Waiting approval',
-  approved: 'Approved',
-  posted: 'Posted'
-};
+/** One stage in a list sent to the server: a `key` keeps an existing stage (rename or move), no key adds a new one. */
+export interface StageInput {
+  key?: string;
+  label: string;
+}
 
 export interface DeliverableItem {
   id: string;
@@ -44,7 +34,10 @@ export interface TypeSummary {
 export interface Deliverables {
   subfolder_id: string;
   month: string;
+  /** Keys, in order; the last is the finish line. */
   stages: Stage[];
+  /** key -> the name people read. */
+  stage_labels: Record<Stage, string>;
   total: number;
   done: number;
   remaining: number;
@@ -84,6 +77,17 @@ export const deliverableApi = {
     call<Deliverables>(() => api.post(`/subfolders/${subfolderId}/deliverables/${month}/items`, { type, count }), 'Could not add the items'),
   removeItem: (subfolderId: string, month: string, itemId: string) =>
     call<Deliverables>(() => api.delete(`/subfolders/${subfolderId}/deliverables/${month}/items/${itemId}`), 'Could not delete the item'),
+  /** Heads and admins: the whole list of stages, in order. Stages left out are deleted; their items move to the stage before when `moveItems`. */
+  setStages: (subfolderId: string, month: string, stages: StageInput[], moveItems: boolean) =>
+    call<Deliverables>(
+      () => api.put(`/subfolders/${subfolderId}/deliverables/stages`, { stages, move_items: moveItems }, { params: { month } }),
+      'Could not save the stages'
+    ),
+  /** How many deliverables sit on each stage key, over all months. */
+  stagesUsage: (subfolderId: string) =>
+    call<{ counts: Record<Stage, number> }>(() => api.get(`/subfolders/${subfolderId}/deliverables/stages/usage`), 'Could not check the stages').then(
+      (r) => r.counts
+    ),
   removeType: (subfolderId: string, month: string, type: string) =>
     call<Deliverables>(
       () => api.delete(`/subfolders/${subfolderId}/deliverables/${month}/types`, { params: { type } }),

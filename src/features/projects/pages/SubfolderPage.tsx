@@ -124,7 +124,7 @@ export const SubfolderPage: React.FC = () => {
       <div className="mt-6 space-y-5">
       {tab === 'tasks' && <SubfolderTasksTab data={taskData} filter={taskFilter} onFilter={setTaskFilter} />}
       {tab === 'checklist' && <ChecklistTab subfolderId={subfolder.id} />}
-      {tab === 'deliverables' && <DeliverablesTab subfolderId={subfolder.id} />}
+      {tab === 'deliverables' && <DeliverablesTab key={subfolder.id} subfolderId={subfolder.id} />}
       {tab === 'changes' && <ChangesBox subfolderId={subfolder.id} projectId={project.id} onCount={setOpenChanges} />}
 
       {tab === 'overview' && !subfolder.can_edit && (

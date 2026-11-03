@@ -161,6 +161,7 @@ async def test_head_sets_counts_and_numbered_items_appear(client, team):
     d = r.json()
     assert d["month"] == MONTH and d["total"] == 20 and d["progress"] == 0
     assert d["stages"] == ["writing", "shoot_pending", "shoot", "editing", "waiting_approval", "approved", "posted"]
+    assert d["stage_labels"]["shoot_pending"] == "Shoot pending"
     assert [(t["type"], t["total"]) for t in d["types"]] == [("Reels", 12), ("Creatives", 8)] or sorted(
         (t["type"], t["total"]) for t in d["types"]
     ) == [("Creatives", 8), ("Reels", 12)]
@@ -397,3 +398,97 @@ async def test_deleting_a_project_removes_its_checklists_files_and_plans(client,
     assert (await client.delete(f"/projects/{team.project.id}", headers=team.admin.headers)).status_code == 204
     assert await ChecklistItem.find_all().count() == 0 and await DeliverablePlan.find_all().count() == 0
     assert await File.find_all().count() == 0 and await Subfolder.find(Subfolder.id == team.design.id).count() == 0
+
+
+# --- Editable stages -------------------------------------------------------------------------------------------
+def stages_url(sub):
+    return f"/subfolders/{sub.id}/deliverables/stages"
+
+
+def keep(d, *labels):
+    """The current stages as a PUT body, in the order of `labels` (existing ones by name keep their key; others are new)."""
+    by_label = {v: k for k, v in d["stage_labels"].items()}
+    return [{"key": by_label[x], "label": x} if x in by_label else {"label": x} for x in labels]
+
+
+async def test_new_subfolders_start_with_the_default_four_stages(client, team):
+    r = await client.post(f"/projects/{team.project.id}/subfolders", json={"name": "Fresh", "head_ids": [team.hana.id]}, headers=team.admin.headers)
+    assert r.status_code == 201, r.text
+    d = (await client.get(f"/subfolders/{r.json()['id']}/deliverables", headers=team.admin.headers)).json()
+    assert [d["stage_labels"][k] for k in d["stages"]] == ["Shooted", "Editing", "Reel", "Posted"]
+    await client.put(f"/subfolders/{r.json()['id']}/deliverables/{MONTH}", json={"counts": {"Reels": 2}}, headers=team.admin.headers)
+    d = (await client.get(f"/subfolders/{r.json()['id']}/deliverables", params={"month": MONTH}, headers=team.admin.headers)).json()
+    assert {i["stage"] for i in d["items"]} == {"shooted"}  # items start on the first stage of THEIR subfolder
+
+
+async def test_heads_rename_add_and_reorder_stages_and_items_keep_their_place(client, team):
+    await set_counts(client, team.hana, team.design, {"Reels": 3})
+    d = (await client.get(f"/subfolders/{team.design.id}/deliverables", params={"month": MONTH}, headers=team.hana.headers)).json()
+    first = d["items"][0]
+    await client.patch(f"{dl(team.design)}/items/{first['id']}", json={"stage": "editing"}, headers=team.mia.headers)
+
+    body = {"stages": keep(d, "Writing", "Shoot", "Cut", "Posted", "Archived")}  # drop 3, rename Editing, add Archived
+    body["stages"] = [{"key": "writing", "label": "Script"}, {"key": "editing", "label": "Cut"}, {"key": "shoot", "label": "Filming"}, {"label": "Archive"}]
+    body["move_items"] = True
+    r = await client.put(stages_url(team.design), params={"month": MONTH}, json=body, headers=team.hana.headers)
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert [out["stage_labels"][k] for k in out["stages"]] == ["Script", "Cut", "Filming", "Archive"]
+    assert out["stages"][:3] == ["writing", "editing", "shoot"] and out["stages"][3].startswith("s_")
+    moved = next(i for i in out["items"] if i["id"] == first["id"])
+    assert moved["stage"] == "editing"  # renamed, not moved: the tick stays
+    assert out["done"] == 0  # the last stage is now the new one
+
+
+async def test_deleting_a_busy_stage_warns_first_then_moves_items_to_the_stage_before(client, team):
+    await set_counts(client, team.hana, team.design, {"Reels": 2})
+    d = (await client.get(f"/subfolders/{team.design.id}/deliverables", params={"month": MONTH}, headers=team.hana.headers)).json()
+    a, b = d["items"]
+    await client.patch(f"{dl(team.design)}/items/{a['id']}", json={"stage": "editing"}, headers=team.mia.headers)
+    await client.patch(f"{dl(team.design)}/items/{b['id']}", json={"stage": "posted"}, headers=team.mia.headers)
+
+    usage = await client.get(f"{stages_url(team.design)}/usage", headers=team.hana.headers)
+    assert usage.json()["counts"] == {"editing": 1, "posted": 1}
+
+    stages = [{"key": k, "label": v} for k, v in d["stage_labels"].items() if k != "editing"]
+    r = await client.put(stages_url(team.design), json={"stages": stages}, headers=team.hana.headers)
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "stage_in_use"
+    assert r.json()["detail"]["stages"] == [{"key": "editing", "label": "Editing", "count": 1}]
+    still = (await client.get(f"/subfolders/{team.design.id}/deliverables", params={"month": MONTH}, headers=team.hana.headers)).json()
+    assert "editing" in still["stages"]  # nothing changed
+
+    r = await client.put(stages_url(team.design), params={"month": MONTH}, json={"stages": stages, "move_items": True}, headers=team.hana.headers)
+    assert r.status_code == 200 and "editing" not in r.json()["stages"]
+    by_id = {i["id"]: i["stage"] for i in r.json()["items"]}
+    assert by_id[a["id"]] == "shoot" and by_id[b["id"]] == "posted"  # editing -> the stage before it
+
+
+async def test_stages_permissions_and_validation(client, team):
+    d = (await client.get(f"/subfolders/{team.design.id}/deliverables", params={"month": MONTH}, headers=team.hana.headers)).json()
+    good = {"stages": [{"key": k, "label": v} for k, v in d["stage_labels"].items()]}
+    for who in (team.mia, team.vic, team.ollie, team.cleo):  # members, siblings, outsiders, clients
+        assert (await client.put(stages_url(team.design), json=good, headers=who.headers)).status_code == 403, who
+        assert (await client.get(f"{stages_url(team.design)}/usage", headers=who.headers)).status_code == 403, who
+    assert (await client.put(stages_url(team.design), json=good)).status_code == 401
+    assert (await client.put(stages_url(team.design), json=good, headers=team.admin.headers)).status_code == 200
+    for bad in (
+        {"stages": [{"label": "Only one"}]},
+        {"stages": [{"label": "A"}, {"label": "a"}]},
+        {"stages": [{"label": "A"}, {"label": "  "}]},
+        {"stages": [{"label": "A"}, {"label": "x" * 31}]},
+        {"stages": [{"label": f"S{i}"} for i in range(13)]},
+        {"stages": [{"key": "nope", "label": "A"}, {"label": "B"}]},
+        {"stages": [{"key": "writing", "label": "A"}, {"key": "writing", "label": "B"}]},
+    ):
+        assert (await client.put(stages_url(team.design), json=bad, headers=team.hana.headers)).status_code == 422, bad
+
+
+async def test_a_stage_change_notifies_the_team_and_a_move_to_an_unknown_stage_is_refused(client, team):
+    d = (await client.get(f"/subfolders/{team.design.id}/deliverables", params={"month": MONTH}, headers=team.hana.headers)).json()
+    await Notification.find_all().delete()
+    await client.put(stages_url(team.design), json={"stages": [{"key": "writing", "label": "Script"}, {"key": "posted", "label": "Posted"}], "move_items": True}, headers=team.hana.headers)
+    notes = await Notification.find(Notification.type == "deliverables_updated").to_list()
+    assert {n.user_id for n in notes} == {team.mia.user.id, team.max.user.id} and "Script → Posted" in notes[0].body
+    await set_counts(client, team.hana, team.design, {"Reels": 1})
+    item = (await client.get(f"/subfolders/{team.design.id}/deliverables", params={"month": MONTH}, headers=team.hana.headers)).json()["items"][0]
+    assert (await client.patch(f"{dl(team.design)}/items/{item['id']}", json={"stage": "shoot"}, headers=team.mia.headers)).status_code == 422  # deleted stage

@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.deps import get_current_user
 from app.core.permissions import can, require
+from app.models.deliverable import DEFAULT_STAGES
 from app.models import User
 from app.models.project import Project, Subfolder
 from app.schemas.project import (
@@ -52,6 +53,7 @@ async def _create_subfolder(project: Project, body: SubfolderCreate, actor: User
         head_ids=unique(body.head_ids),
         member_ids=with_heads_as_members(body.head_ids, body.member_ids),
         created_by=actor.id,
+        deliverable_stages=list(DEFAULT_STAGES),
     )
     await sub.insert()
     return sub

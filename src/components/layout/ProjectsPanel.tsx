@@ -75,7 +75,7 @@ export const ProjectsPanel: React.FC = () => {
 
       {open && (
         <div
-          className="tm-sidebar relative mt-3 max-h-[70vh] overflow-y-auto rounded-[var(--tm-radius-xl)] px-4 pb-5 pt-3
+          className="tm-sidebar scrollbar-none relative mt-3 max-h-[70vh] overflow-y-auto rounded-[var(--tm-radius-xl)] px-4 pb-5 pt-3
             lg:mt-0 lg:max-h-[calc(100vh-116px)]"
         >
           <div className="mb-1 hidden items-center justify-between px-1 lg:flex">

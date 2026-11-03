@@ -6,6 +6,8 @@ export interface ConfirmOptions {
   confirmLabel?: string;
   /** Red confirm button, for deletes and deactivations. */
   danger?: boolean;
+  /** Submits, requests, bookings and invites: the confirm button is the Send button (plane, "Sent!", "Failed · Retry"). */
+  send?: boolean;
   /** Runs when the user confirms. Throw to keep the dialog open and show the error. */
   action: () => Promise<unknown>;
   /** Success toast shown once `action` resolves. */

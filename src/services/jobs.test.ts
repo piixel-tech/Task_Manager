@@ -173,7 +173,7 @@ describe('runJob', () => {
   });
 
   it('stacks several jobs and keeps them apart', async () => {
-    void runJob({ title: 'one', run: () => new Promise(() => undefined) });
+    runJob({ title: 'one', run: () => new Promise(() => undefined) }).catch(() => undefined); // cancelled below
     void runJob({ title: 'two', run: () => new Promise(() => undefined) });
     await tick();
     expect(jobs().map((j) => j.title)).toEqual(['one', 'two']);

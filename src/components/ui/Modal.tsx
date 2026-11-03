@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { X } from 'lucide-react';
@@ -41,6 +41,7 @@ export const Modal: React.FC<ModalProps> = ({
   dismissible = true
 }) => {
   const { reduced } = useMotionPrefs();
+  const body = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -110,7 +111,7 @@ export const Modal: React.FC<ModalProps> = ({
               </div>
             )}
 
-            <div className="flex-1 overflow-y-auto px-7 pb-7">{children}</div>
+            <div ref={body} className="min-h-0 flex-1 overflow-y-auto px-7 pb-7">{children}</div>
 
             {footer && (
               <div className="flex items-center justify-end gap-3 border-t border-[var(--tm-border)] px-7 py-4">

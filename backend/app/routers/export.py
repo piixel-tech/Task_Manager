@@ -10,6 +10,7 @@ from fastapi.responses import Response
 from app.core.deps import require_role
 from app.core.timeutil import as_utc, today_local, tz
 from app.models import DailyStatus, DeliverablePlan, Project, Subfolder, Task, User
+from app.services.checklist import stages_of
 
 router = APIRouter(prefix="/export", tags=["export"], dependencies=[Depends(require_role("admin"))])
 
@@ -123,5 +124,6 @@ async def export_deliverables(month: str | None = Query(None, description="YYYY-
         sub = subs.get(plan.subfolder_id)
         project = projects.get(sub.project_id) if sub else None
         for item in plan.items:
-            rows.append([plan.month, project.name if project else "", sub.name if sub else "", item.type, item.number, item.title, item.stage])
+            names = {s.key: s.label for s in stages_of(sub)} if sub else {}
+            rows.append([plan.month, project.name if project else "", sub.name if sub else "", item.type, item.number, item.title, names.get(item.stage, item.stage)])
     return _csv("deliverables", ["month", "project", "subfolder", "type", "number", "title", "stage"], rows)

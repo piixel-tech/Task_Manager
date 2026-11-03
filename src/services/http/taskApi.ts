@@ -158,12 +158,16 @@ export const assetApi = {
   remove: (id: string) => call<void>(() => api.delete(`/files/${id}`), 'Could not remove the attachment'),
 
   /** Open an attachment: links in a new tab, uploads fetched with the login token and then opened/saved. */
-  open: async (asset: Asset): Promise<void> => {
+  open: async (asset: Asset, onProgress?: (percent: number | null) => void): Promise<void> => {
     if (asset.kind === 'link') {
       window.open(asset.url, '_blank', 'noopener,noreferrer');
       return;
     }
-    const { data } = await api.get<Blob>(asset.url.replace(/^\/api\/v1/, ''), { responseType: 'blob' });
+    const { data } = await api.get<Blob>(asset.url.replace(/^\/api\/v1/, ''), {
+      responseType: 'blob',
+      // The size is unknown when the server does not send Content-Length: the button then shows a spinning ring.
+      onDownloadProgress: onProgress ? (e) => onProgress(e.total ? (100 * e.loaded) / e.total : null) : undefined
+    });
     const href = URL.createObjectURL(data);
     const a = document.createElement('a');
     a.href = href;
