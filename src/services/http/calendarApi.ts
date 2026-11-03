@@ -12,6 +12,8 @@ export interface TodayRow {
   avatar_url: string | null;
   company_id: string | null;
   role: string;
+  /** Job title from their profile (may be empty). */
+  title?: string;
   status: DayStatus | null;
   is_head: boolean;
 }
@@ -30,6 +32,10 @@ export interface Booking {
   end: string;
   title: string;
   note: string;
+  /** The Google Meet link, once Google has made one. Empty for people who are not in the meeting. */
+  meet_url?: string;
+  /** Guests invited through Google besides the host and the booker (only for people in the meeting). */
+  attendees?: { email: string; name: string; user_id: string | null }[];
 }
 
 export interface BookingInput {
@@ -38,6 +44,8 @@ export interface BookingInput {
   end: string;
   title: string;
   note: string;
+  /** Teammates by id, anyone else by email. Google emails each an invitation with the Meet link. */
+  attendees?: ({ user_id: string } | { email: string })[];
 }
 
 /** Run a request and surface the backend's message (e.g. "That slot overlaps...") as an Error. */

@@ -48,7 +48,7 @@ class FakeGoogle:
         self.gone_once = False
         self.token_response = {
             "access_token": "access-1", "refresh_token": "refresh-1", "expires_in": 3600,
-            "scope": " ".join(gclient.SCOPES),
+            "scope": " ".join(gclient.ALL_SCOPES),
         }
         self.refresh_error: dict | None = None
         self.watch_error = False
@@ -197,7 +197,7 @@ async def connect_user(person, selected: list[str] | None = None, write_calendar
     conn = IntegrationConnection(
         user_id=person.user.id, provider="google", account="alice@example.com",
         access_token=crypto.encrypt("access-1"), refresh_token=crypto.encrypt("refresh-1"),
-        token_expires_at=datetime.now(timezone.utc) + timedelta(hours=1), scopes=gclient.SCOPES, config=config, **fields,
+        token_expires_at=datetime.now(timezone.utc) + timedelta(hours=1), scopes=gclient.ALL_SCOPES, config=config, **fields,
     )
     await conn.insert()
     return conn
@@ -245,6 +245,7 @@ async def test_providers_list_starts_disconnected(client, alice):
     got = (await client.get("/integrations", headers=alice.headers)).json()
     assert [(p["key"], p["configured"], p["connection"]) for p in got] == [("google", True, None)]
     assert got[0]["extras"] == {"push_available": False}
+    assert got[0]["name"] == "Google"
 
 
 async def test_connect_builds_an_offline_consent_url(client, alice):
@@ -255,7 +256,7 @@ async def test_connect_builds_an_offline_consent_url(client, alice):
     assert url.netloc == "accounts.google.com"
     assert q["access_type"] == "offline" and q["prompt"] == "consent" and q["response_type"] == "code"
     assert q["client_id"] == "acme-client-id.apps.googleusercontent.com" and q["redirect_uri"] == settings.GOOGLE_REDIRECT_URI
-    assert set(q["scope"].split()) == set(gclient.SCOPES)
+    assert set(q["scope"].split()) == set(gclient.ALL_SCOPES)
     assert q["state"]
 
 
@@ -296,7 +297,7 @@ async def test_each_company_uses_only_its_own_keys(client, make_user, google):
     assert urls[ola.id]["client_id"] == "other-client-id.apps.googleusercontent.com"
     assert urls[ann.id]["redirect_uri"] == urls[ola.id]["redirect_uri"] == settings.GOOGLE_REDIRECT_URI
 
-    r = await client.get("/integrations/google/callback", params={"code": "c", "state": urls[ola.id]["state"], "scope": " ".join(gclient.SCOPES)})
+    r = await client.get("/integrations/google/callback", params={"code": "c", "state": urls[ola.id]["state"], "scope": " ".join(gclient.ALL_SCOPES)})
     assert "result=connected" in r.headers["location"]
     exchange = [c[2]["form"] for c in google.calls if c[1] == "/token"][-1]
     assert exchange["client_id"] == "other-client-id.apps.googleusercontent.com" and exchange["client_secret"] == "other-client-secret"
@@ -347,7 +348,7 @@ async def _state(client, person) -> str:
 async def test_callback_stores_encrypted_tokens_and_starts_syncing(client, alice, google):
     google.events["alice@example.com"] = [timed("e1", "Standup", *soon())]
     state = await _state(client, alice)
-    r = await client.get("/integrations/google/callback", params={"code": "auth-code", "state": state, "scope": " ".join(gclient.SCOPES)})
+    r = await client.get("/integrations/google/callback", params={"code": "auth-code", "state": state, "scope": " ".join(gclient.ALL_SCOPES)})
     assert r.status_code == 303
     assert r.headers["location"].startswith("http://localhost:5173/app/settings/connected-apps?")
     assert "result=connected" in r.headers["location"]
@@ -393,7 +394,7 @@ async def test_callback_rejects_bad_state_denied_and_missing_scopes(client, alic
 
 async def test_reconnecting_keeps_choices_and_old_refresh_token(client, alice, google):
     await connect_user(alice, selected=["alice@example.com", "team@group.calendar.google.com"])
-    google.token_response = {"access_token": "access-9", "expires_in": 3600, "scope": " ".join(gclient.SCOPES)}  # no refresh token this time
+    google.token_response = {"access_token": "access-9", "expires_in": 3600, "scope": " ".join(gclient.ALL_SCOPES)}  # no refresh token this time
     state = await _state(client, alice)
     r = await client.get("/integrations/google/callback", params={"code": "x", "state": state})
     assert "result=connected" in r.headers["location"]

@@ -73,7 +73,7 @@ async def check_assignee(assignee_id: PydanticObjectId) -> User:
 async def copy_file(f: File, owner: User) -> File:
     """An independent copy of a file (own record, own stored bytes), so deleting the original can't take this one with it."""
     if f.kind == "link":
-        copy = File(owner_id=owner.id, name=f.name, mime=f.mime, size=0, kind="link", url=f.url)
+        copy = File(owner_id=owner.id, name=f.name, mime=f.mime, size=0, kind="link", url=f.url, drive=f.drive)
         return await copy.insert()
     storage = get_storage()
     with open(storage.get_path(f.storage_key), "rb") as source:

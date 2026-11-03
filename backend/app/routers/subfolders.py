@@ -1,9 +1,11 @@
 from beanie import PydanticObjectId
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 
 from app.core.deps import get_current_user
-from app.core.permissions import require
-from app.models import User
+from app.core.permissions import can, require
+from app.models import File, User
+from app.schemas.file import FileOut
 from app.schemas.project import SubfolderOut, SubfolderUpdate
 from app.services.trash import trash_subfolder
 from app.services.projects import (
@@ -27,6 +29,81 @@ async def get_subfolder(subfolder_id: PydanticObjectId, user: User = Depends(get
     siblings = await subfolders_of(sub.project_id)
     require(user, "subfolder.view", sub, siblings=siblings)
     return await subfolder_out(sub, siblings, user)
+
+
+class SubfolderFiles(BaseModel):
+    can_write: bool
+    files: list[FileOut]
+
+
+class FileRef(BaseModel):
+    file_id: PydanticObjectId
+
+
+async def _files_out(sub, user: User) -> SubfolderFiles:
+    from app.integrations.google.workspace import drive_files_of
+
+    return SubfolderFiles(
+        can_write=can(user, "checklist.write", sub),
+        files=[FileOut.model_validate(f, from_attributes=True) for f in await drive_files_of(sub.file_ids)],
+    )
+
+
+@router.get("/{subfolder_id}/files", response_model=SubfolderFiles)
+async def list_subfolder_files(subfolder_id: PydanticObjectId, user: User = Depends(get_current_user)) -> SubfolderFiles:
+    """Google Docs, Sheets and Drive files linked to the subfolder. Anyone who can open the subfolder sees the links."""
+    sub = await get_subfolder_or_404(subfolder_id)
+    require(user, "subfolder.view", sub, siblings=await subfolders_of(sub.project_id))
+    return await _files_out(sub, user)
+
+
+@router.post("/{subfolder_id}/files", response_model=SubfolderFiles, status_code=status.HTTP_201_CREATED)
+async def link_subfolder_file(subfolder_id: PydanticObjectId, body: FileRef, user: User = Depends(get_current_user)) -> SubfolderFiles:
+    """Link a Drive file (picked or just created through the Google routes) to the subfolder. Members and admins."""
+    sub = await get_subfolder_or_404(subfolder_id)
+    require(user, "checklist.write", sub)
+    file = await File.get(body.file_id)
+    if file is None or file.drive is None or (file.owner_id != user.id and user.role != "admin"):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Pick a file from Google Drive or create one first")
+    if file.id not in sub.file_ids:
+        sub.file_ids = [*sub.file_ids, file.id]
+        await sub.save()
+        project = await get_project_or_404(sub.project_id)
+        await notify_people(
+            sub.member_ids,
+            type="subfolder_file_added",
+            title=f"New Google file in {sub.name}",
+            body=f"{user.name} added {file.name}.",
+            project_id=project.id,
+            subfolder_id=sub.id,
+            actor=user,
+        )
+    return await _files_out(sub, user)
+
+
+@router.delete("/{subfolder_id}/files/{file_id}", response_model=SubfolderFiles)
+async def unlink_subfolder_file(
+    subfolder_id: PydanticObjectId, file_id: PydanticObjectId, user: User = Depends(get_current_user)
+) -> SubfolderFiles:
+    """Take the link off the subfolder. The file itself stays in Google Drive."""
+    sub = await get_subfolder_or_404(subfolder_id)
+    require(user, "checklist.write", sub)
+    if file_id not in sub.file_ids:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "That file isn't linked to this subfolder")
+    sub.file_ids = [i for i in sub.file_ids if i != file_id]
+    await sub.save()
+    file = await File.get(file_id)  # the link record stays: a task or a chat message may point at the same file
+    project = await get_project_or_404(sub.project_id)
+    await notify_people(
+        sub.member_ids,
+        type="subfolder_file_removed",
+        title=f"Google file removed from {sub.name}",
+        body=f"{user.name} removed {file.name if file else 'a file'}.",
+        project_id=project.id,
+        subfolder_id=sub.id,
+        actor=user,
+    )
+    return await _files_out(sub, user)
 
 
 @router.patch("/{subfolder_id}", response_model=SubfolderOut)

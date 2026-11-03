@@ -355,7 +355,8 @@ async def check_attachment(msg_type: str, file_id: PydanticObjectId, user: User)
     f = await File.get(file_id)
     if f is None or (f.owner_id != user.id and user.role != "admin"):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Invalid file: upload it first")
-    if f.kind != "upload":
+    drive_file = f.kind == "link" and f.drive is not None and msg_type == "file"  # a Google Drive file shares as a card
+    if f.kind != "upload" and not drive_file:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Send an uploaded file, not a link")
     if msg_type == "image" and not f.mime.startswith("image/"):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "That file is not an image")

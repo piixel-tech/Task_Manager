@@ -18,6 +18,7 @@ import { ChatSearchModal } from './ChatSearchModal';
 import { ForwardModal } from './ForwardModal';
 import { MessageBubble } from './MessageBubble';
 import { MessageInfoModal } from './MessageInfoModal';
+import { StartMeetButton } from '../../google/MeetButtons';
 import { PinnedBar } from './PinnedBar';
 import { ScheduledModal } from './ScheduledModal';
 
@@ -228,6 +229,7 @@ export const Conversation: React.FC<{ group: ChatGroup; onBack: () => void; onIn
         <Button variant="ghost" size="sm" aria-label="Search this chat" title="Search this chat" onClick={() => setSearching(true)}>
           <Search className="h-5 w-5" />
         </Button>
+        {!isClient && <StartMeetButton groupId={group.id} />}
         {!isClient && (
           <Button variant="ghost" size="sm" aria-label="Scheduled messages" title="Scheduled messages" onClick={() => setScheduledOpen(true)} className="relative">
             <CalendarClock className="h-5 w-5" />

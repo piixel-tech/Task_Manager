@@ -115,11 +115,15 @@ export const PersonProfilePage: React.FC = () => {
           <CardHeader>
             <CardTitle>Calendar</CardTitle>
             <CardDescription>
-              {me?.role === 'client' ? 'Book a meeting with them from your project team.' : 'Their daily status, bookings and free slots.'}
+              {me?.role === 'client'
+                ? 'Book a meeting with them from your project team.'
+                : isMe
+                  ? 'Your daily status, bookings and free slots.'
+                  : 'Their daily status, bookings and free slots. Open the calendar and scroll to book.'}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link to={calendarTo}>
+            <Link to={isMe || me?.role === 'client' ? calendarTo : `${calendarTo}#book`}>
               <Button variant="outline" leftIcon={<CalendarDays className="h-4 w-4" />}>
                 {me?.role === 'client' ? 'Book a meeting' : isMe ? 'Open my calendar' : 'Open calendar'}
               </Button>

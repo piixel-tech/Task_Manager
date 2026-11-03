@@ -1,8 +1,11 @@
-import React, { useRef, useState } from 'react';
-import { FileText, Link2, Paperclip, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { FileText, Link2, X } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { assetApi, type Asset } from '../../../services/http/taskApi';
+import { isJobCancelled } from '../../../services/jobs';
+import { DriveKindIcon } from '../../google/DriveKindIcon';
+import { AttachMenu } from '../../google/AttachMenu';
 
 interface Props {
   value: Asset[];
@@ -13,7 +16,6 @@ interface Props {
 
 /** Attach several files and/or links. Each is saved through the file service right away. */
 export const AssetPicker: React.FC<Props> = ({ value, onChange, onUploaded }) => {
-  const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [linkTitle, setLinkTitle] = useState('');
@@ -27,16 +29,10 @@ export const AssetPicker: React.FC<Props> = ({ value, onChange, onUploaded }) =>
       onChange([...value, ...added]);
       onUploaded?.(added.map((a) => a.id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
+      if (!isJobCancelled(err)) setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setBusy(false);
     }
-  };
-
-  const addFiles = (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    run(() => assetApi.upload(Array.from(files)));
-    if (input.current) input.current.value = '';
   };
 
   const addLink = () => {
@@ -62,7 +58,13 @@ export const AssetPicker: React.FC<Props> = ({ value, onChange, onUploaded }) =>
               className="flex items-center justify-between gap-3 rounded-[var(--tm-radius-md)] bg-[var(--tm-card-muted)] px-3 py-2"
             >
               <span className="flex min-w-0 items-center gap-2 text-[13px] font-semibold text-[var(--tm-ink)]">
-                {a.kind === 'link' ? <Link2 className="h-4 w-4 shrink-0" /> : <FileText className="h-4 w-4 shrink-0" />}
+                {a.drive ? (
+                  <DriveKindIcon kind={a.drive.kind} className="h-4 w-4 shrink-0" />
+                ) : a.kind === 'link' ? (
+                  <Link2 className="h-4 w-4 shrink-0" />
+                ) : (
+                  <FileText className="h-4 w-4 shrink-0" />
+                )}
                 <span className="truncate">{a.name}</span>
               </span>
               <button
@@ -79,10 +81,14 @@ export const AssetPicker: React.FC<Props> = ({ value, onChange, onUploaded }) =>
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <input ref={input} type="file" multiple hidden onChange={(e) => addFiles(e.target.files)} />
-        <Button type="button" variant="outline" size="sm" isLoading={busy} onClick={() => input.current?.click()} leftIcon={<Paperclip className="h-4 w-4" />}>
-          Upload files
-        </Button>
+        <AttachMenu
+          busy={busy}
+          onUpload={(files) => run(() => assetApi.upload(files))}
+          onAdded={(files) => {
+            onChange([...value, ...files]);
+            onUploaded?.(files.map((f) => f.id));
+          }}
+        />
         <span className="text-[11.5px] text-[var(--tm-ink-muted)]">Up to 25 MB each. Executables are blocked.</span>
       </div>
 

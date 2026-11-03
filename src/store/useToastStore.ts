@@ -35,6 +35,6 @@ export const toast = {
     useToastStore.getState().push({ tone: 'info', title, message, link }),
   success: (title: string, message?: string) =>
     useToastStore.getState().push({ tone: 'success', title, message }),
-  error: (title: string, message?: string) =>
-    useToastStore.getState().push({ tone: 'error', title, message })
+  error: (title: string, message?: string, link?: string) =>
+    useToastStore.getState().push({ tone: 'error', title, message, link })
 };

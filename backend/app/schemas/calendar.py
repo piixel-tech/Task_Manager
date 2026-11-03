@@ -1,7 +1,8 @@
+import re
 from datetime import date, datetime
 
 from beanie import PydanticObjectId
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.core.timeutil import as_utc
 from app.models.daily_status import DayStatus
@@ -37,10 +38,43 @@ class TodayRow(BaseModel):
     avatar_url: str | None
     company_id: PydanticObjectId | None
     role: str
+    title: str = ""  # job title from their profile
     status: DayStatus | None
     set_at: datetime | None = None
     # Head of at least one subfolder (head is per subfolder, never an account role).
     is_head: bool = False
+
+
+EMAIL = re.compile(r"^[^@\s<>,;\"']+@[^@\s<>,;\"']+\.[^@\s<>,;\"']+$")
+
+
+class AttendeeIn(BaseModel):
+    """Exactly one of: a teammate (`user_id`) or an email address."""
+
+    user_id: PydanticObjectId | None = None
+    email: str | None = Field(default=None, max_length=254)
+
+    @field_validator("email")
+    @classmethod
+    def _email(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = v.strip().lower()
+        if not EMAIL.match(v):
+            raise ValueError("That doesn't look like an email address")
+        return v
+
+    @model_validator(mode="after")
+    def _one(self):
+        if (self.user_id is None) == (self.email is None):
+            raise ValueError("Give either a teammate or an email address")
+        return self
+
+
+class AttendeeOut(BaseModel):
+    email: str
+    name: str = ""
+    user_id: PydanticObjectId | None = None
 
 
 class BookingCreate(BaseModel):
@@ -49,6 +83,7 @@ class BookingCreate(BaseModel):
     end: datetime
     title: str = Field(min_length=1, max_length=200)
     note: str = Field(default="", max_length=2000)
+    attendees: list[AttendeeIn] = Field(default_factory=list, max_length=20)
 
     @field_validator("start", "end")
     @classmethod
@@ -66,6 +101,8 @@ class BookingOut(BaseModel):
     end: datetime
     title: str
     note: str
+    meet_url: str = ""
+    attendees: list[AttendeeOut] = Field(default_factory=list)
     created_at: datetime
 
     @field_validator("start", "end", "created_at")

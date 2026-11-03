@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { AnimatePresence, motion } from 'motion/react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   addMinutes,
   addMonths,
@@ -15,8 +16,7 @@ import {
   startOfMonth,
   startOfWeek
 } from 'date-fns';
-import { AnimatePresence, motion } from 'motion/react';
-import { CalendarDays, ChevronLeft, ChevronRight, Clock, Trash2, X } from 'lucide-react';
+import { ArrowDown, CalendarDays, ChevronLeft, ChevronRight, Clock, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Avatar } from '../../../components/ui/Avatar';
@@ -34,9 +34,11 @@ import { socket } from '../../../services/socket';
 import { bookingApi, statusApi, type Booking, type StatusEntry } from '../../../services/http/calendarApi';
 import { externalEventApi, type ExternalEvent } from '../../../services/http/integrationApi';
 import { statusMeta } from '../../status/statusMeta';
-import { useMotionPrefs } from '../../../components/ui/useMotionPrefs';
-import { popoverVariants } from '../../../components/ui/motion';
 import { MonthStatusBoard } from '../components/MonthStatusBoard';
+import { MeetLink } from '../../google/MeetButtons';
+import { Modal } from '../../../components/ui/Modal';
+import { EmailInvite, guestPayload, MemberSelect, type GuestPerson } from '../components/GuestFields';
+import { directoryApi } from '../../../services/http/directoryApi';
 import { KIND_META, type DayKind } from '../dayStatusMeta';
 
 const DAY_START_HOUR = 0; // the whole day is bookable, day and night
@@ -64,7 +66,6 @@ export const CalendarPage: React.FC = () => {
   const params = useParams<{ userId?: string }>();
   const me = useAuthStore((s) => s.user);
   const confirm = useConfirm();
-  const { reduced } = useMotionPrefs();
   const { overview, overviewLoaded, loadOverview } = useDailyStatusStore();
 
   const hostId = params.userId ?? me?.id ?? '';
@@ -85,6 +86,14 @@ export const CalendarPage: React.FC = () => {
   const [duration, setDuration] = useState(60);
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
+  const [memberIds, setMemberIds] = useState<string[]>([]);
+  const [emails, setEmails] = useState<string[]>([]);
+  const slotsRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+  const scrolledToHash = useRef(false);
+  const [team2, setTeam2] = useState<GuestPerson[] | null>(null);
+  const [teamError, setTeamError] = useState<string | null>(null);
+  const [scrolled, setScrolled] = useState(false);
 
   const gridDays = useMemo(
     () =>
@@ -142,6 +151,8 @@ export const CalendarPage: React.FC = () => {
     setSlotStart(null);
     setTitle('');
     setNote('');
+    setMemberIds([]);
+    setEmails([]);
   }, [selected, hostId]);
 
   const statusByDate = useMemo(() => new Map(statuses.map((s) => [s.date, s.status])), [statuses]);
@@ -208,15 +219,21 @@ export const CalendarPage: React.FC = () => {
           start: slotStart.toISOString(),
           end: end.toISOString(),
           title: title.trim(),
-          note: note.trim()
+          note: note.trim(),
+          attendees: guestPayload(memberIds, emails)
         }),
       successTitle: 'Slot booked',
-      successMessage: label
+      successMessage:
+        memberIds.length + emails.length
+          ? `${label}. Google is emailing ${memberIds.length + emails.length} guest${memberIds.length + emails.length === 1 ? '' : 's'}.`
+          : label
     }).then((ok) => {
       if (ok) {
         setSlotStart(null);
         setTitle('');
         setNote('');
+        setMemberIds([]);
+        setEmails([]);
         load();
       }
     });
@@ -233,6 +250,45 @@ export const CalendarPage: React.FC = () => {
     }).then((ok) => {
       if (ok) load();
     });
+
+  // The team picker needs everyone, so it comes from its own endpoint (all companies, no paging), fetched when the dialog first opens.
+  const dialogOpen = !!slotStart && canBook;
+  useEffect(() => {
+    if (!dialogOpen || team2 !== null) return;
+    directoryApi
+      .team()
+      .then((rows) => {
+        setTeam2(rows.map((r) => ({ id: r.id, name: r.name, avatar_url: r.avatar_url, title: r.title, role: r.role, company: r.company_name })));
+        setTeamError(null);
+      })
+      .catch((err) => setTeamError(err instanceof Error ? err.message : 'Could not load the team'));
+  }, [dialogOpen, team2]);
+
+  /** Everyone who can be invited: the whole team except you (excluded by the server) and the host, who already has the booking. */
+  const guestPeople = useMemo(() => (team2 ?? []).filter((p) => p.id !== hostId), [team2, hostId]);
+
+  // The "Scroll to book" cue goes away as soon as the page is scrolled (any scrolling container), and comes back on another calendar.
+  useEffect(() => {
+    setScrolled(false);
+    const onScroll = (e: Event) => {
+      const t = e.target;
+      const top = t instanceof Element ? t.scrollTop : window.scrollY;
+      if (top > 24) setScrolled(true);
+    };
+    window.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    return () => window.removeEventListener('scroll', onScroll, true);
+  }, [hostId]);
+
+  const freeCount = slots.filter((s) => s.free).length;
+  const scrollToSlots = () => slotsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // Arriving from a profile ("…/calendar/<id>#book") goes straight to the free slots, once the calendar has loaded.
+  useEffect(() => {
+    if (location.hash === '#book' && !loading && canBook && !scrolledToHash.current) {
+      scrolledToHash.current = true;
+      scrollToSlots();
+    }
+  }, [location.hash, loading, canBook]);
 
   const todayStatus = statusMeta(statusByDate.get(ymd(new Date())));
 
@@ -463,6 +519,7 @@ export const CalendarPage: React.FC = () => {
                                   Booked by {people.get(b.booked_by)?.name ?? 'a teammate'}
                                 </p>
                               )}
+                              <MeetLink url={b.meet_url} className="mt-2 inline-block" />
                             </div>
                             {canCancel && (
                               <Button
@@ -503,6 +560,7 @@ export const CalendarPage: React.FC = () => {
             </Card>
 
             {/* Slot picker; the booking form itself floats over the week grid */}
+            <div ref={slotsRef} id="book" className="scroll-mt-24">
             <Card>
               <CardHeader>
                 <CardTitle className="text-base font-extrabold">Book a slot</CardTitle>
@@ -540,6 +598,8 @@ export const CalendarPage: React.FC = () => {
                                 key={start.toISOString()}
                                 type="button"
                                 disabled={!free}
+                                aria-label={free ? `Book ${format(start, 'HH:mm')}` : `${format(start, 'HH:mm')} is not free`}
+                                title={free ? `Book ${format(start, 'HH:mm')} - ${format(addMinutes(start, duration), 'HH:mm')}` : undefined}
                                 onClick={() => setSlotStart(start)}
                                 className={`rounded-full border py-2 text-[12px] font-semibold tabular-nums transition-colors ${
                                   active
@@ -560,49 +620,64 @@ export const CalendarPage: React.FC = () => {
                 )}
               </CardContent>
             </Card>
+            </div>
 
-            {/* Booking form: a floating glass popup over the day */}
-            <AnimatePresence>
-              {slotStart && canBook && (
-                <motion.div
-                  key="booking-popup"
-                  role="dialog"
-                  aria-label="New booking"
-                  variants={reduced ? undefined : popoverVariants}
-                  initial={reduced ? false : 'hidden'}
-                  animate="show"
-                  exit={reduced ? undefined : 'exit'}
-                  onKeyDown={(e) => e.key === 'Escape' && setSlotStart(null)}
-                  className="glass-strong absolute right-4 top-4 z-20 w-[min(320px,calc(100%-2rem))] space-y-3 rounded-[var(--tm-radius-lg)] p-5"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className={eyebrow}>{format(slotStart, 'EEE d MMM')}</div>
-                      <p className="mt-0.5 flex items-center gap-1.5 text-[13px] font-bold tabular-nums text-[var(--tm-ink)]">
-                        <Clock className="h-3.5 w-3.5" />
-                        {format(slotStart, 'HH:mm')} - {format(addMinutes(slotStart, duration), 'HH:mm')}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      aria-label="Close"
-                      onClick={() => setSlotStart(null)}
-                      className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[var(--tm-solid)] text-[var(--tm-solid-ink)]"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <Input label="Title" placeholder="e.g. Design review" value={title} onChange={(e) => setTitle(e.target.value)} />
-                  <Textarea label="Note (optional)" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
-                  <Button className="w-full" disabled={!title.trim()} onClick={submitBooking}>
+            {/* Booking form: a dialog (portal), so it always opens centred and on top whatever the page layout does */}
+            <Modal
+              isOpen={!!slotStart && canBook}
+              onClose={() => setSlotStart(null)}
+              title="New booking"
+              description={
+                slotStart
+                  ? `${host?.name ?? 'This person'} · ${format(slotStart, 'EEE d MMM')}, ${format(slotStart, 'HH:mm')} - ${format(addMinutes(slotStart, duration), 'HH:mm')}`
+                  : undefined
+              }
+              maxWidth="lg"
+              footer={
+                <>
+                  <Button type="button" variant="secondary" size="sm" onClick={() => setSlotStart(null)}>
+                    Cancel
+                  </Button>
+                  <Button type="button" size="sm" disabled={!title.trim()} onClick={submitBooking}>
                     Book slot
                   </Button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                </>
+              }
+            >
+              <form
+                className="space-y-4"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (title.trim()) void submitBooking();
+                }}
+              >
+                <Input label="Title" autoFocus placeholder="e.g. Design review" value={title} onChange={(e) => setTitle(e.target.value)} />
+                <Textarea label="Note (optional)" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+                <MemberSelect people={guestPeople} value={memberIds} onChange={setMemberIds} loading={team2 === null && !teamError} error={teamError} />
+                <EmailInvite value={emails} onChange={setEmails} />
+              </form>
+            </Modal>
           </div>
         </div>
       </div>
+      {/* A small cue at the bottom of someone else's calendar; gone once they scroll. */}
+      <AnimatePresence>
+        {!isOwn && canBook && !loading && !scrolled && freeCount > 0 && (
+          <motion.button
+            key="scroll-to-book"
+            type="button"
+            onClick={scrollToSlots}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.25 }}
+            className="fixed bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-[var(--tm-card)]/80 px-3.5 py-1.5 text-[12px] font-semibold text-[var(--tm-ink-soft)] shadow-soft-sm ring-1 ring-[var(--tm-border)] backdrop-blur hover:text-[var(--tm-ink)]"
+          >
+            Scroll to book
+            <ArrowDown className="h-3.5 w-3.5 motion-safe:animate-bounce" />
+          </motion.button>
+        )}
+      </AnimatePresence>
     </>
   );
 };

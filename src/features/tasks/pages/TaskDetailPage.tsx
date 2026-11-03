@@ -2,7 +2,7 @@ import { FadeIn } from '../../../components/ui/FadeIn';
 import { InfoTile as Tile } from '../../../components/ui/InfoTile';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { CalendarClock, Download, MessageSquare, ExternalLink, FileText, Link2, Pencil, Play, Send, Square, Trash2 } from 'lucide-react';
+import { CalendarClock, Download, Eye, MessageSquare, ExternalLink, FileText, Link2, Pencil, Play, Send, Square, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Avatar } from '../../../components/ui/Avatar';
@@ -17,6 +17,7 @@ import { useConfirm } from '../../../hooks/useConfirm';
 import { toast } from '../../../store/useToastStore';
 import { socket } from '../../../services/socket';
 import { assetApi, taskApi, type ApiTask, type Asset } from '../../../services/http/taskApi';
+import { isJobCancelled } from '../../../services/jobs';
 import { reviewApi, type Review } from '../../../services/http/reviewApi';
 import { formatDate } from '../../../utils/time';
 import { formatDuration } from '../../../utils/format';
@@ -27,6 +28,10 @@ import { ReviewRounds } from '../../reviews/components/ReviewRounds';
 import { SubmitReviewModal } from '../../reviews/components/SubmitReviewModal';
 import { RichText } from '../../../components/editor/RichText';
 import { ActivityPanel } from '../../activity/components/ActivityPanel';
+import { DriveFileViewer } from '../../google/DriveFileViewer';
+import { DriveKindIcon } from '../../google/DriveKindIcon';
+import { AttachMenu } from '../../google/AttachMenu';
+import { KIND_LABEL } from '../../google/googleUtils';
 
 /** Progress is automatic: it follows the status (there are no per-task subtasks or checklist to count). */
 const STATUS_PROGRESS: Record<ApiTask['status'], number> = {
@@ -54,6 +59,7 @@ export const TaskDetailPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [rounds, setRounds] = useState<Review[]>([]);
   const [busy, setBusy] = useState(false);
+  const [previewing, setPreviewing] = useState<Asset | null>(null);
 
   // Live timer display: seconds since the last fetch, added to the server total.
   const [tick, setTick] = useState(0);
@@ -151,6 +157,13 @@ export const TaskDetailPage: React.FC = () => {
 
   const open = (a: Asset) => assetApi.open(a).catch((err) => toast.error('Could not open the file', err.message));
 
+  /** A Drive file picked or created here joins the task's attachments (the same save the edit form makes). */
+  const addAssets = async (files: Asset[]) => {
+    if (!task) return;
+    await taskApi.update(task.id, { asset_ids: [...task.assets.map((a) => a.id), ...files.map((f) => f.id)] });
+    await load();
+  };
+
   return (
     <FadeIn className="grid gap-4">
       <PageHeader
@@ -196,22 +209,41 @@ export const TaskDetailPage: React.FC = () => {
       />
 
       {/* Assets sit at the top so the brief is the first thing the assignee sees. */}
-      {task.assets.length > 0 && (
+      {(task.assets.length > 0 || (task.can_edit && task.status !== 'approved')) && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base font-extrabold">Assets ({task.assets.length})</CardTitle>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <CardTitle className="text-base font-extrabold">Assets ({task.assets.length})</CardTitle>
+              {task.can_edit && task.status !== 'approved' && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <AttachMenu
+                    busy={busy}
+                    onUpload={async (files) => {
+                      try {
+                        await addAssets(await assetApi.upload(files));
+                      } catch (err) {
+                        if (!isJobCancelled(err)) toast.error('Could not upload the file', err instanceof Error ? err.message : undefined);
+                      }
+                    }}
+                    onAdded={addAssets}
+                  />
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {task.assets.map((a) => (
-                <li key={a.id}>
+                <li key={a.id} className="flex items-stretch gap-2">
                   <button
                     type="button"
                     onClick={() => open(a)}
-                    className="flex w-full items-center justify-between gap-3 rounded-[var(--tm-radius-md)] bg-[var(--tm-card-muted)] px-4 py-3 text-left transition-colors hover:bg-[var(--tm-bg-sunken)]"
+                    className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-[var(--tm-radius-md)] bg-[var(--tm-card-muted)] px-4 py-3 text-left transition-colors hover:bg-[var(--tm-bg-sunken)]"
                   >
                     <span className="flex min-w-0 items-center gap-3">
-                      {a.kind === 'link' ? (
+                      {a.drive ? (
+                        <DriveKindIcon kind={a.drive.kind} />
+                      ) : a.kind === 'link' ? (
                         <Link2 className="h-4 w-4 shrink-0 text-[var(--tm-primary-dark)]" />
                       ) : (
                         <FileText className="h-4 w-4 shrink-0 text-[var(--tm-primary-dark)]" />
@@ -219,12 +251,23 @@ export const TaskDetailPage: React.FC = () => {
                       <span className="min-w-0 leading-tight">
                         <span className="block truncate text-[13px] font-bold text-[var(--tm-ink)]">{a.name}</span>
                         <span className="block truncate text-[11.5px] text-[var(--tm-ink-muted)]">
-                          {a.kind === 'link' ? a.url : formatSize(a.size)}
+                          {a.drive ? KIND_LABEL[a.drive.kind] : a.kind === 'link' ? a.url : formatSize(a.size)}
                         </span>
                       </span>
                     </span>
                     {a.kind === 'link' ? <ExternalLink className="h-4 w-4 shrink-0" /> : <Download className="h-4 w-4 shrink-0" />}
                   </button>
+                  {a.drive && (
+                    <button
+                      type="button"
+                      aria-label={`Preview ${a.name}`}
+                      title="Preview here"
+                      onClick={() => setPreviewing(a)}
+                      className="grid w-11 shrink-0 place-items-center rounded-[var(--tm-radius-md)] bg-[var(--tm-card-muted)] text-[var(--tm-primary-dark)] transition-colors hover:bg-[var(--tm-bg-sunken)]"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -381,6 +424,7 @@ export const TaskDetailPage: React.FC = () => {
       </div>
 
       <SubmitReviewModal isOpen={submitting} onClose={() => setSubmitting(false)} task={task} onSubmitted={load} />
+      <DriveFileViewer file={previewing} onClose={() => setPreviewing(null)} />
       <TaskFormModal isOpen={editing} onClose={() => setEditing(false)} task={task} onSaved={apply} />
     </FadeIn>
   );

@@ -128,7 +128,10 @@ async def connect(provider_key: str, user: User = Depends(get_current_user)) -> 
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, problem)
     now = datetime.now(timezone.utc)
     state = jwt.encode(
-        {"type": "integration_state", "sub": str(user.id), "app": provider.key, "iat": now, "exp": now + timedelta(minutes=STATE_MINUTES)},
+        {
+            "type": "integration_state", "sub": str(user.id), "app": provider.key,
+            "iat": now, "exp": now + timedelta(minutes=STATE_MINUTES),
+        },
         settings.JWT_SECRET,
         algorithm=settings.JWT_ALGORITHM,
     )
@@ -173,14 +176,16 @@ async def callback(
     except HTTPException:
         return back("error", "Your account can't connect apps.")
     schedule_sync(conn.id)
+    gap = await provider.consent_gap(conn)
     await notify(
         [user.id],
         type="integration_connected",
         title=f"{provider.name} connected",
-        body="Your calendars will sync in the background.",
+        body=gap or "Calendar, Meet, Drive, Docs and Sheets are ready. Your calendars will sync in the background.",
         link="/admin/settings/connected-apps" if user.role == "admin" else "/app/settings/connected-apps",
     )
-    return back("connected")
+    # Connected, but they unticked part of what we asked for: say so instead of showing a plain success.
+    return back("partial", gap) if gap else back("connected")
 
 
 @router.delete("/{provider_key}", response_model=DisconnectOut)

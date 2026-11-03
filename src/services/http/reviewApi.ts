@@ -1,4 +1,5 @@
 import { api, getErrorMessage } from '../api';
+import { runJob } from '../jobs';
 import type { UserBrief } from './projectApi';
 import type { Asset } from './taskApi';
 
@@ -47,7 +48,7 @@ export const reviewApi = {
   approvers: (taskId: string) =>
     call<UserBrief[]>(() => api.get(`/tasks/${taskId}/approvers`), 'Could not load the approvers'),
   submit: (taskId: string, input: SubmitInput) =>
-    call<Review>(() => api.post(`/tasks/${taskId}/submit`, input), 'Could not submit the task'),
+    runJob({ title: 'Submitting task', run: () => call<Review>(() => api.post(`/tasks/${taskId}/submit`, input), 'Could not submit the task') }),
   rounds: (taskId: string) => call<Review[]>(() => api.get(`/tasks/${taskId}/reviews`), 'Could not load the review history'),
 
   list: (decision?: ReviewDecision) =>

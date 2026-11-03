@@ -12,10 +12,23 @@ AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 REVOKE_URL = "https://oauth2.googleapis.com/revoke"
 API = "https://www.googleapis.com/calendar/v3"
+DRIVE_API = "https://www.googleapis.com/drive/v3"
 
 SCOPE_EVENTS = "https://www.googleapis.com/auth/calendar.events"
 SCOPE_CALENDAR_LIST = "https://www.googleapis.com/auth/calendar.calendarlist.readonly"
-SCOPES = [SCOPE_EVENTS, SCOPE_CALENDAR_LIST]
+SCOPES = [SCOPE_EVENTS, SCOPE_CALENDAR_LIST]  # what a connection cannot work without (Calendar, and Meet through its events)
+SCOPE_DRIVE_FILE = "https://www.googleapis.com/auth/drive.file"  # files Task Manager creates
+SCOPE_DRIVE_READONLY = "https://www.googleapis.com/auth/drive.readonly"  # lets our own file browser list the person's Drive
+
+# One "Connect to Google" asks for all of it at once. Meet needs nothing beyond calendar.events (a Meet link is part of a
+# Calendar event); Docs and Sheets are created through Drive.
+ALL_SCOPES = [SCOPE_EVENTS, SCOPE_CALENDAR_LIST, SCOPE_DRIVE_FILE, SCOPE_DRIVE_READONLY]
+SERVICE_SCOPES: dict[str, list[str]] = {
+    "calendar": SCOPES,
+    "meet": [SCOPE_EVENTS],
+    "drive": [SCOPE_DRIVE_FILE, SCOPE_DRIVE_READONLY],
+    "docs_sheets": [SCOPE_DRIVE_FILE],
+}
 
 RETRY_DELAYS = (1.0, 3.0)  # for 429 / 5xx; tests set this to ()
 
@@ -40,13 +53,14 @@ class SyncTokenExpired(GoogleError):
     """410 Gone: the incremental sync token is too old, start again with a full sync."""
 
 
-def authorize_url(creds: GoogleCredentials, state: str) -> str:
+def authorize_url(creds: GoogleCredentials, state: str, scopes: list[str] | None = None, login_hint: str | None = None) -> str:
     return AUTH_URL + "?" + urlencode(
         {
             "client_id": creds.client_id,
             "redirect_uri": settings.GOOGLE_REDIRECT_URI,
             "response_type": "code",
-            "scope": " ".join(SCOPES),
+            "scope": " ".join(scopes or ALL_SCOPES),
+            **({"login_hint": login_hint} if login_hint else {}),
             "access_type": "offline",  # we need a refresh token to sync in the background
             "prompt": "consent",  # ...and Google only issues one on a consent screen
             "include_granted_scopes": "true",
@@ -93,8 +107,8 @@ async def _send(method: str, url: str, **kwargs: Any) -> httpx.Response:
             return resp
 
 
-async def _api(method: str, path: str, token: str, *, ok: tuple[int, ...] = (200,), **kwargs: Any) -> dict:
-    resp = await _send(method, f"{API}{path}", headers={"Authorization": f"Bearer {token}"}, **kwargs)
+async def _api(method: str, path: str, token: str, *, ok: tuple[int, ...] = (200,), base: str = API, **kwargs: Any) -> dict:
+    resp = await _send(method, f"{base}{path}", headers={"Authorization": f"Bearer {token}"}, **kwargs)
     if resp.status_code not in ok:
         raise _error(resp)
     return resp.json() if resp.content else {}
@@ -170,17 +184,25 @@ async def list_events(token: str, calendar_id: str, *, sync_token: str | None, t
     return await _api("GET", f"/calendars/{_q(calendar_id)}/events", token, params=params)
 
 
-async def insert_event(token: str, calendar_id: str, body: dict) -> dict:
-    return await _api("POST", f"/calendars/{_q(calendar_id)}/events", token, json=body)
+async def insert_event(token: str, calendar_id: str, body: dict, *, with_meet: bool = False, send_updates: str | None = None) -> dict:
+    """`with_meet` lets Google read `conferenceData.createRequest` in the body and attach a new Meet to the event.
+    `send_updates="all"` makes Google email the attendees their invitation."""
+    params: dict[str, str] = {}
+    if with_meet:
+        params["conferenceDataVersion"] = "1"
+    if send_updates:
+        params["sendUpdates"] = send_updates
+    return await _api("POST", f"/calendars/{_q(calendar_id)}/events", token, json=body, params=params or None)
 
 
 async def update_event(token: str, calendar_id: str, event_id: str, body: dict) -> dict:
     return await _api("PUT", f"/calendars/{_q(calendar_id)}/events/{_q(event_id)}", token, json=body)
 
 
-async def delete_event(token: str, calendar_id: str, event_id: str) -> None:
+async def delete_event(token: str, calendar_id: str, event_id: str, *, send_updates: str | None = None) -> None:
     resp = await _send(
-        "DELETE", f"{API}/calendars/{_q(calendar_id)}/events/{_q(event_id)}", headers={"Authorization": f"Bearer {token}"}
+        "DELETE", f"{API}/calendars/{_q(calendar_id)}/events/{_q(event_id)}", headers={"Authorization": f"Bearer {token}"},
+        params={"sendUpdates": send_updates} if send_updates else None,
     )
     if resp.status_code not in (200, 204, 404, 410):  # already gone is fine
         raise _error(resp)
@@ -199,6 +221,36 @@ async def stop_channel(token: str, channel_id: str, resource_id: str) -> None:
     )
     if resp.status_code not in (200, 204, 404):
         raise _error(resp)
+
+
+# --- Drive (drive.file: only files the person picked in the Picker, or that Task Manager created) -----------------
+DRIVE_FILE_FIELDS = "id,name,mimeType,size,webViewLink,iconLink,modifiedTime,trashed"
+
+
+async def get_drive_file(token: str, file_id: str) -> dict:
+    return await _api("GET", f"/files/{_q(file_id)}", token, base=DRIVE_API, params={"fields": DRIVE_FILE_FIELDS, "supportsAllDrives": "true"})
+
+
+async def create_drive_file(token: str, name: str, mime_type: str) -> dict:
+    """An empty Google Doc / Sheet in the person's My Drive."""
+    return await _api(
+        "POST", "/files", token, base=DRIVE_API,
+        params={"fields": DRIVE_FILE_FIELDS, "supportsAllDrives": "true"}, json={"name": name, "mimeType": mime_type},
+    )
+
+
+BROWSE_FIELDS = "nextPageToken,files(id,name,mimeType,size,webViewLink,iconLink,thumbnailLink,modifiedTime,starred)"
+
+
+async def list_drive_files(token: str, *, q: str, order_by: str, page_token: str | None) -> dict:
+    """One page of the person's Drive (needs drive.readonly)."""
+    params = {
+        "q": q, "orderBy": order_by, "pageSize": "50", "fields": BROWSE_FIELDS,
+        "supportsAllDrives": "true", "includeItemsFromAllDrives": "true",
+    }
+    if page_token:
+        params["pageToken"] = page_token
+    return await _api("GET", "/files", token, base=DRIVE_API, params=params)
 
 
 def _q(value: str) -> str:

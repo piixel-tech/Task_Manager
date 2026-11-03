@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarClock, ChevronDown, Mic, Plus, Send, ShieldQuestion, Square, Trash2, X } from 'lucide-react';
+import { CalendarClock, ChevronDown, Mic, Send, ShieldQuestion, Square, Trash2, X } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Modal } from '../../../components/ui/Modal';
@@ -9,6 +9,8 @@ import { toast } from '../../../store/useToastStore';
 import { useChatStore } from '../../../store/useChatStore';
 import { socket } from '../../../services/socket';
 import { assetApi, type Asset } from '../../../services/http/taskApi';
+import { isJobCancelled } from '../../../services/jobs';
+import { AttachMenu } from '../../google/AttachMenu';
 import { chatApi, type ChatGroup, type ChatMessage, type SendInput } from '../../../services/http/chatApi';
 import { mmss, previewOf, scheduleOptions, toLocalInput, whenLabel } from '../chatUtils';
 
@@ -34,7 +36,6 @@ export const Composer: React.FC<Props> = ({ group, meId, replyTo, onCancelReply,
   const confirm = useConfirm();
   const upsertMessage = useChatStore((s) => s.upsertMessage);
   const editor = useRef<RichEditorHandle>(null);
-  const fileInput = useRef<HTMLInputElement>(null);
   const lastTyping = useRef(0);
   const [empty, setEmpty] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -101,17 +102,16 @@ export const Composer: React.FC<Props> = ({ group, meId, replyTo, onCancelReply,
     }
   };
 
-  const attach = async (files: FileList | null) => {
-    if (!files?.length) return;
+  const attach = async (files: File[]) => {
+    if (!files.length) return;
     setBusy(true);
     try {
-      const uploaded = await assetApi.upload(Array.from(files));
+      const uploaded = await assetApi.upload(files);
       setAttachments((cur) => [...cur, ...uploaded]);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not upload the file');
+      if (!isJobCancelled(err)) toast.error(err instanceof Error ? err.message : 'Could not upload the file');
     } finally {
       setBusy(false);
-      if (fileInput.current) fileInput.current.value = '';
     }
   };
 
@@ -263,7 +263,6 @@ export const Composer: React.FC<Props> = ({ group, meId, replyTo, onCancelReply,
         </div>
       ) : (
         <>
-          <input ref={fileInput} type="file" multiple hidden onChange={(e) => attach(e.target.files)} />
           <RichEditor
             ref={editor}
             people={people}
@@ -274,9 +273,13 @@ export const Composer: React.FC<Props> = ({ group, meId, replyTo, onCancelReply,
             }}
             leading={
               <>
-                <Button type="button" variant="ghost" size="sm" aria-label="Attach files or photos" title="Attach" disabled={busy} onClick={() => fileInput.current?.click()}>
-                  <Plus className="h-5 w-5" />
-                </Button>
+                <AttachMenu
+                  variant="icon"
+                  direction="up"
+                  busy={busy}
+                  onUpload={attach}
+                  onAdded={(files) => setAttachments((cur) => [...cur, ...files])}
+                />
                 {onRequestApproval && (
                   <Button type="button" variant="ghost" size="sm" aria-label="Request client approval" title="Request client approval" disabled={busy} onClick={onRequestApproval}>
                     <ShieldQuestion className="h-5 w-5" />

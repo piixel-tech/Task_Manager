@@ -33,18 +33,18 @@ async def sync_connection(connection_id: PydanticObjectId) -> tuple[IntegrationC
             conn.error_notified = False
             await conn.save()
         except IntegrationError as exc:
-            await _record_failure(connection_id, provider.name, exc)
+            await record_failure(connection_id, provider.name, exc)
             conn = await IntegrationConnection.get(connection_id)
         except Exception:
             log.exception("%s sync crashed for connection %s", provider.key, connection_id)
-            await _record_failure(connection_id, provider.name, IntegrationError("Unexpected error while syncing"))
+            await record_failure(connection_id, provider.name, IntegrationError("Unexpected error while syncing"))
             conn = await IntegrationConnection.get(connection_id)
     if conn is not None and result.pulled:
         await manager.send_to_users([conn.user_id], "calendar_sync", {"provider": conn.provider})
     return conn, result
 
 
-async def _record_failure(connection_id: PydanticObjectId, name: str, exc: IntegrationError) -> None:
+async def record_failure(connection_id: PydanticObjectId, name: str, exc: IntegrationError) -> None:
     conn = await IntegrationConnection.get(connection_id)
     if conn is None:
         return
@@ -109,7 +109,7 @@ async def _push(user_ids: list[PydanticObjectId]) -> None:
                 try:
                     await provider.push_local_changes(fresh)
                 except IntegrationError as exc:
-                    await _record_failure(fresh.id, provider.name, exc)
+                    await record_failure(fresh.id, provider.name, exc)
     except Exception:
         log.exception("Pushing local changes failed")
 

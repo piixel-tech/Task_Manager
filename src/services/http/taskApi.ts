@@ -1,5 +1,7 @@
 import { api, getErrorMessage } from '../api';
+import { runJob } from '../jobs';
 import type { UserBrief } from './projectApi';
+import type { DriveMeta } from './googleApi';
 
 export type ApiTaskStatus = 'todo' | 'in_progress' | 'submitted' | 'changes_requested' | 'approved';
 export type ApiPriority = 'low' | 'medium' | 'high' | 'urgent';
@@ -13,6 +15,8 @@ export interface Asset {
   kind: 'upload' | 'link';
   /** Uploads: a path on the API (needs auth to download). Links: the external address. */
   url: string;
+  /** Set for files attached from Google Drive (they are `link`s everywhere else). */
+  drive?: DriveMeta | null;
   created_at: string;
 }
 
@@ -87,9 +91,13 @@ async function call<T>(fn: () => Promise<{ data: T }>, fallback: string): Promis
 export const taskApi = {
   list: (filters: TaskFilters = {}) => call<ApiTask[]>(() => api.get('/tasks', { params: filters }), 'Could not load tasks'),
   get: (id: string) => call<ApiTask>(() => api.get(`/tasks/${id}`), 'Could not load the task'),
-  create: (input: TaskInput) => call<ApiTask>(() => api.post('/tasks', input), 'Could not create the task'),
-  update: (id: string, input: Partial<Omit<TaskInput, 'subfolder_id'>>) =>
-    call<ApiTask>(() => api.patch(`/tasks/${id}`, input), 'Could not save the task'),
+  create: (input: TaskInput) =>
+    runJob({ title: 'Creating task', run: () => call<ApiTask>(() => api.post('/tasks', input), 'Could not create the task') }),
+  update: (id: string, input: Partial<Omit<TaskInput, 'subfolder_id'>>) => {
+    const save = () => call<ApiTask>(() => api.patch(`/tasks/${id}`, input), 'Could not save the task');
+    // Handing a task to someone is shown in the progress card; other edits stay quiet.
+    return input.assignee_id ? runJob({ title: 'Assigning task', run: save }) : save();
+  },
   /** Tasks someone else gave you that you haven't opened yet (the nav badge). */
   unseenCount: async () => (await call<{ count: number }>(() => api.get('/tasks/unseen-count'), 'Could not load')).count,
   markSeen: async (id: string) => {
@@ -107,10 +115,43 @@ export const taskApi = {
 
 // --- Attachments (the shared file service) -----------------------------------------------------------
 export const assetApi = {
+  /**
+   * Uploads one file at a time so the progress card can show each (percent, time left, pause, cancel, retry). Resolves when all
+   * are in; if the person gives up, whatever was already uploaded is removed again, as the old all-or-nothing upload did.
+   */
   upload: async (files: File[]): Promise<Asset[]> => {
-    const form = new FormData();
-    files.forEach((f) => form.append('files', f));
-    return call<Asset[]>(() => api.post('/files', form), 'Could not upload the file');
+    const done: (Asset | undefined)[] = [];
+    try {
+      return await runJob({
+        title: files.length === 1 ? `Uploading ${files[0].name}` : `Uploading ${files.length} files`,
+        items: files.map((f) => ({ name: f.name, size: f.size })),
+        pausable: true,
+        run: async (ctl) => {
+          for (let i = 0; i < files.length; i++) {
+            while (!done[i]) {
+              await ctl.checkpoint();
+              try {
+                const form = new FormData();
+                form.append('files', files[i]);
+                const { data } = await api.post<Asset[]>('/files', form, {
+                  signal: ctl.signal,
+                  onUploadProgress: (e) => ctl.progress(i, e.loaded)
+                });
+                done[i] = data[0];
+                ctl.finish(i);
+              } catch (err) {
+                if (ctl.interrupted(err)) continue; // paused: the same file starts again after Resume
+                throw new Error(getErrorMessage(err, `Could not upload ${files[i].name}`));
+              }
+            }
+          }
+          return done as Asset[];
+        }
+      });
+    } catch (err) {
+      await Promise.all(done.filter((a): a is Asset => !!a).map((a) => api.delete(`/files/${a.id}`).catch(() => undefined)));
+      throw err;
+    }
   },
   addLink: (title: string, url: string) =>
     call<Asset>(() => api.post('/files/link', { title, url }), 'Could not add the link'),

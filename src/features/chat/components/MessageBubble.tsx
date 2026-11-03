@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckSquare, CornerUpRight, FileText, Forward, Info, ListPlus, MoreHorizontal, Pin, PinOff, Reply, Trash2 } from 'lucide-react';
+import { CheckSquare, CornerUpRight, Eye, FileText, Forward, Info, ListPlus, MoreHorizontal, Pin, PinOff, Reply, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/authStore';
 import { Avatar } from '../../../components/ui/Avatar';
@@ -15,6 +15,9 @@ import { clock, mmss, REACTIONS, statusOf } from '../chatUtils';
 import { AuthAudio } from './AuthAudio';
 import { ApprovalCard } from './ApprovalCard';
 import { Ticks } from './Ticks';
+import { DriveFileViewer } from '../../google/DriveFileViewer';
+import { DriveKindIcon } from '../../google/DriveKindIcon';
+import { KIND_LABEL } from '../../google/googleUtils';
 
 interface Props {
   message: ChatMessage;
@@ -54,6 +57,7 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
     fn();
   };
 
+  const [previewDrive, setPreviewDrive] = useState(false);
   const open = () => m.file && assetApi.open(m.file).catch((err) => toast.error('Could not open the file', err.message));
 
   return (
@@ -121,17 +125,38 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
                 </div>
               )}
               {m.type === 'file' && m.file && (
-                <button
-                  type="button"
-                  onClick={open}
-                  className="mb-1 flex w-full max-w-xs items-center gap-2.5 rounded-[var(--tm-radius-sm)] bg-[var(--tm-card-muted)] p-3 text-left hover:bg-[var(--tm-bg-sunken)]"
-                >
-                  <FileText className="h-6 w-6 shrink-0 text-[var(--tm-primary-dark)]" />
-                  <span className="min-w-0">
-                    <span className="block truncate text-[13px] font-bold">{m.file.name}</span>
-                    <span className="text-[11px] text-[var(--tm-ink-muted)]">{(m.file.size / 1024).toFixed(m.file.size > 1024 * 100 ? 0 : 1)} KB · tap to download</span>
-                  </span>
-                </button>
+                <div className="mb-1 flex w-full max-w-xs items-stretch gap-1.5">
+                  <button
+                    type="button"
+                    onClick={open}
+                    className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[var(--tm-radius-sm)] bg-[var(--tm-card-muted)] p-3 text-left hover:bg-[var(--tm-bg-sunken)]"
+                  >
+                    {m.file.drive ? (
+                      <DriveKindIcon kind={m.file.drive.kind} className="h-6 w-6 shrink-0 text-[var(--tm-primary-dark)]" />
+                    ) : (
+                      <FileText className="h-6 w-6 shrink-0 text-[var(--tm-primary-dark)]" />
+                    )}
+                    <span className="min-w-0">
+                      <span className="block truncate text-[13px] font-bold">{m.file.name}</span>
+                      <span className="text-[11px] text-[var(--tm-ink-muted)]">
+                        {m.file.drive
+                          ? `${KIND_LABEL[m.file.drive.kind]} · tap to open in Google`
+                          : `${(m.file.size / 1024).toFixed(m.file.size > 1024 * 100 ? 0 : 1)} KB · tap to download`}
+                      </span>
+                    </span>
+                  </button>
+                  {m.file.drive && (
+                    <button
+                      type="button"
+                      aria-label={`Preview ${m.file.name}`}
+                      title="Preview here"
+                      onClick={() => setPreviewDrive(true)}
+                      className="grid w-10 shrink-0 place-items-center rounded-[var(--tm-radius-sm)] bg-[var(--tm-card-muted)] text-[var(--tm-primary-dark)] hover:bg-[var(--tm-bg-sunken)]"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
               )}
               {m.type === 'approval' && m.approval && (
                 <ApprovalCard reminder={m.reminder} approval={m.approval} canAnswer={isClient && m.approval.status === 'pending'} />
@@ -226,6 +251,8 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
           </>
         )}
       </div>
+
+      {m.type === 'file' && m.file?.drive && <DriveFileViewer file={previewDrive ? m.file : null} onClose={() => setPreviewDrive(false)} />}
 
       {m.type === 'image' && m.file && (
         <Modal isOpen={zoom} onClose={() => setZoom(false)} title={m.body || 'Photo'} maxWidth="2xl">

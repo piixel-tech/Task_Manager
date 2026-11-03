@@ -233,6 +233,18 @@ async def send_message(group_id: PydanticObjectId, body: MessageCreate, user: Us
     return await post_message(group, user, type=body.type, file_id=body.file_id, duration=body.duration, reply_to=body.reply_to, **fields)
 
 
+@router.post("/groups/{group_id}/meet", response_model=MessageOut, status_code=status.HTTP_201_CREATED)
+async def start_meet(group_id: PydanticObjectId, user: User = Depends(get_current_user)) -> MessageOut:
+    """Start a Google Meet for the group: a new Meet link is made on the sender's Google Calendar and posted as a message."""
+    from app.integrations.google import workspace  # late: the Google module pulls in the chat-independent integrations stack
+
+    group = await member_group(group_id, user)
+    require(user, "integration.manage")  # clients have no Google connection
+    url = await workspace.start_meet(user, f"{group.name}: Google Meet")
+    fields = compose(f"📹 {user.name} started a Google Meet\n{url}", False, required=True)
+    return await post_message(group, user, type="text", **fields)
+
+
 @router.post("/groups/{group_id}/read", response_model=ReadOut)
 async def mark_read(group_id: PydanticObjectId, user: User = Depends(get_current_user)) -> ReadOut:
     """You opened the conversation: everything in it is now seen by you."""

@@ -4,6 +4,8 @@ from typing import Literal
 from beanie import PydanticObjectId
 from pydantic import AnyHttpUrl, BaseModel, Field
 
+from app.models.file import DriveMeta
+
 
 class FileOut(BaseModel):
     id: PydanticObjectId
@@ -13,6 +15,7 @@ class FileOut(BaseModel):
     size: int
     kind: Literal["upload", "link"]
     url: str
+    drive: DriveMeta | None = None
     created_at: datetime
 
 

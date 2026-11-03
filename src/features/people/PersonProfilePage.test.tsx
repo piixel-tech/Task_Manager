@@ -48,7 +48,7 @@ describe('a person\'s profile view', () => {
 
   it('staff open their calendar, clients are sent to booking a meeting', async () => {
     await viewAs('employee');
-    expect(screen.getByRole('link', { name: /open calendar/i }).getAttribute('href')).toBe('/app/calendar/u7');
+    expect(screen.getByRole('link', { name: /open calendar/i }).getAttribute('href')).toBe('/app/calendar/u7#book');
     cleanup();
     await viewAs('client');
     expect(screen.getByRole('link', { name: /book a meeting/i }).getAttribute('href')).toBe('/client/meetings');

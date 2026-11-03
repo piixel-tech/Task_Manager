@@ -9,8 +9,8 @@ from app.core.deps import get_current_user
 from app.core.permissions import require
 from app.core.timeutil import as_utc, to_local_date, today_local, tz
 from app.integrations.runner import schedule_push
-from app.models import ExternalEvent, User
-from app.models.booking import Booking
+from app.models import ExternalEvent, IntegrationConnection, User
+from app.models.booking import Attendee, Booking
 from app.models.daily_status import DailyStatus
 from app.schemas.calendar import Availability, BookingCreate, BookingOut, Slot
 from app.services.projects import client_team_ids
@@ -31,7 +31,7 @@ def _view(booking: Booking, viewer: User) -> BookingOut:
     out = BookingOut.model_validate(booking, from_attributes=True)
     involved = viewer.role == "admin" or viewer.id in (booking.host_user_id, booking.booked_by)
     if not involved:
-        out.title, out.note = "Busy", ""
+        out.title, out.note, out.meet_url, out.attendees = "Busy", "", "", []
     return out
 
 
@@ -119,6 +119,41 @@ async def availability(
     return result(slots, None if slots else "No free time left that day")
 
 
+async def _attendees(body: BookingCreate, host: User, user: User) -> list[Attendee]:
+    """Resolve the guests: teammates by id, everyone else by email. The host and the booker already have the booking."""
+    if not body.attendees:
+        return []
+    if user.role == "client":  # an invite goes out from the team's Google calendar: clients can't send them to anyone
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Clients can't add guests")
+    ids = [a.user_id for a in body.attendees if a.user_id]
+    team = {u.id: u for u in await User.find({"_id": {"$in": ids}}).to_list()}
+    emails = [a.email for a in body.attendees if a.email]
+    known = {u.email.lower(): u for u in await User.find({"email": {"$in": emails}}).to_list()} if emails else {}
+    out: dict[str, Attendee] = {}
+    for a in body.attendees:
+        if a.user_id:
+            person = team.get(a.user_id)
+            if person is None or not person.is_active or person.role == "client":
+                raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Guests must be active team members or an email address")
+        else:
+            person = known.get(a.email)
+            if person is not None and (not person.is_active or person.role == "client"):
+                person = None  # a client's address is still just an address
+        email = (person.email if person else a.email).lower()
+        out[email] = Attendee(email=email, name=person.name if person else "", user_id=person.id if person else None)
+    for p in (host, user):
+        out.pop(p.email.lower(), None)
+    guests = list(out.values())
+    if guests and not await IntegrationConnection.find_one(
+        {"user_id": {"$in": [host.id, user.id]}, "provider": "google", "status": "connected"}
+    ):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Guests are invited through Google Calendar. Connect Google in Settings > Connected apps first (you or the host).",
+        )
+    return guests
+
+
 @router.post("", response_model=BookingOut, status_code=status.HTTP_201_CREATED)
 async def create_booking(body: BookingCreate, user: User = Depends(get_current_user)) -> BookingOut:
     require(user, "booking.create", target_id=body.host_user_id, team_ids=await client_team_ids(user))
@@ -129,6 +164,7 @@ async def create_booking(body: BookingCreate, user: User = Depends(get_current_u
     if host.id == user.id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "You can't book a slot on your own calendar")
 
+    guests = await _attendees(body, host, user)
     start, end = body.start, body.end
     minutes = (end - start).total_seconds() / 60
     if minutes < MIN_MINUTES or minutes > MAX_HOURS * 60:
@@ -167,10 +203,21 @@ async def create_booking(body: BookingCreate, user: User = Depends(get_current_u
             end=end,
             title=body.title.strip(),
             note=body.note.strip(),
+            attendees=guests,
         )
         await booking.insert()
 
     schedule_push([host.id, user.id])
+    teammates = [g.user_id for g in guests if g.user_id]
+    if teammates:
+        await notify(
+            teammates,
+            type="booking_invited",
+            title=f"Invited: {booking.title}",
+            body=f"{user.name} invited you to {_fmt(start)} - {_fmt(end)} with {host.name}.",
+            link=_calendar_link(host),
+            actor_id=user.id,
+        )
     await notify(
         [host.id],
         type="booking_created",

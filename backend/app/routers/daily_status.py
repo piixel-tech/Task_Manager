@@ -83,6 +83,7 @@ async def overview(
             avatar_url=u.avatar_url,
             company_id=u.company_id,
             role=u.role,
+            title=u.title,
             status=by_user[u.id].status if u.id in by_user else None,
             set_at=by_user[u.id].set_at if u.id in by_user else None,
             is_head=u.id in head_ids,

@@ -21,6 +21,7 @@ from app.core.timeutil import as_utc, today_local, tz
 from app.integrations import crypto
 from app.integrations.base import IntegrationError, Provider, SyncResult
 from app.integrations.google import client, credentials
+from app.services.ws_manager import manager
 from app.models import Booking, ExternalEvent, IntegrationConnection, IntegrationLink, Task, User
 
 log = logging.getLogger(__name__)
@@ -36,16 +37,45 @@ def channel_token(channel_id: str) -> str:
     return hmac.new(settings.JWT_SECRET.encode(), f"google-channel:{channel_id}".encode(), hashlib.sha256).hexdigest()
 
 
-def _translate(exc: client.GoogleError) -> IntegrationError:
+def _translate(exc: client.GoogleError, what: str = "Google Calendar") -> IntegrationError:
     if isinstance(exc, client.InvalidGrant):
         return IntegrationError("Google access was revoked or has expired.", reconnect=True)
     if isinstance(exc, client.Unauthorized):
         return IntegrationError("Google rejected the saved login.", reconnect=True)
     if exc.status == 403 and exc.reason in ("insufficientPermissions", "forbidden"):
-        return IntegrationError("Google Calendar access was not granted for this action.", reconnect=True)
+        return IntegrationError(f"{what} access was not granted for this action.", reconnect=True)
     if exc.status == 0:
         return IntegrationError(exc.message or "Could not reach Google.")
-    return IntegrationError(f"Google Calendar returned an error ({exc.status}{' ' + exc.reason if exc.reason else ''}).")
+    return IntegrationError(f"{what} returned an error ({exc.status}{' ' + exc.reason if exc.reason else ''}).")
+
+
+SERVICES = [
+    # key, name, what it does, the consent group that switches it on ("calendar" = the base access every connection has)
+    ("calendar", "Calendar", "Your events, bookings and task due dates.", "calendar"),
+    ("meet", "Meet", "Meet links on bookings and a Start Meet button in chat.", "calendar"),
+    ("drive", "Drive", "Attach Drive files to tasks, chat and subfolders.", "drive"),
+    ("docs_sheets", "Docs & Sheets", "Create a Google Doc or Sheet from a task or subfolder and link it.", "drive"),
+]
+
+
+def meet_url_of(event: dict) -> str:
+    """The Meet address Google put on an event (hangoutLink, or the video entry point of its conference data)."""
+    if event.get("hangoutLink"):
+        return event["hangoutLink"]
+    for entry in (event.get("conferenceData") or {}).get("entryPoints") or []:
+        if entry.get("entryPointType") == "video" and entry.get("uri"):
+            return entry["uri"]
+    return ""
+
+
+def has_service(scopes: list[str] | set[str], key: str) -> bool:
+    """Whether a connection holding `scopes` can use a service."""
+    return set(client.SERVICE_SCOPES[key]) <= set(scopes)
+
+
+def missing_services(scopes: list[str] | set[str]) -> list[str]:
+    """Names of the services a connection cannot use yet (a connection made before Drive/Docs/Sheets were added)."""
+    return [n for k, n, _, _ in SERVICES if not has_service(scopes, k)]
 
 
 class _Auth:
@@ -66,11 +96,16 @@ class _Auth:
             raise IntegrationError(str(exc), reconnect=True) from exc
         except client.GoogleError as exc:
             raise _translate(exc) from exc
-        self.conn.access_token = crypto.encrypt(data["access_token"])
-        self.conn.token_expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(data.get("expires_in", 3600)))
+        fields: dict[str, Any] = {
+            "access_token": crypto.encrypt(data["access_token"]),
+            "token_expires_at": datetime.now(timezone.utc) + timedelta(seconds=int(data.get("expires_in", 3600))),
+        }
         if data.get("refresh_token"):  # Google rarely rotates it, but may
-            self.conn.refresh_token = crypto.encrypt(data["refresh_token"])
-        await self.conn.save()
+            fields["refresh_token"] = crypto.encrypt(data["refresh_token"])
+        if data.get("scope"):  # what the person still allows: they can untick things later in their Google account
+            fields["scopes"] = sorted(data["scope"].split())
+        # Only these fields: a request-time refresh must not overwrite the sync tokens a running sync just saved.
+        await self.conn.set(fields)
         return data["access_token"]
 
     async def token(self) -> str:
@@ -108,8 +143,8 @@ def _parse_when(item: dict) -> tuple[datetime, datetime, bool] | None:
 
 class GoogleCalendarProvider(Provider):
     key = "google"
-    name = "Google Calendar"
-    description = "Show your Google events in Task Manager and put your bookings and task due dates on Google Calendar."
+    name = "Google"
+    description = "Calendar, Meet, Drive, Docs and Sheets in one connection: your events, bookings with Meet links, and files from your Drive."
 
     # --- Setup ----------------------------------------------------------------------------------------------------
     async def setup_problem(self, user: User) -> str | None:
@@ -136,8 +171,13 @@ class GoogleCalendarProvider(Provider):
         return {"push_available": self.push_available()}
 
     async def authorize_url(self, user: User, state: str) -> str:
+        existing = await IntegrationConnection.find_one(
+            IntegrationConnection.user_id == user.id, IntegrationConnection.provider == self.key
+        )
+        # One consent screen for everything (Calendar, Meet, Drive, Docs, Sheets), on the same Google account as before.
+        hint = existing.account if existing and "@" in (existing.account or "") else None
         try:
-            return client.authorize_url(await credentials.for_user(user), state)
+            return client.authorize_url(await credentials.for_user(user), state, client.ALL_SCOPES, login_hint=hint)
         except credentials.NotConfigured as exc:
             raise IntegrationError(str(exc)) from exc
 
@@ -146,13 +186,14 @@ class GoogleCalendarProvider(Provider):
             creds = await credentials.for_user(user)
             tokens = await client.exchange_code(creds, code)
             granted = set((granted_scope or tokens.get("scope") or "").split())
-            if not set(client.SCOPES) <= granted:  # Google lets people untick permissions on the consent screen
-                if tokens.get("access_token"):
-                    await client.revoke(tokens.get("refresh_token") or tokens["access_token"])
-                raise IntegrationError("Allow Task Manager to see and edit your calendar events, then try again.")
             existing = await IntegrationConnection.find_one(
                 IntegrationConnection.user_id == user.id, IntegrationConnection.provider == self.key
             )
+            if not set(client.SCOPES) <= granted:  # Google lets people untick permissions on the consent screen
+                # Revoking would also kill the grant an already working connection depends on, so only a new one is revoked.
+                if tokens.get("access_token") and not (existing and existing.status == "connected"):
+                    await client.revoke(tokens.get("refresh_token") or tokens["access_token"])
+                raise IntegrationError("Allow Task Manager to see and edit your calendar events, then try again.")
             refresh = tokens.get("refresh_token")
             # An old refresh token belongs to the old company's Google app and is useless with another one.
             if not refresh and existing and existing.config.get("company") == creds.company:
@@ -199,7 +240,15 @@ class GoogleCalendarProvider(Provider):
             "write_calendar": connection.config.get("write_calendar"),
             "push_active": any(c.get("channel") for c in cals),
             "push_error": connection.config.get("push_error"),
+            # Anything the stored login cannot do yet (older connections, or boxes unticked on Google's screen): one reconnect fixes it.
+            "missing": missing_services(connection.scopes),
         }
+
+    async def consent_gap(self, connection: IntegrationConnection) -> str | None:
+        missing = missing_services(connection.scopes)
+        if missing:
+            return f"Google did not allow: {', '.join(missing)}. Connect again and tick every box to turn them on."
+        return None
 
     async def update_config(self, connection: IntegrationConnection, data: dict) -> None:
         cals = connection.config.get("calendars", [])
@@ -435,9 +484,11 @@ class GoogleCalendarProvider(Provider):
                 continue
             if link and link.calendar_id != write_cal:  # they chose another calendar to write to: move the event
                 await auth.call(client.delete_event, link.calendar_id, link.external_id)
-                await self._write_event(auth, write_cal, body, exists=False)
+                event = await self._write_event(auth, write_cal, body, exists=False)
             else:
-                await self._write_event(auth, write_cal, body, exists=link is not None)
+                event = await self._write_event(auth, write_cal, body, exists=link is not None)
+            if kind == "booking" and "conferenceData" in body:
+                await self._claim_meet(conn, local_id, event)
             if link is None:
                 link = IntegrationLink(
                     user_id=conn.user_id, provider=self.key, kind=kind, local_id=local_id,
@@ -457,28 +508,63 @@ class GoogleCalendarProvider(Provider):
             for (kind, local_id), link in gone:
                 if kind == "booking" and local_id in alive_bookings:
                     continue  # a past booking: leave it on their calendar as history
-                await auth.call(client.delete_event, link.calendar_id, link.external_id)
+                # A cancelled booking tells its guests (a no-op when the event has none).
+                await auth.call(
+                    client.delete_event, link.calendar_id, link.external_id, send_updates="all" if kind == "booking" else None
+                )
                 await link.delete()
                 count += 1
         return count
 
     @staticmethod
-    async def _write_event(auth: _Auth, calendar_id: str, body: dict, exists: bool) -> None:
+    async def _insert(auth: _Auth, calendar_id: str, body: dict) -> dict:
+        """Insert; when the body asks for a Meet and Google refuses it (an account that can't make Meet links), write the
+        event without it rather than lose the booking on their calendar."""
+        meet = "conferenceData" in body
+        notify_guests = "all" if body.get("attendees") else None  # Google emails the invitations and puts it on their calendars
+        try:
+            return await auth.call(client.insert_event, calendar_id, body, with_meet=meet, send_updates=notify_guests)
+        except client.GoogleError as exc:
+            if meet and exc.status == 400:
+                plain = {k: v for k, v in body.items() if k != "conferenceData"}
+                return await auth.call(client.insert_event, calendar_id, plain, send_updates=notify_guests)
+            raise
+
+    @classmethod
+    async def _write_event(cls, auth: _Auth, calendar_id: str, body: dict, exists: bool) -> dict:
         """Insert or update. Either can find the other's situation (the person deleted our event in Google, or a retry already
-        created it), so each falls back to the other once. The deterministic id makes both safe."""
+        created it), so each falls back to the other once. The deterministic id makes both safe. Returns Google's event."""
         confirmed = {**body, "status": "confirmed"}  # also brings back an event that was deleted on Google's side
         try:
             if exists:
-                await auth.call(client.update_event, calendar_id, body["id"], confirmed)
-            else:
-                await auth.call(client.insert_event, calendar_id, body)
+                return await auth.call(client.update_event, calendar_id, body["id"], confirmed)
+            return await cls._insert(auth, calendar_id, body)
         except client.GoogleError as exc:
             if exists and exc.status in (404, 410):
-                await auth.call(client.insert_event, calendar_id, body)
-            elif not exists and exc.status == 409:
-                await auth.call(client.update_event, calendar_id, body["id"], confirmed)
-            else:
-                raise
+                return await cls._insert(auth, calendar_id, body)
+            if not exists and exc.status == 409:
+                return await auth.call(client.update_event, calendar_id, body["id"], confirmed)
+            raise
+
+    @staticmethod
+    async def _claim_meet(conn: IntegrationConnection, booking_id: PydanticObjectId, event: dict) -> None:
+        """The first event Google gave a Meet link for becomes the booking's Meet; later pushes hand the others the same link."""
+        url = meet_url_of(event)
+        if not url:
+            return
+        res = await Booking.find({"_id": booking_id, "meet_owner_id": None}).update(
+            {"$set": {"meet_owner_id": conn.user_id, "meet_url": url}}
+        )
+        if not getattr(res, "modified_count", 0):
+            # Already claimed. If it was by this person (their event was re-created, e.g. they changed calendars) Google made
+            # a new Meet, so keep the stored link in step with the one their event really has.
+            res = await Booking.find({"_id": booking_id, "meet_owner_id": conn.user_id, "meet_url": {"$ne": url}}).update(
+                {"$set": {"meet_url": url}}
+            )
+        if getattr(res, "modified_count", 0):
+            booking = await Booking.get(booking_id)
+            if booking:  # the booking card on screen can now show Join
+                await manager.send_to_users([booking.host_user_id, booking.booked_by], "calendar_sync", {"provider": "google"})
 
     async def _desired(self, user_id: PydanticObjectId) -> dict[tuple[str, PydanticObjectId], tuple[str, dict]]:
         """Everything of theirs that belongs on Google right now: upcoming bookings, and open tasks that have a due date."""
@@ -498,18 +584,27 @@ class GoogleCalendarProvider(Provider):
             lines = [f"{'Booked by' if hosting else 'With'} {other.name if other else 'a teammate'} in Task Manager."]
             if b.note:
                 lines.append(b.note)
-            add(
-                "booking",
-                b.id,
-                {
-                    "id": f"tmb{b.id}",
-                    "summary": b.title if hosting else f"{b.title} · {other.name if other else 'Task Manager'}",
-                    "description": "\n\n".join(lines),
-                    "start": {"dateTime": as_utc(b.start).isoformat()},
-                    "end": {"dateTime": as_utc(b.end).isoformat()},
-                    "extendedProperties": {"private": {"tm_source": TM_TAG, "tm_kind": "booking", "tm_id": str(b.id)}},
-                },
-            )
+            body = {
+                "id": f"tmb{b.id}",
+                "summary": b.title if hosting else f"{b.title} · {other.name if other else 'Task Manager'}",
+                "start": {"dateTime": as_utc(b.start).isoformat()},
+                "end": {"dateTime": as_utc(b.end).isoformat()},
+                "extendedProperties": {"private": {"tm_source": TM_TAG, "tm_kind": "booking", "tm_id": str(b.id)}},
+            }
+            if b.meet_url and b.meet_owner_id != user_id:
+                # One Meet per booking: it lives on one person's event, everyone else gets the same link as text.
+                lines.append(f"Join with Google Meet: {b.meet_url}")
+                body["location"] = b.meet_url
+            else:
+                body["conferenceData"] = {  # the request id is fixed, so a retry can never make a second Meet
+                    "createRequest": {"requestId": f"tmb-{b.id}", "conferenceSolutionKey": {"type": "hangoutsMeet"}}
+                }
+                if b.attendees:  # the invitation comes from the event that owns the Meet, so each guest gets exactly one
+                    body["attendees"] = [
+                        {"email": a.email, **({"displayName": a.name} if a.name else {})} for a in b.attendees
+                    ]
+            body["description"] = "\n\n".join(lines)
+            add("booking", b.id, body)
 
         tasks = await Task.find({"assignee_id": user_id, "due_date": {"$ne": None}, "status": {"$ne": "approved"}}).to_list()
         for t in tasks:

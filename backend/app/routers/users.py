@@ -9,7 +9,7 @@ from app.core.security import hash_password
 from app.core.timeutil import today_local
 from app.models import Company, User
 from app.models.daily_status import DailyStatus
-from app.schemas.user import PersonProfile, UserCreate, UserOut, UserUpdate
+from app.schemas.user import PersonProfile, TeamMember, UserCreate, UserOut, UserUpdate
 from app.schemas.project import UserBrief
 from app.services.notify import notify
 from app.services.projects import brief, client_team_ids
@@ -38,6 +38,26 @@ async def directory(user: User = Depends(get_current_user)) -> list[UserBrief]:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Insufficient permissions")
     people = await User.find({"role": {"$in": ["admin", "employee"]}, "is_active": True}).sort("+name").to_list()
     return [brief(p) for p in people]
+
+
+@router.get("/team", response_model=list[TeamMember])
+async def team(user: User = Depends(get_current_user)) -> list[TeamMember]:
+    """Every active admin and employee of every company, except the caller, with their job title and company. No paging:
+    the whole team comes back, ordered by company then name. Open to the team, not to clients."""
+    if user.role == "client":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Insufficient permissions")
+    people = await User.find({"role": {"$in": ["admin", "employee"]}, "is_active": True, "_id": {"$ne": user.id}}).to_list()
+    names = {c.id: c.name for c in await Company.find_all().to_list()}
+    rows = [
+        TeamMember(
+            id=p.id, name=p.name, avatar_url=p.avatar_url, role=p.role, title=p.title,
+            company_id=p.company_id, company_name=names.get(p.company_id, "") if p.company_id else "",
+        )
+        for p in people
+    ]
+    # People without a company go last, under "Other".
+    rows.sort(key=lambda r: (r.company_name == "", r.company_name.lower(), r.name.lower()))
+    return rows
 
 
 @router.get("/{user_id}/profile", response_model=PersonProfile)

@@ -24,6 +24,7 @@ class Subfolder(Document):
     name: str
     head_ids: list[PydanticObjectId] = Field(default_factory=list)
     member_ids: list[PydanticObjectId] = Field(default_factory=list)  # always includes the heads
+    file_ids: list[PydanticObjectId] = Field(default_factory=list)  # Google Docs / Sheets / Drive files linked to the subfolder
     created_by: PydanticObjectId
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

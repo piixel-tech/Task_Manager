@@ -11,6 +11,8 @@ export interface CalendarChoice {
 }
 
 export interface GoogleConfig {
+  /** Services the stored login cannot use yet (a connection made before Drive/Docs/Sheets, or boxes left unticked). One reconnect fixes it. */
+  missing: string[];
   calendars: CalendarChoice[];
   write_calendar: string | null;
   push_active: boolean;

@@ -85,6 +85,7 @@ export function getErrorMessage(err: unknown, fallback = 'Something went wrong')
     if (!err.response) return 'Cannot reach the server. Please try again.';
     const detail = err.response.data?.detail;
     if (typeof detail === 'string') return detail;
+    if (detail && typeof detail === 'object' && typeof detail.message === 'string') return detail.message;
     if (Array.isArray(detail) && detail[0]?.msg) return detail[0].msg;
   }
   return err instanceof Error ? err.message : fallback;

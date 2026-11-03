@@ -12,13 +12,15 @@ import { useConfirm } from '../../../hooks/useConfirm';
 import { integrationApi, type ConnectedApp } from '../../../services/http/integrationApi';
 import { toast } from '../../../store/useToastStore';
 
-const RESULT_TOASTS: Record<string, { tone: 'success' | 'error'; title: string }> = {
-  connected: { tone: 'success', title: 'Google Calendar connected' },
-  denied: { tone: 'error', title: 'Google Calendar was not connected' },
-  error: { tone: 'error', title: 'Could not connect Google Calendar' }
+const RESULT_TOASTS: Record<string, { tone: 'success' | 'error' | 'info'; title: string }> = {
+  connected: { tone: 'success', title: 'Google connected' },
+  // Connected, but part of what we asked for was left unticked on Google's screen.
+  partial: { tone: 'info', title: 'Google connected, with limits' },
+  denied: { tone: 'error', title: 'Google was not connected' },
+  error: { tone: 'error', title: 'Could not connect Google' }
 };
 
-/** Settings > Connected apps. Each app in the backend's registry gets a card; today that is Google Calendar. */
+/** Settings > Connected apps. Each app in the backend's registry gets a card; today that is Google (Calendar, Meet, Drive, Docs & Sheets). */
 export const ConnectedAppsSection: React.FC = () => {
   const confirm = useConfirm();
   const [params, setParams] = useSearchParams();
@@ -81,12 +83,14 @@ const AppCard: React.FC<{ app: ConnectedApp; confirm: ReturnType<typeof useConfi
   const saved = useMemo(() => conn?.config.calendars.filter((c) => c.selected).map((c) => c.id).sort().join('|') ?? '', [conn]);
   const dirty = selected.slice().sort().join('|') !== saved || writeTo !== (conn?.config.write_calendar ?? '');
 
+  /** One consent screen for everything: Calendar, Meet, Drive, Docs and Sheets. */
   const startConnect = async () => {
     let url = '';
     const ok = await confirm({
-      title: `${conn ? 'Reconnect' : 'Connect'} ${app.name}?`,
-      message: 'You will go to Google to approve access, then come straight back here.',
-      confirmLabel: conn ? 'Reconnect' : 'Continue to Google',
+      title: `${conn ? 'Reconnect' : 'Connect'} to ${app.name}?`,
+      message:
+        'You will go to Google to approve access to Calendar, Meet, Drive, Docs and Sheets in one step, then come straight back here. Please tick every box so everything works.',
+      confirmLabel: 'Continue to Google',
       action: async () => {
         url = await integrationApi.connect(app.key);
       }
@@ -164,7 +168,8 @@ const AppCard: React.FC<{ app: ConnectedApp; confirm: ReturnType<typeof useConfi
           <div className="space-y-3">
             <ul className="list-disc space-y-1 pl-5 text-[13px] text-[var(--tm-ink-soft)]">
               <li>Your Google events show on your Task Manager calendar. Teammates only see “Busy”.</li>
-              <li>Your bookings and task due dates are added to your Google Calendar.</li>
+              <li>Your bookings and task due dates are added to your Google Calendar, each booking with a Google Meet link and invites for guests.</li>
+              <li>Attach files from your Drive, and create Google Docs and Sheets from tasks and subfolders.</li>
               <li>Disconnect any time. Only you can see your Google data.</li>
             </ul>
             {!app.configured && (
@@ -174,7 +179,7 @@ const AppCard: React.FC<{ app: ConnectedApp; confirm: ReturnType<typeof useConfi
             )}
             <Button onClick={startConnect} disabled={!app.configured}>
               <Link2 className="mr-2 h-4 w-4" />
-              Connect {app.name}
+              Connect to {app.name}
             </Button>
           </div>
         )}
@@ -203,6 +208,17 @@ const AppCard: React.FC<{ app: ConnectedApp; confirm: ReturnType<typeof useConfi
             {conn.config.push_error && (
               <div className="tm-warn px-4 py-3 text-xs font-semibold">
                 {conn.config.push_error} Syncing still runs every few minutes.
+              </div>
+            )}
+
+            {conn.status === 'connected' && (conn.config.missing?.length ?? 0) > 0 && (
+              <div className="tm-warn flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs font-semibold">
+                <span>
+                  Reconnect to Google once to turn on {conn.config.missing.join(', ')}. Everything else keeps working until then.
+                </span>
+                <Button size="sm" onClick={startConnect}>
+                  Reconnect to Google
+                </Button>
               </div>
             )}
 

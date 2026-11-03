@@ -56,11 +56,16 @@ class Provider(ABC):
         return {}
 
     @abstractmethod
-    async def authorize_url(self, user: User, state: str) -> str: ...
+    async def authorize_url(self, user: User, state: str) -> str:
+        """Where to send the browser."""
 
     @abstractmethod
     async def complete_connect(self, user: User, code: str, granted_scope: str | None) -> IntegrationConnection:
         """Trade the OAuth code for tokens and store the (encrypted) connection. Raises IntegrationError."""
+
+    async def consent_gap(self, connection: IntegrationConnection) -> str | None:
+        """After connecting: what the person did not allow on the consent screen, in words; None if all granted."""
+        return None
 
     @abstractmethod
     async def sync(self, connection: IntegrationConnection) -> SyncResult:

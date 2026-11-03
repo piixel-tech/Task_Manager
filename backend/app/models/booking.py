@@ -1,8 +1,16 @@
 from datetime import datetime, timezone
 
 from beanie import Document, PydanticObjectId
-from pydantic import Field
+from pydantic import BaseModel, Field
 from pymongo import IndexModel
+
+
+class Attendee(BaseModel):
+    """A guest added to a booking: a teammate, or anyone with an email address."""
+
+    email: str
+    name: str = ""
+    user_id: PydanticObjectId | None = None
 
 
 class Booking(Document):
@@ -12,6 +20,9 @@ class Booking(Document):
     end: datetime
     title: str
     note: str = ""
+    attendees: list[Attendee] = Field(default_factory=list)  # invited through Google Calendar, besides the host and the booker
+    meet_url: str = ""  # the Google Meet link, filled in by the first connected person's calendar push
+    meet_owner_id: PydanticObjectId | None = None  # whose Google event holds the Meet (the others get the link as text)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:

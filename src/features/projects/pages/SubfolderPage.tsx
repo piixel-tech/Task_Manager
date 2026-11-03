@@ -16,6 +16,7 @@ import { SubfolderFormModal } from '../components/SubfolderFormModal';
 import { ChecklistTab } from '../components/ChecklistTab';
 import { DeliverablesTab } from '../components/DeliverablesTab';
 import { ChangesBox } from '../../activity/components/ChangesBox';
+import { SubfolderGoogleFiles } from '../../google/SubfolderGoogleFiles';
 import { activityApi } from '../../../services/http/activityApi';
 import { SubfolderTasksTab, SubfolderTaskSummary, useSubfolderTasks, type TaskFilter } from '../components/SubfolderTasks';
 
@@ -190,6 +191,8 @@ export const SubfolderPage: React.FC = () => {
               )}
             </CardContent>
           </Card>
+
+          <SubfolderGoogleFiles subfolderId={subfolder.id} className="min-w-0 md:col-span-2 xl:col-span-3" />
 
           <SubfolderTaskSummary
             data={taskData}

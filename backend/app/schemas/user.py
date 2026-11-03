@@ -30,6 +30,18 @@ class UserOut(BaseModel):
         return clean_stored(v)
 
 
+class TeamMember(BaseModel):
+    """One person in the team picker (booking guests): who they are, their job and their company."""
+
+    id: PydanticObjectId
+    name: str
+    avatar_url: str | None = None
+    role: str
+    title: str = ""
+    company_id: PydanticObjectId | None = None
+    company_name: str = ""
+
+
 class PersonProfile(BaseModel):
     """What anyone may see on a person's profile page: no email, phone, settings or login details."""
 
