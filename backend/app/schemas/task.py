@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Literal
 
 from beanie import PydanticObjectId
 from pydantic import BaseModel, Field, field_validator
@@ -125,6 +126,53 @@ class TimeLogOut(BaseModel):
 class TimerResult(BaseModel):
     task: TaskOut
     stopped_task_id: PydanticObjectId | None = None  # another timer that was stopped to start this one
+
+
+class TimerTask(BaseModel):
+    id: PydanticObjectId
+    title: str
+    subfolder_id: PydanticObjectId
+    progress: int = 0
+    total_seconds: int  # everything tracked on it, a running session included
+
+
+class WorkingNow(BaseModel):
+    """Someone with a timer running on a task of the subfolder."""
+
+    task_id: PydanticObjectId
+    started_at: datetime
+    user: UserBrief
+
+
+class TimerLogEntry(BaseModel):
+    """One timer session of a task: from play (or resume) to pause. `ended_at` is empty while it runs."""
+
+    id: PydanticObjectId
+    user: UserBrief
+    started_at: datetime
+    ended_at: datetime | None
+    seconds: int  # 0 while running: the screen counts from started_at and server_now
+    running: bool
+
+
+class TimerLogOut(BaseModel):
+    server_now: datetime
+    total_seconds: int  # every finished session plus the running one, up to server_now
+    entries: list[TimerLogEntry]  # newest first
+
+
+class TimerStart(BaseModel):
+    task_id: PydanticObjectId
+
+
+class TimerCurrent(BaseModel):
+    """Where the person's timer is. All times come from the server, so a browser can show the clock but never decides it."""
+
+    server_now: datetime
+    state: Literal["running", "paused", "idle"]
+    task: TimerTask | None = None  # the running task, or the one that would resume
+    started_at: datetime | None = None  # when the running session began
+    stopped_task: TimerTask | None = None  # the timer this call closed (Play on another task)
 
 
 class ReminderRun(BaseModel):

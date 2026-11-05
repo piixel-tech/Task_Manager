@@ -26,6 +26,7 @@ import { inOrder, useSidebarStore } from '../../store/useSidebarStore';
 import { NodeMenu, type MenuAction } from './NodeMenu';
 import { SidebarModals, type SidebarAction } from './SidebarModals';
 import { SkeletonRows } from '../../components/ui/Skeleton';
+import { VisibilityIcon } from '../projects/components/VisibilityIcon';
 
 interface Props {
   isAdmin: boolean;
@@ -246,6 +247,9 @@ export const SidebarTree: React.FC<Props> = ({ prefix, onNavigate }) => {
                           <NavLink to={subfolderPath(p, s)} onClick={onNavigate} className={({ isActive }) => `flex min-w-0 flex-1 items-center gap-2 rounded-full py-1.5 pl-3 pr-2 text-[12.5px] font-semibold ${linkTone(isActive)}`}>
                             <Folder className="h-3.5 w-3.5 shrink-0" strokeWidth={2.1} />
                             <span className="flex-1 truncate">{s.name}</span>
+                            <span className={muted}>
+                              <VisibilityIcon visibility={s.visibility} className="h-3 w-3" />
+                            </span>
                             {badge(s.open_tasks)}
                           </NavLink>
                           {create.length > 0 && iconButton(`Create in ${s.name}`, (el) => show(el, `Create in ${s.name}`, create), <Plus className="h-4 w-4" />)}

@@ -19,7 +19,7 @@ import { CommandPalette } from './CommandPalette';
 import { FocusMenu } from '../../features/focus/FocusMenu';
 import { ShortcutsModal } from '../../features/shortcuts/ShortcutList';
 import { useShortcuts } from '../../features/shortcuts/shortcuts';
-import { AllCaughtUp, NotificationGroups, NotificationSkeleton } from '../../features/notifications/notificationVisuals';
+import { AllCaughtUp, matchesTab, NotificationGroups, NotificationSkeleton, type NotificationTab } from '../../features/notifications/notificationVisuals';
 import { useMotionPrefs } from '../ui/useMotionPrefs';
 import { EASE_OUT, popoverVariants } from '../ui/motion';
 
@@ -78,7 +78,9 @@ export const Topbar: React.FC = () => {
   // Chat stays live (unread badges, ticks) wherever you are in the app.
   useChatRealtime();
 
-  const { notifications, unreadCount, isLoading, markAsRead, markAllAsRead } = useNotificationStore();
+  const { notifications, unreadCount, isLoading, markAsRead, markAllAsRead, snooze } = useNotificationStore();
+  const [bellTab, setBellTab] = useState<NotificationTab>('all');
+  const shown = notifications.filter((n) => matchesTab(n, bellTab));
 
   // Presentation only: wiggle the bell whenever the unread count goes up.
   const [ring, setRing] = useState(0);
@@ -247,14 +249,32 @@ export const Topbar: React.FC = () => {
                       )}
                     </div>
 
+                    <div role="tablist" aria-label="Filter notifications" className="flex gap-1 border-b border-[var(--tm-border)] px-4 py-2">
+                      {(['all', 'mentions', 'approvals'] as const).map((t) => (
+                        <button
+                          key={t}
+                          role="tab"
+                          type="button"
+                          aria-selected={bellTab === t}
+                          onClick={() => setBellTab(t)}
+                          className={`rounded-full px-3 py-1 text-[12px] font-bold capitalize transition-colors ${
+                            bellTab === t ? 'bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)]' : 'text-[var(--tm-ink-muted)] hover:bg-[var(--tm-bg-sunken)]'
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+
                     {isLoading && notifications.length === 0 ? (
                       <NotificationSkeleton />
-                    ) : notifications.length === 0 ? (
+                    ) : shown.length === 0 ? (
                       <AllCaughtUp />
                     ) : (
                       <div className="max-h-[26rem] overflow-y-auto px-2 pb-1">
                         <NotificationGroups
-                          items={notifications}
+                          items={shown}
+                          onSnooze={(n) => void snooze(n.id, 60)}
                           onOpen={(n) => {
                             markAsRead(n.id);
                             setBellOpen(false);

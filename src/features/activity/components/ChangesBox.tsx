@@ -50,12 +50,16 @@ export const ChangesBox: React.FC<Props> = ({ subfolderId, projectId, onCount })
   return (
     <div className="space-y-5">
       {/* Composer first, so posting is the obvious thing to do */}
-      <ComposerCard>
-        <p className="text-[13px] text-[var(--tm-ink-soft)]">
-          Changes that affect the whole subfolder rather than one task. A head ticks each one off when it is done.
-        </p>
-        <EntryComposer kind="change_request" people={people} placeholder="Describe the change" onPost={post} />
-      </ComposerCard>
+      {list?.can_post === false ? (
+        <p className="rounded-[var(--tm-radius-md)] bg-[var(--tm-bg-sunken)] px-4 py-3 text-[13px] text-[var(--tm-ink-soft)]">View only: you can read the changes but not post one.</p>
+      ) : (
+        <ComposerCard>
+          <p className="text-[13px] text-[var(--tm-ink-soft)]">
+            Changes that affect the whole subfolder rather than one task. A head ticks each one off when it is done.
+          </p>
+          <EntryComposer kind="change_request" people={people} placeholder="Describe the change" onPost={post} />
+        </ComposerCard>
+      )}
 
       {all.length > 0 && (
         <FilterBar>

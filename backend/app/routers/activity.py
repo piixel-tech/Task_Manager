@@ -5,7 +5,7 @@ from beanie import PydanticObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.deps import get_current_user
-from app.core.permissions import require
+from app.core.permissions import can, require
 from app.models import Subfolder, Task, TaskActivity, User
 from app.models.office import REACTIONS
 from app.schemas.activity import ActivityCreate, ActivityList, ActivityOut, ReactionToggle, ResolvedSet
@@ -59,7 +59,11 @@ async def task_activity(task_id: PydanticObjectId, user: User = Depends(get_curr
     """Everything on the task's Activity panel, oldest first: mid-way changes, comments and the automatic log."""
     sub, task = await _task_scope(task_id, user)
     rows = await TaskActivity.find({"task_id": task.id}).sort("+created_at").limit(LIST_LIMIT).to_list()
-    return ActivityList(items=await activity_outs(rows, user, sub, task), unresolved=(await unresolved_counts([task.id])).get(task.id, 0))
+    return ActivityList(
+        items=await activity_outs(rows, user, sub, task),
+        unresolved=(await unresolved_counts([task.id])).get(task.id, 0),
+        can_post=can(user, "activity.post", sub, target_id=task.assignee_id),
+    )
 
 
 @router.get("/subfolders/{subfolder_id}/changes", response_model=ActivityList)
@@ -73,7 +77,7 @@ async def subfolder_changes(
     open_ids = {r.id for r in rows if r.parent_id is None and not r.resolved}
     if open_only:
         rows = [r for r in rows if r.id in open_ids or (r.parent_id in open_ids)]
-    return ActivityList(items=await activity_outs(rows, user, sub, None), unresolved=len(open_ids))
+    return ActivityList(items=await activity_outs(rows, user, sub, None), unresolved=len(open_ids), can_post=can(user, "activity.post", sub))
 
 
 # --- Posting ------------------------------------------------------------------------------------------------------------------
@@ -136,12 +140,14 @@ async def _create(body: ActivityCreate, user: User, sub: Subfolder, task: Task |
 async def post_task_activity(task_id: PydanticObjectId, body: ActivityCreate, user: User = Depends(get_current_user)) -> ActivityOut:
     """Anyone who can see the task posts a mid-way change or a comment (or replies to one)."""
     sub, task = await _task_scope(task_id, user)
+    require(user, "activity.post", sub, target_id=task.assignee_id)
     return await _create(body, user, sub, task)
 
 
 @router.post("/subfolders/{subfolder_id}/changes", response_model=ActivityOut, status_code=status.HTTP_201_CREATED)
 async def post_subfolder_change(subfolder_id: PydanticObjectId, body: ActivityCreate, user: User = Depends(get_current_user)) -> ActivityOut:
     sub = await _sub_scope(subfolder_id, user)
+    require(user, "activity.post", sub)
     return await _create(body, user, sub, None)
 
 

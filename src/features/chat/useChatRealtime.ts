@@ -4,10 +4,17 @@ import { useChatStore } from '../../store/useChatStore';
 import { socket } from '../../services/socket';
 import { chatApi } from '../../services/http/chatApi';
 import type { ChatMessage } from '../../services/http/chatApi';
-import { toast } from '../../store/useToastStore';
+import { toast, useToastStore } from '../../store/useToastStore';
+import { isMuted } from '../../store/useMutesStore';
 import { previewOf } from './chatUtils';
 import { amFocused } from '../../store/useFocusStore';
+import { playNotificationSound, showDesktopNotification } from '../notifications/notificationAlerts';
+import { router } from '../../app/router';
 import { wantsPopup } from '../../store/useSettingsStore';
+
+/** Rapid messages in one chat become one popup ("5 new messages in Design Team") instead of five. */
+const BATCH_WINDOW_MS = 8000;
+const batches = new Map<string, { count: number; toastId: number; timer: ReturnType<typeof setTimeout> }>();
 
 /**
  * Keeps chat live for the signed-in person wherever they are in the app: loads their groups for the unread
@@ -45,9 +52,24 @@ export function useChatRealtime(): void {
         const { groups, activeId, upsertMessage } = store.getState();
         const group = groups.find((g) => g.id === m.group_id);
         const looking = activeId === m.group_id && document.visibilityState === 'visible';
-        if (group && m.sender?.id !== userId && !looking && !amFocused() && wantsPopup('chat')) {
+        if (group && m.sender?.id !== userId && !looking && !amFocused() && wantsPopup('chat') && !isMuted(`chat:${m.group_id}`)) {
           const prefix = role === 'admin' ? '/admin/chat' : role === 'client' ? '/client/portal' : '/app/chat';
-          toast.info(group.name, `${m.sender?.name.split(' ')[0] ?? 'Someone'}: ${previewOf(m)}`, `${prefix}?group=${m.group_id}`);
+          const link = `${prefix}?group=${m.group_id}`;
+          const running = batches.get(m.group_id);
+          if (running) {
+            // Already showing one for this chat: swap it for a count, quietly (no second sound).
+            clearTimeout(running.timer);
+            useToastStore.getState().dismiss(running.toastId);
+            const count = running.count + 1;
+            const toastId = toast.info(group.name, `${count} new messages in ${group.name}`, link);
+            batches.set(m.group_id, { count, toastId, timer: setTimeout(() => batches.delete(m.group_id), BATCH_WINDOW_MS) });
+          } else {
+            const body = `${m.sender?.name.split(' ')[0] ?? 'Someone'}: ${previewOf(m)}`;
+            const toastId = toast.info(group.name, body, link);
+            batches.set(m.group_id, { count: 1, toastId, timer: setTimeout(() => batches.delete(m.group_id), BATCH_WINDOW_MS) });
+            playNotificationSound();
+            showDesktopNotification(group.name, body, () => router.navigate(link), `chat-${m.id}`);
+          }
         }
         upsertMessage(m);
       }),

@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Check, Monitor, Moon, Plus, Sun } from 'lucide-react';
+import { Check, Monitor, Moon, Play, Plus, Sun } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Switch } from '../../../components/ui/Switch';
+import { Button } from '../../../components/ui/Button';
+import { StatusChip } from '../../../components/ui/StatusChip';
 import { ChangePasswordCard } from '../../../components/settings/ChangePasswordCard';
 import { PALETTE_GROUPS, type BuiltInPalette, type NotifPrefs, type UserSettings } from '../../../services/http/accountApi';
 import { themeApi, type CustomTheme } from '../../../services/http/themeApi';
@@ -11,6 +13,9 @@ import { CustomThemeModal } from '../components/CustomThemeModal';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { FocusControls } from '../../focus/FocusMenu';
 import { ShortcutList } from '../../shortcuts/ShortcutList';
+import { desktopPermission, desktopSupported, playAlertSound, requestDesktopPermission, sendTestNotification, SOUND_OPTIONS } from '../../notifications/notificationAlerts';
+import { toast } from '../../../store/useToastStore';
+import type { AlertSound } from '../../../services/http/accountApi';
 
 const KINDS: { key: keyof NotifPrefs; label: string; note: string }[] = [
   { key: 'tasks', label: 'Tasks and projects', note: 'Assignments, due dates, mid-way changes, comments, new subfolders and requirements.' },
@@ -25,6 +30,7 @@ export const NotificationsSection: React.FC = () => {
   const settings = useSettingsStore((s) => s.settings);
   const update = useSettingsStore((s) => s.update);
   return (
+    <div className="space-y-6">
     <Card>
       <CardHeader>
         <CardTitle>Notifications</CardTitle>
@@ -49,6 +55,148 @@ export const NotificationsSection: React.FC = () => {
           </div>
           <Switch label="Sound effects" checked={settings.sound} onChange={(on) => void update({ sound: on })} />
         </div>
+      </CardContent>
+    </Card>
+    <AlertsCard />
+    </div>
+  );
+};
+
+const AlertRow: React.FC<{ title: string; note: string; children: React.ReactNode }> = ({ title, note, children }) => (
+  <div className="flex items-center justify-between gap-4 rounded-[var(--tm-radius-sm)] px-1 py-3">
+    <div className="min-w-0">
+      <p className="text-[14px] font-bold text-[var(--tm-ink)]">{title}</p>
+      <p className="text-[12.5px] text-[var(--tm-ink-muted)]">{note}</p>
+    </div>
+    {children}
+  </div>
+);
+
+const SoundPicker: React.FC<{ label: string; value: AlertSound; volume: number; disabled?: boolean; onPick: (id: AlertSound) => void }> = ({ label, value, volume, disabled, onPick }) => (
+  <div className="flex items-center gap-2">
+    <select
+      aria-label={label}
+      value={value}
+      disabled={disabled}
+      onChange={(e) => {
+        const id = e.target.value as AlertSound;
+        onPick(id);
+        playAlertSound(id, volume);
+      }}
+      className="rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)] bg-[var(--tm-card)] px-3 py-1.5 text-[13px] font-semibold text-[var(--tm-ink)] disabled:opacity-50"
+    >
+      {SOUND_OPTIONS.map((o) => (
+        <option key={o.id} value={o.id}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+    <button
+      type="button"
+      aria-label={`Preview ${label.toLowerCase()}`}
+      onClick={() => playAlertSound(value, volume)}
+      className="grid h-8 w-8 place-items-center rounded-full border border-[var(--tm-border)] text-[var(--tm-primary-dark)] hover:bg-[var(--tm-bg-sunken)]"
+    >
+      <Play className="h-3.5 w-3.5" />
+    </button>
+  </div>
+);
+
+/** Sound and desktop popups for new notifications. Saved on the account, so they follow the person across devices. */
+const AlertsCard: React.FC = () => {
+  const settings = useSettingsStore((s) => s.settings);
+  const update = useSettingsStore((s) => s.update);
+  const [volume, setVolume] = useState(settings.alert_volume);
+  useEffect(() => setVolume(settings.alert_volume), [settings.alert_volume]);
+
+  // Permission belongs to this browser, not to the account: the saved choice can be "on" while this browser has not allowed it yet.
+  const [permission, setPermission] = useState(desktopPermission);
+  useEffect(() => {
+    const refresh = () => setPermission(desktopPermission());
+    window.addEventListener('focus', refresh); // it may have been changed in the browser's site settings
+    return () => window.removeEventListener('focus', refresh);
+  }, []);
+
+  /** The browser asks only now, from this click. */
+  const enable = async () => {
+    const result = await requestDesktopPermission();
+    setPermission(desktopPermission());
+    if (result === 'granted') {
+      void update({ desktop_popups: true });
+      toast.success('System notifications are on', 'You will see them when you are away from this tab.');
+    } else {
+      toast.error('Notifications are blocked', 'Allow notifications for this site in your browser settings (the lock icon next to the address), then press Enable again.');
+    }
+  };
+
+  const toggleDesktop = (on: boolean) => (on ? (permission === 'granted' ? void update({ desktop_popups: true }) : void enable()) : void update({ desktop_popups: false }));
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Alerts</CardTitle>
+        <CardDescription>How new notifications sound and show up. Saved on your account, so it works on every device.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-1">
+        <AlertRow title="Mute sounds" note="No sound for normal notifications. Important ones (mentions, approvals, overdue) still sound.">
+          <Switch label="Mute sounds" checked={settings.alert_muted} onChange={(on) => void update({ alert_muted: on })} />
+        </AlertRow>
+        <AlertRow title="Normal sound" note="Played with each new notification. Silent when sounds are muted.">
+          <SoundPicker label="Normal sound" value={settings.alert_sound} disabled={settings.alert_muted} volume={settings.alert_volume} onPick={(id) => void update({ alert_sound: id })} />
+        </AlertRow>
+        <AlertRow title="Important sound" note="For @mentions, approvals and overdue tasks. Plays even when sounds are muted.">
+          <SoundPicker label="Important sound" value={settings.alert_sound_important} volume={Math.max(settings.alert_volume, 40)} onPick={(id) => void update({ alert_sound_important: id })} />
+        </AlertRow>
+        <AlertRow title="Volume" note={`${volume}%`}>
+          <input
+            type="range"
+            aria-label="Volume"
+            min={0}
+            max={100}
+            step={5}
+            value={volume}
+            disabled={settings.alert_muted}
+            onChange={(e) => setVolume(Number(e.target.value))}
+            onPointerUp={() => void update({ alert_volume: volume })}
+            onKeyUp={() => void update({ alert_volume: volume })}
+            className="w-40 accent-[var(--tm-primary)] disabled:opacity-50"
+          />
+        </AlertRow>
+        <AlertRow
+          title="Desktop popups"
+          note={desktopSupported() ? 'Show a system notification when this tab is hidden or minimised. Your browser will ask for permission.' : 'This browser does not support desktop notifications.'}
+        >
+          <Switch label="Desktop popups" checked={settings.desktop_popups} onChange={toggleDesktop} />
+        </AlertRow>
+        {desktopSupported() && (
+          <AlertRow
+            title="System notifications on this browser"
+            note={
+              permission === 'granted'
+                ? settings.desktop_popups
+                  ? 'Allowed. New notifications also appear as a Windows or macOS notification when you are away from the app. Click one to open it.'
+                  : 'Allowed by this browser, but switched off above.'
+                : permission === 'denied'
+                  ? 'Blocked by this browser. Allow notifications for this site in the browser settings (the lock icon next to the address), then press Enable.'
+                  : 'Not enabled yet. Press the button and allow notifications when your browser asks.'
+            }
+          >
+            <div className="flex items-center gap-2">
+              <StatusChip tone={permission === 'granted' ? 'ok' : permission === 'denied' ? 'bad' : 'neutral'} size="sm" dot>
+                {permission === 'granted' ? 'Allowed' : permission === 'denied' ? 'Blocked' : 'Not enabled'}
+              </StatusChip>
+              {permission === 'granted' ? (
+                <Button size="sm" variant="outline" onClick={() => !sendTestNotification() && toast.error('Could not show a notification')}>
+                  Send a test
+                </Button>
+              ) : (
+                <Button size="sm" onClick={() => void enable()}>
+                  Enable Notifications
+                </Button>
+              )}
+            </div>
+          </AlertRow>
+        )}
       </CardContent>
     </Card>
   );

@@ -16,6 +16,16 @@ so anything that depends on it needs the subfolder. Context (all optional):
     team_ids     user ids on the projects a client belongs to (for client calendars/booking).
 
 Invariant kept by the routers: every head is also in `member_ids`.
+
+Subfolder visibility (`subfolder.visibility`, with `subfolder.company_ids` = the project's companies):
+
+    private    only its members, its heads and admins can see it. The default.
+    view_only  every team member of the project's companies can also see and read it, but not add, edit or post.
+    open       they can see it and work in it like a member.
+
+Seeing a subfolder is what every read of its tasks, checklist, deliverables, activity and chat link hangs on, so the one
+rule lives here (`sees` / `works_in`) and the routers filter their lists with `visible_filter` in services/projects.py.
+Clients keep their own access through the project (portal, deliverables, requirements); visibility is about the team.
 """
 from typing import Any, Collection
 
@@ -36,6 +46,28 @@ def is_member(user: User, subfolder: Any | None) -> bool:
         return False
     people = list(getattr(subfolder, "member_ids", None) or []) + list(getattr(subfolder, "head_ids", None) or [])
     return user.id in people
+
+
+def _company_visible(user: User, subfolder: Any | None, levels: tuple[str, ...]) -> bool:
+    """A team member of one of the project's companies, and the subfolder is shared at one of these levels."""
+    company = getattr(user, "company_id", None)
+    if subfolder is None or user.role not in STAFF_ROLES or company is None:
+        return False
+    return getattr(subfolder, "visibility", None) in levels and company in (getattr(subfolder, "company_ids", None) or [])
+
+
+def sees(user: User, subfolder: Any | None) -> bool:
+    """May this person open the subfolder and read it."""
+    if subfolder is None or not user.is_active:
+        return False
+    return user.role == "admin" or (user.role in STAFF_ROLES and (is_member(user, subfolder) or _company_visible(user, subfolder, ("view_only", "open"))))
+
+
+def works_in(user: User, subfolder: Any | None) -> bool:
+    """May this person work in it like a member: add tasks and checklist items, move deliverables, post."""
+    if subfolder is None or not user.is_active:
+        return False
+    return user.role == "admin" or (user.role in STAFF_ROLES and (is_member(user, subfolder) or _company_visible(user, subfolder, ("open",))))
 
 
 def can(
@@ -61,8 +93,11 @@ def can(
     if siblings is None:
         siblings = [subfolder] if subfolder is not None else []
     head = is_head(user, subfolder)
-    member = is_member(user, subfolder)
+    member = is_member(user, subfolder)  # a member of this subfolder (or of this chat group)
+    worker = staff and works_in(user, subfolder)  # member, or anyone on the team when the subfolder is open
+    visible = staff and sees(user, subfolder)
     in_project = any(is_member(user, s) for s in siblings)
+    sees_any = any(sees(user, s) for s in siblings)  # can open at least one subfolder of the project
     head_of_any = any(is_head(user, s) for s in siblings)
 
     # --- Projects and subfolders ---------------------------------------------------
@@ -74,8 +109,10 @@ def can(
         return admin or (staff and head)
     if action in ("subfolder.edit", "members.manage"):  # name, members, heads; add members / invite clients
         return admin or (staff and head)
-    if action == "subfolder.view":  # read-only for everyone who isn't admin / head of that subfolder
-        return admin or (staff and in_project)
+    if action == "subfolder.view":  # one subfolder (see `sees`); with no subfolder: the project page, if any of its subfolders is visible
+        return sees(user, subfolder) if subfolder is not None else (admin or (staff and sees_any))
+    if action == "subfolder.visibility":  # who beyond the members can see it: admins and the heads of that subfolder
+        return admin or (staff and head)
 
     # --- Work inside a subfolder ---------------------------------------------------
     if action == "task.assign":
@@ -85,13 +122,15 @@ def can(
             return False
         if head:  # members and other heads of their subfolder
             return target_id in (list(subfolder.member_ids) + list(subfolder.head_ids))
-        return member and target_id == user.id  # employees: only themselves
-    if action == "task.view":  # project members, plus whoever the task is assigned to
-        return admin or (staff and (in_project or target_id == user.id))
+        return worker and target_id == user.id  # employees: only themselves
+    if action == "task.view":  # whoever can see the subfolder, plus whoever the task is assigned to
+        return admin or (staff and (visible or target_id == user.id))
     if action == "task.edit":  # details, assets, reassigning, deleting
-        return admin or (staff and (head or (member and creator_id == user.id)))
+        return admin or (staff and (head or (worker and creator_id == user.id)))
     if action == "activity.resolve":  # tick a mid-way change or comment: heads, admins, the task's assignee, the comment's author or assignee
         return admin or (staff and (head or target_id == user.id or creator_id == user.id or assigned_id == user.id))
+    if action == "activity.post":  # a comment or a mid-way change: members, anyone on the team in an open subfolder, the task's assignee. Not view-only readers.
+        return admin or (staff and (worker or target_id == user.id))
     if action == "activity.delete":  # your own entry, or an admin
         return admin or (staff and creator_id == user.id)
     if action == "task.work":  # progress and timer: the assignee only
@@ -103,13 +142,13 @@ def can(
     if action == "deliverable.view":
         if client:
             return project is not None and user.id in (getattr(project, "client_ids", None) or [])
-        return admin or (staff and in_project)
+        return admin or visible
     if action == "deliverable.stage":  # any member moves an item along the stages
-        return admin or (staff and member)
+        return admin or worker
     if action == "checklist.view":
-        return admin or (staff and in_project)
+        return admin or visible
     if action == "checklist.write":  # add / edit own / attach
-        return admin or (staff and member)
+        return admin or worker
 
     # --- Client requirements (pass the project and all its subfolders as `siblings`) --
     if action in ("requirement.view", "requirement.add", "requirement.edit", "requirement.delete"):
@@ -122,6 +161,10 @@ def can(
         if action == "requirement.edit":  # the author, while they can still see the project
             return can_see and creator_id == user.id
         return can_see
+
+    # --- Monthly reports: an employee reads their own, an admin reads everyone's; nobody else (heads and clients included) ---
+    if action == "report.view":
+        return admin or (user.role == "employee" and target_id == user.id)
 
     # --- Chat (the "subfolder" argument is the chat group for member / manage) -------
     if action == "chat.create":  # start groups, add people
@@ -142,8 +185,8 @@ def can(
         return staff and member
     if action == "chat.manage":  # rename, link a subfolder, remove people, delete: the creator
         return staff and member and creator_id == user.id
-    if action == "chat.link":  # link a group to a subfolder you belong to (pass the subfolder)
-        return admin or (staff and member)
+    if action == "chat.link":  # link a group to a subfolder you can work in (pass the subfolder)
+        return admin or worker
 
     # --- Everyone on the team ------------------------------------------------------
     if action in ("status.set", "office.post", "office.view"):

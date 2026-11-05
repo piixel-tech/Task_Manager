@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Iterable
 
 from beanie import PydanticObjectId
@@ -22,6 +23,27 @@ async def outs_with_actors(docs: Iterable[Notification]) -> list[NotificationOut
     return out
 
 
+IMPORTANT_PREFIXES = ("mention", "approval", "client_approval", "task_overdue")
+
+
+def priority_of(notification_type: str) -> str:
+    """Important: @mentions, approvals and overdue tasks. They get their own sound and ignore mutes."""
+    return "important" if notification_type.startswith(IMPORTANT_PREFIXES) else "normal"
+
+
+def is_muted(user: User, mute_key: str | None, now: datetime | None = None) -> bool:
+    """Has this person muted that chat or subfolder (and is the mute still running)?"""
+    until = (user.mutes or {}).get(mute_key) if mute_key else None
+    if not until:
+        return False
+    if until == "always":
+        return True
+    try:
+        return datetime.fromisoformat(until) > (now or datetime.now(timezone.utc))
+    except ValueError:
+        return False
+
+
 async def notify(
     user_ids: Iterable[PydanticObjectId],
     type: str,
@@ -29,8 +51,13 @@ async def notify(
     body: str = "",
     link: str | None = None,
     actor_id: PydanticObjectId | None = None,
+    mute_key: str | None = None,
 ) -> list[Notification]:
-    """Save one notification per user and push it to their open WebSockets."""
+    """Save one notification per user and push it to their open WebSockets.
+
+    `mute_key` ("chat:<id>", "subfolder:<id>"): people who muted it still find it in the bell but get no live popup or sound,
+    unless the notification is important. Notifications are kept forever; nothing deletes them.
+    """
     recipients = list(dict.fromkeys(user_ids))  # de-dupe, keep order
     if not recipients:
         return []
@@ -41,8 +68,9 @@ async def notify(
     if not recipients:
         return []
 
+    priority = priority_of(type)
     docs = [
-        Notification(user_id=uid, type=type, title=title, body=body, link=link, actor_id=actor_id)
+        Notification(user_id=uid, type=type, title=title, body=body, link=link, actor_id=actor_id, priority=priority)
         for uid in recipients
     ]
     await Notification.insert_many(docs)
@@ -51,6 +79,9 @@ async def notify(
     quiet = await focused_ids(recipients)
     for doc, out in zip(docs, await outs_with_actors(docs)):
         if doc.user_id in quiet:
+            continue
+        person = people.get(doc.user_id)
+        if priority == "normal" and person is not None and is_muted(person, mute_key):
             continue
         await manager.send_to_users([doc.user_id], "notification", out.model_dump(mode="json"))
     return docs

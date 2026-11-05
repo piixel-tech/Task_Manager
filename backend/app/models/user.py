@@ -23,6 +23,7 @@ class User(Document):
     is_active: bool = True
     focus_until: datetime | None = None  # Focus mode: quiet until then
     custom_themes: list[dict] = Field(default_factory=list)  # up to 5 themes this person built (routers/themes.py)
+    mutes: dict[str, str] = Field(default_factory=dict)  # "chat:<id>" / "subfolder:<id>" -> ISO time it ends, or "always"
     sidebar_state: dict = Field(default_factory=dict)  # which sidebar nodes are open, and their order
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

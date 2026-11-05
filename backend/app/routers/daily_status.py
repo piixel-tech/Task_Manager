@@ -46,7 +46,7 @@ async def set_today(body: StatusSet, user: User = Depends(get_current_user)) -> 
     today = today_local().isoformat()
     record = await DailyStatus.find_one(DailyStatus.user_id == user.id, DailyStatus.date == today)
     if record is None:
-        record = DailyStatus(user_id=user.id, date=today, status=body.status)
+        record = DailyStatus(user_id=user.id, date=today, status=body.status, first_set_at=datetime.now(timezone.utc))
         try:
             await record.insert()
         except DuplicateKeyError:  # two tabs answered the popup at once

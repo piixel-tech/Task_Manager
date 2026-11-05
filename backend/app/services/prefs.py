@@ -1,7 +1,7 @@
 """Per-person preferences: what they want to be told about, and how the app should look."""
 from typing import Literal
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from app.models import User
 from app.services.themes import CUSTOM_PALETTE
@@ -39,6 +39,12 @@ class UserSettings(BaseModel):
     palette: str = "purple"  # colour theme: a built-in name, or "custom:<id>"
     density: Literal["comfortable", "compact"] = "comfortable"
     sound: bool = True
+    # Notification alerts: which sound, how loud (0-100), muted, and OS popups when the tab is hidden.
+    alert_sound: Literal["chime", "ding", "pop", "bell", "drop", "soft"] = "chime"
+    alert_sound_important: Literal["chime", "ding", "pop", "bell", "drop", "soft"] = "bell"
+    alert_volume: int = Field(default=70, ge=0, le=100)
+    alert_muted: bool = False
+    desktop_popups: bool = False
     notif_prefs: NotifPrefs = NotifPrefs()
 
     @field_validator("palette")

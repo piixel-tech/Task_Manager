@@ -19,6 +19,7 @@ from app.services.projects import (
     check_companies,
     check_company,
     check_staff,
+    companies_of,
     get_project_or_404,
     load_users,
     brief,
@@ -27,6 +28,7 @@ from app.services.projects import (
     project_out,
     subfolder_out,
     subfolders_of,
+    sync_company_ids,
     unique,
     with_heads_as_members,
 )
@@ -41,7 +43,7 @@ async def _detail(project: Project, viewer: User) -> ProjectDetail:
     return ProjectDetail(
         **project_out(project, subs, viewer).model_dump(),
         clients=[brief(clients[i]) for i in project.client_ids if i in clients],
-        subfolders=[await subfolder_out(s, subs, viewer) for s in subs],
+        subfolders=[await subfolder_out(s, subs, viewer) for s in subs if can(viewer, "subfolder.view", s)],  # never a hidden one
     )
 
 
@@ -54,6 +56,7 @@ async def _create_subfolder(project: Project, body: SubfolderCreate, actor: User
         member_ids=with_heads_as_members(body.head_ids, body.member_ids),
         created_by=actor.id,
         deliverable_stages=list(DEFAULT_STAGES),
+        company_ids=companies_of(project),  # private until a head or admin shares it
     )
     await sub.insert()
     return sub
@@ -141,6 +144,7 @@ async def update_project(
     if body.name is not None:
         project.name = body.name.strip()
     await project.save()
+    await sync_company_ids(project)  # who a shared subfolder is visible to follows the project's companies
 
     subs = await subfolders_of(project.id)
     team = [uid for s in subs for uid in s.member_ids]

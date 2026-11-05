@@ -30,6 +30,7 @@ import { Select } from '../../../components/ui/Select';
 import { FilterBar, FilterSearch } from '../../../components/ui/FilterBar';
 import { PillTabs } from '../../../components/ui/PillTabs';
 import { PageHeader } from '../../../components/ui/PageHeader';
+import { TeamAttendance } from '../components/TeamAttendance';
 import { StaggerItem } from '../../../components/ui/Stagger';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { SkeletonGrid } from '../../../components/ui/Skeleton';
@@ -343,6 +344,29 @@ export const AdminUsersPage: React.FC = () => {
       ? { tone: 'ok' as const, label: 'Active' }
       : { tone: 'bad' as const, label: 'Inactive' };
 
+  // Team has two tabs: the member list and (admin only, read-only) Team Attendance.
+  const attendance = params.get('tab') === 'attendance';
+  const viewTabs = (
+    <PillTabs
+      activeTab={attendance ? 'attendance' : 'members'}
+      onChange={(t) => setParams(t === 'attendance' ? { tab: 'attendance' } : {}, { replace: true })}
+      tabs={[
+        { id: 'members', label: 'Members' },
+        { id: 'attendance', label: 'Team Attendance' }
+      ]}
+    />
+  );
+
+  if (attendance) {
+    return (
+      <>
+        <PageHeader title="Team" description="Who is in, working from home, on leave or on a half day. Read-only, from the daily status everyone sets." />
+        {viewTabs}
+        <TeamAttendance />
+      </>
+    );
+  }
+
   return (
     <>
       <PageHeader
@@ -354,6 +378,8 @@ export const AdminUsersPage: React.FC = () => {
           </Button>
         }
       />
+
+      {viewTabs}
 
       {/* Filters */}
       <StaggerItem>

@@ -23,6 +23,9 @@ export type Palette = BuiltInPalette | `custom:${string}`;
 export const coercePalette = (p: unknown): Palette =>
   (PALETTES as readonly unknown[]).includes(p) || (typeof p === 'string' && /^custom:[0-9a-f]{12,32}$/.test(p)) ? (p as Palette) : 'purple';
 
+export const ALERT_SOUNDS = ['chime', 'ding', 'pop', 'bell', 'drop', 'soft'] as const;
+export type AlertSound = (typeof ALERT_SOUNDS)[number];
+
 export interface UserSettings {
   /** Light or dark mode ("system" follows the device). */
   theme: 'light' | 'dark' | 'system';
@@ -31,6 +34,12 @@ export interface UserSettings {
   density: 'comfortable' | 'compact';
   /** Sound effects (celebrations and the like). */
   sound: boolean;
+  /** Notification alerts: sound file, volume 0-100, muted, and OS popups while the tab is hidden. */
+  alert_sound: AlertSound;
+  alert_sound_important: AlertSound;
+  alert_volume: number;
+  alert_muted: boolean;
+  desktop_popups: boolean;
   /** Kinds of notification this person wants. Off means nothing is saved or shown for that kind. */
   notif_prefs: NotifPrefs;
 }
@@ -40,6 +49,11 @@ export const DEFAULT_SETTINGS: UserSettings = {
   palette: 'purple',
   density: 'comfortable',
   sound: true,
+  alert_sound: 'chime',
+  alert_sound_important: 'bell',
+  alert_volume: 70,
+  alert_muted: false,
+  desktop_popups: false,
   notif_prefs: { tasks: true, reviews: true, chat: true, mentions: true, office: true, bookings: true }
 };
 

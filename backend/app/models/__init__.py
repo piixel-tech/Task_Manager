@@ -9,6 +9,7 @@ from app.models.approval import ClientApproval
 from app.models.file import File
 from app.models.integration import ExternalEvent, IntegrationConnection, IntegrationLink
 from app.models.invite import Invite
+from app.models.monthly_report import MonthlyReport
 from app.models.notification import Notification
 from app.models.office import OfficePost
 from app.models.project import Project, Subfolder
@@ -34,6 +35,7 @@ __all__ = [
     "IntegrationConnection",
     "IntegrationLink",
     "Invite",
+    "MonthlyReport",
     "Notification",
     "OfficePost",
     "Project",

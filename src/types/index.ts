@@ -191,6 +191,8 @@ export interface AppNotification {
   link: string;
   createdAt: string;
   read: boolean;
+  /** Important (mentions, approvals, overdue tasks) has its own sound and ignores mutes. */
+  priority?: 'normal' | 'important';
   /** The person who triggered it, when there is one (not for reminders and other system notifications). */
   actor?: { id: string; name: string; avatarUrl: string | null };
 }

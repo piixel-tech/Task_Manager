@@ -1,4 +1,5 @@
 import { api, getErrorMessage } from '../api';
+import type { Visibility } from './projectApi';
 
 export interface SubfolderNode {
   id: string;
@@ -12,6 +13,9 @@ export interface SubfolderNode {
   can_chat: boolean;
   can_rename: boolean;
   can_delete: boolean;
+  visibility: Visibility;
+  /** False when the person can only read it (view only). */
+  can_work: boolean;
 }
 
 export interface ProjectNode {

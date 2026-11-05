@@ -325,3 +325,23 @@ input[type='checkbox']:not(.tm-native):disabled {
 .rich-content span[data-type='mention'], .rich-content .mention { background: var(--tm-primary-soft); color: var(--tm-primary-dark); border-radius: 0.375rem; padding: 0 0.25rem; font-weight: 700; }
 .rich-content span[data-me='true'] { background: var(--tm-warning-bg); color: var(--tm-warning); }
 .tiptap p.is-editor-empty:first-child::before { color: var(--tm-ink-muted); content: attr(data-placeholder); float: left; height: 0; pointer-events: none; }
+
+/* Monthly Report cards: the theme's dark fill with its on-dark text (white in light mode), the same pair the sidebar and hero use. */
+.tm-dark-card {
+  --h-hover: color-mix(in srgb, var(--tm-on-dark) 10%, transparent);
+  background: var(--tm-hero);
+  color: var(--tm-on-dark);
+  border-color: transparent;
+}
+
+/* Monthly Report KPI strip: the theme's primary, darkened until text on it passes WCAG AA in every palette (light and dark). */
+.tm-accent-card {
+  --h-fg: var(--surface);
+  background: color-mix(in srgb, var(--primary) 60%, var(--text));
+  color: var(--h-fg);
+  border-color: transparent;
+}
+:root[data-mode='dark'] .tm-accent-card {
+  --h-fg: var(--text);
+  background: color-mix(in srgb, var(--primary) 40%, var(--bg));
+}

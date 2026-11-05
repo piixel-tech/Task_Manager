@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.db import close_db, init_db
 from app.services.scheduler import start_scheduler, stop_scheduler
-from app.routers import activity, approvals, auth, bookings, chat, chat_extras, checklist, companies, daily_status, dashboard, deliverables, export, external_events, files, google_workspace, festival, focus, health, integrations, integrations_google, invites, me, notifications, office, portal, projects, requirements, reviews, security, sidebar, subfolders, tasks, themes, trash, users, workspace, ws
+from app.routers import activity, approvals, auth, bookings, chat, chat_extras, checklist, companies, daily_status, dashboard, deliverables, export, external_events, files, google_workspace, festival, focus, health, integrations, integrations_google, invites, me, notifications, office, portal, projects, reports, requirements, reviews, security, sidebar, subfolders, tasks, themes, timer, trash, users, workspace, ws
 
 
 @asynccontextmanager
@@ -53,6 +53,8 @@ api_v1.include_router(projects.router)
 api_v1.include_router(subfolders.router)
 api_v1.include_router(sidebar.router)
 api_v1.include_router(tasks.router)
+api_v1.include_router(timer.router)
+api_v1.include_router(reports.router)
 api_v1.include_router(reviews.router)
 api_v1.include_router(checklist.router)
 api_v1.include_router(deliverables.router)

@@ -10,6 +10,7 @@ import { useFestivalSync } from '../../features/festival/useFestivalSync';
 import { AmbientEffects } from '../../features/effects/AmbientEffects';
 import { useAuthStore } from '../../store/authStore';
 import { useSidebarStore } from '../../store/useSidebarStore';
+import { useTimerTitle } from '../../features/tasks/components/useTimerTitle';
 
 interface AppShellProps {
   /** Role-specific overlays and gates that sit beside the shell (status gate, celebrations). */
@@ -23,6 +24,7 @@ export const AppShell: React.FC<AppShellProps> = ({ extras, banner }) => {
   // This person's own tree layout (open nodes, their order) follows them to any device.
   const userId = useAuthStore((s) => s.user?.id);
   useFestivalSync();
+  useTimerTitle();
   useEffect(() => {
     if (!userId) return;
     useSidebarStore.getState().init(useAuthStore.getState().user?.sidebarState);

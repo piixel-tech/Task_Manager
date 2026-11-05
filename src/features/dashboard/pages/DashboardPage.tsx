@@ -25,7 +25,7 @@ export const DashboardPage: React.FC = () => {
   return (
     <>
       <PageHeader
-        title={`${greeting}, ${user?.nickname || user?.name || ''}`}
+        title={`${greeting}, ${user?.role === 'admin' ? 'Boss' : user?.nickname || user?.name || ''}`}
         description="Your day at a glance, and who is in today."
         actions={
           <>

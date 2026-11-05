@@ -34,12 +34,10 @@ import { UserName } from '../../../components/ui/UserName';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { StaggerItem } from '../../../components/ui/Stagger';
 import { SkeletonCard } from '../../../components/ui/Skeleton';
-import { useAuthStore } from '../../../store/authStore';
 import { useAppStore } from '../../../store/useAppStore';
 
 export const AdminDashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
   const { companyFilter } = useAppStore();
 
   const [users, setUsers] = useState<User[]>([]);
@@ -67,7 +65,7 @@ export const AdminDashboardPage: React.FC = () => {
     loadOverview();
   }, [loadOverview]);
 
-  const displayName = user?.nickname || user?.name || 'Admin';
+  const displayName = 'Boss'; // the admin is greeted as Boss, whatever their name
   const currentHour = new Date().getHours();
   const greeting = currentHour < 12 ? 'Good morning' : currentHour < 17 ? 'Good afternoon' : 'Good evening';
 

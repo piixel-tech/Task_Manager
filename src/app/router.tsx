@@ -12,6 +12,7 @@ import { LeavePage } from '../features/auth/pages/LeavePage';
 
 import { AdminDashboardPage } from '../features/admin/pages/AdminDashboardPage';
 import { AdminUsersPage } from '../features/admin/pages/AdminUsersPage';
+import { MonthlyReportPage } from '../features/reports/pages/MonthlyReportPage';
 import { SettingsPage } from '../features/settings/SettingsPage';
 import { PersonProfilePage } from '../features/people/PersonProfilePage';
 
@@ -95,6 +96,7 @@ export const router = createBrowserRouter([
       { path: 'attendance', element: <Navigate to="/admin/dashboard" replace /> },
       { path: 'workload', element: <Navigate to="/admin/dashboard" replace /> },
       { path: 'users', element: <AdminUsersPage /> },
+      { path: 'reports', element: <MonthlyReportPage /> },
       { path: 'projects', element: <ProjectsPage /> },
       { path: 'projects/:id', element: <ProjectDetailPage /> },
       { path: 'projects/:projectId/subfolders/:id', element: <SubfolderPage /> },
@@ -125,6 +127,7 @@ export const router = createBrowserRouter([
     children: [
       { path: 'dashboard', element: <DashboardPage /> },
       { path: 'attendance', element: <Navigate to="/app/dashboard" replace /> },
+      { path: 'reports', element: <MonthlyReportPage /> },
       { path: 'tasks', element: <TasksPage /> },
       { path: 'tasks/:id', element: <TaskDetailPage /> },
       { path: 'reviews', element: <ReviewsPage /> },

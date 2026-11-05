@@ -68,8 +68,8 @@ export const officeApi = {
       'Could not load the office board'
     ),
   summary: () => call<OfficeSummary>(() => api.get('/office/summary'), 'Could not load the office board'),
-  create: (text: string, photoId: string | null) =>
-    call<OfficePost>(() => api.post('/office/posts', { text, photo_id: photoId }), 'Could not post'),
+  create: (text: string, photoId: string | null, important = false) =>
+    call<OfficePost>(() => api.post('/office/posts', { text, photo_id: photoId, important }), 'Could not post'),
   markSeen: (ids: string[]) => call<{ unseen_count: number }>(() => api.post('/office/seen', { ids }), 'Could not mark as seen'),
   react: (id: string, emoji: string) =>
     call<OfficePost>(() => api.put(`/office/posts/${id}/reactions`, { emoji }), 'Could not react'),

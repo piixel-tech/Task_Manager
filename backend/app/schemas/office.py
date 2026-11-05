@@ -16,6 +16,7 @@ class PostCreate(BaseModel):
     text: str = Field(min_length=1, max_length=MAX_TEXT)
     category: Category | None = None  # optional: the form no longer asks; missing means "general"
     photo_id: PydanticObjectId | None = None
+    important: bool = False  # only important posts notify the team
 
     @field_validator("text")
     @classmethod

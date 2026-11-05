@@ -12,7 +12,8 @@ class DailyStatus(Document):
     user_id: PydanticObjectId
     date: str  # YYYY-MM-DD in the office timezone
     status: DayStatus
-    set_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    set_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))  # the latest change
+    first_set_at: datetime | None = None  # when the day's status was first set = the person's "login" time (monthly report)
 
     class Settings:
         name = "daily_status"

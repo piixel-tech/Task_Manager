@@ -60,15 +60,20 @@ def _out(r: Requirement, viewer: User, project: Project, siblings: list[Subfolde
     )
 
 
+def _names(siblings: list[Subfolder], viewer: User) -> dict[PydanticObjectId, str]:
+    """Subfolder names the viewer may see. Clients see the project's subfolders as before; the team only the ones they can open."""
+    return {s.id: s.name for s in siblings if viewer.role == "client" or can(viewer, "subfolder.view", s)}
+
+
 async def requirement_outs(reqs: list[Requirement], viewer: User, project: Project, siblings: list[Subfolder]) -> list[RequirementOut]:
     files, people = await _lookups(reqs, with_history=False)
-    names = {s.id: s.name for s in siblings}
+    names = _names(siblings, viewer)
     return [_out(r, viewer, project, siblings, files, people, names) for r in reqs]
 
 
 async def requirement_detail(r: Requirement, viewer: User, project: Project, siblings: list[Subfolder]) -> RequirementDetail:
     files, people = await _lookups([r], with_history=True)
-    names = {s.id: s.name for s in siblings}
+    names = _names(siblings, viewer)
     base = _out(r, viewer, project, siblings, files, people, names)
     versions = [
         VersionOut(

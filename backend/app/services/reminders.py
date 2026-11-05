@@ -48,7 +48,7 @@ async def run_reminders(today: date | None = None) -> int:
             continue
         await notify_task(
             [task.assignee_id],
-            type="task_reminder",
+            type="task_overdue" if days_left < 0 else "task_reminder",
             title=f"Reminder: {task.title}",
             body=f"This task {_when(days_left)}.",
             task=task,

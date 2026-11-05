@@ -112,7 +112,7 @@ async def tell(
     for p in people.values():
         if p.is_active:
             link = task_link(p, task.id, entry) if task else subfolder_link(p, sub, entry)
-            await notify([p.id], type=type, title=title, body=body[:140], link=link, actor_id=actor.id)
+            await notify([p.id], type=type, title=title, body=body[:140], link=link, actor_id=actor.id, mute_key=f"subfolder:{sub.id}")
 
 
 # --- Automatic log ------------------------------------------------------------------------------------------------------

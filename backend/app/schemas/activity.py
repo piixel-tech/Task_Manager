@@ -57,3 +57,4 @@ class ActivityOut(BaseModel):
 class ActivityList(BaseModel):
     items: list[ActivityOut]  # oldest first; replies follow their parent by `parent_id`
     unresolved: int  # open mid-way changes
+    can_post: bool = True  # false for someone who can only read (a view-only subfolder)

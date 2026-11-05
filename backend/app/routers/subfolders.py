@@ -6,10 +6,11 @@ from app.core.deps import get_current_user
 from app.core.permissions import can, require
 from app.models import File, User
 from app.schemas.file import FileOut
-from app.schemas.project import SubfolderOut, SubfolderUpdate
+from app.schemas.project import SubfolderOut, SubfolderUpdate, SubfolderVisibility
 from app.services.trash import trash_subfolder
 from app.services.projects import (
     check_staff,
+    companies_of,
     get_project_or_404,
     get_subfolder_or_404,
     notify_people,
@@ -145,6 +146,13 @@ async def update_subfolder(
         **ctx,
     )
     await notify_people(
+        (old_heads - now_heads) - removed,
+        type="head_removed",
+        title=f"You are no longer head of {sub.name}",
+        body=f"Project: {project.name}.",
+        **ctx,
+    )
+    await notify_people(
         removed,
         type="subfolder_removed",
         title=f"You were removed from {sub.name}",
@@ -161,6 +169,35 @@ async def update_subfolder(
             **ctx,
         )
     return await subfolder_out(sub, siblings, user)
+
+
+VISIBILITY_WORDS = {
+    "private": "private: only its members, heads and admins can see it",
+    "view_only": "view only: everyone in the project's company can read it",
+    "open": "open: everyone in the project's company can work in it",
+}
+
+
+@router.patch("/{subfolder_id}/visibility", response_model=SubfolderOut)
+async def set_visibility(subfolder_id: PydanticObjectId, body: SubfolderVisibility, user: User = Depends(get_current_user)) -> SubfolderOut:
+    """Who beyond the members can see this subfolder: private, view_only or open. Admins and the heads of this subfolder."""
+    sub = await get_subfolder_or_404(subfolder_id)
+    require(user, "subfolder.visibility", sub)
+    project = await get_project_or_404(sub.project_id)
+    if sub.visibility != body.visibility:
+        sub.visibility = body.visibility
+        sub.company_ids = companies_of(project)
+        await sub.save()
+        await notify_people(
+            sub.member_ids,
+            type="subfolder_visibility",
+            title=f"{sub.name} is now {body.visibility.replace('_', ' ')}",
+            body=f"{user.name} made it {VISIBILITY_WORDS[body.visibility]}.",
+            project_id=project.id,
+            subfolder_id=sub.id,
+            actor=user,
+        )
+    return await subfolder_out(sub, await subfolders_of(sub.project_id), user)
 
 
 @router.delete("/{subfolder_id}", status_code=status.HTTP_204_NO_CONTENT)

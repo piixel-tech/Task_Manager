@@ -27,6 +27,7 @@ class OfficePost(Document):
     category: Category
     emoji: str  # the category's emoji, kept on the post
     photo_id: PydanticObjectId | None = None  # an image from the file service
+    important: bool = False  # important posts notify everyone; the rest just sit on the board
     reactions: dict[str, list[PydanticObjectId]] = Field(default_factory=dict)  # emoji -> who reacted
     seen_by: list[PydanticObjectId] = Field(default_factory=list)  # everyone but the author who has viewed it
     resolved: bool = False

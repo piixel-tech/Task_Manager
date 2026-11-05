@@ -49,8 +49,11 @@ async def tree(user: User = Depends(get_current_user)) -> SidebarTree:
                 can_chat=can(user, "chat.create") and can(user, "chat.link", s),
                 can_rename=can(user, "subfolder.edit", s, siblings=siblings),
                 can_delete=can(user, "subfolder.delete", s) and len(siblings) > 1,  # a project keeps at least one
+                visibility=s.visibility,
+                can_work=can(user, "checklist.write", s),
             )
             for s in siblings
+            if can(user, "subfolder.view", s)  # a hidden subfolder never shows up
         ]
         nodes.append(
             ProjectNode(

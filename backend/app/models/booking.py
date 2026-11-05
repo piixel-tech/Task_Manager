@@ -23,6 +23,7 @@ class Booking(Document):
     attendees: list[Attendee] = Field(default_factory=list)  # invited through Google Calendar, besides the host and the booker
     meet_url: str = ""  # the Google Meet link, filled in by the first connected person's calendar push
     meet_owner_id: PydanticObjectId | None = None  # whose Google event holds the Meet (the others get the link as text)
+    remind_sent: bool = False  # the "starts in 10 minutes" notification went out
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:

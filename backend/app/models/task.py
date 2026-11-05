@@ -43,8 +43,11 @@ class Task(Document):
 
 
 class TimeLog(Document):
+    """One timer session (the "time entry"): open while `running`, closed with `ended_at` and `seconds`. Pause closes it, resume opens a new one."""
+
     task_id: PydanticObjectId
     user_id: PydanticObjectId
+    subfolder_id: PydanticObjectId | None = None  # None on sessions saved before the timer bar existed
     started_at: datetime
     ended_at: datetime | None = None
     seconds: int = 0
@@ -54,6 +57,7 @@ class TimeLog(Document):
         name = "time_logs"
         indexes = [
             IndexModel([("task_id", 1), ("started_at", -1)]),
+            IndexModel([("user_id", 1), ("ended_at", -1)]),  # the latest session of a person (what "resume" picks up)
             # A person can only have one running timer at a time.
             IndexModel([("user_id", 1)], unique=True, partialFilterExpression={"running": True}),
         ]

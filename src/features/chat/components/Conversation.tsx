@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { useNavigate } from 'react-router-dom';
 import { ArrowDown, ArrowLeft, CalendarClock, Info, Link2, PanelRight, Search, Users } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
+import { MuteMenu } from '../../../components/ui/MuteMenu';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { focusEndLabel, useFocusOf } from '../../../store/useFocusStore';
@@ -229,6 +230,7 @@ export const Conversation: React.FC<{ group: ChatGroup; onBack: () => void; onIn
         <Button variant="ghost" size="sm" aria-label="Search this chat" title="Search this chat" onClick={() => setSearching(true)}>
           <Search className="h-5 w-5" />
         </Button>
+        <MuteMenu mutedKey={`chat:${group.id}`} />
         {!isClient && <StartMeetButton groupId={group.id} />}
         {!isClient && (
           <Button variant="ghost" size="sm" aria-label="Scheduled messages" title="Scheduled messages" onClick={() => setScheduledOpen(true)} className="relative">

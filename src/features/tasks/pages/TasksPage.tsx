@@ -11,7 +11,7 @@ import { FilterBar, FilterPill, FilterSearch } from '../../../components/ui/Filt
 import { DetailCard, MasterDetail, MasterRow, useMasterSelection } from '../../../components/ui/MasterDetail';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { SkeletonGrid } from '../../../components/ui/Skeleton';
-import { toast } from '../../../store/useToastStore';
+import { useTimerStore } from '../../../store/useTimerStore';
 import { SubmitReviewModal } from '../../reviews/components/SubmitReviewModal';
 import { useAuthStore } from '../../../store/authStore';
 import { socket } from '../../../services/socket';
@@ -22,6 +22,7 @@ import { formatDate, getTodayDateString } from '../../../utils/time';
 import { formatDuration } from '../../../utils/format';
 import { dailyCounts, weekTrend } from '../../../utils/trend';
 import { isOverdue, StatusDot } from '../components/TaskMeta';
+import { TaskLiveTime, TaskTimerButton, useReloadOnTimerChange } from '../components/TaskTimer';
 import { deadlineHeat } from '../../../utils/deadlineHeat';
 import { TaskFormModal } from '../components/TaskFormModal';
 
@@ -195,7 +196,8 @@ export const TasksPage: React.FC = () => {
   const { selected, open, select, back } = useMasterSelection(visible);
 
   // Timer and submit, same rules as the task detail page (only the assignee, `can_work`).
-  const [busy, setBusy] = useState(false);
+  const busy = useTimerStore((s) => s.busy);
+  useReloadOnTimerChange(load);
   const [submitting, setSubmitting] = useState(false);
   const [tick, setTick] = useState(0);
   const fetchedAt = useRef(Date.now());
@@ -209,27 +211,9 @@ export const TasksPage: React.FC = () => {
     return () => clearInterval(timer);
   }, [selected?.id, timerRunning, timerTotal]);
 
-  const replaceTask = (next: ApiTask) => setTasks((list) => list.map((x) => (x.id === next.id ? next : x)));
-  const runTimer = async (work: () => Promise<void>) => {
-    setBusy(true);
-    try {
-      await work();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Something went wrong');
-    } finally {
-      setBusy(false);
-    }
-  };
-  const startTimer = () =>
-    runTimer(async () => {
-      const res = await taskApi.startTimer(selected!.id);
-      replaceTask(res.task);
-      if (res.stopped_task_id) {
-        toast.info('Timer switched', 'The timer on your other task was stopped.');
-        load();
-      }
-    });
-  const stopTimer = () => runTimer(async () => replaceTask(await taskApi.stopTimer(selected!.id)));
+  // Play / pause go through the shared timer (one running timer per person, toast on a switch); the list refreshes after.
+  const startTimer = () => useTimerStore.getState().play(selected!);
+  const stopTimer = () => useTimerStore.getState().pause();
 
   // Pending review tab: what the reviewer asked to change on the selected task.
   const [requested, setRequested] = useState<{ taskId: string; comments: string | null } | null>(null);
@@ -358,6 +342,8 @@ export const TasksPage: React.FC = () => {
                 variant="dark"
                 key={t.id}
                 heat={deadlineHeat(t.due_date, OPEN_STATUSES.includes(t.status))}
+                active={t.timer_running}
+                action={t.can_work ? <TaskTimerButton task={t} size="sm" /> : undefined}
                 selected={t.id === selected?.id}
                 onSelect={() => select(t.id)}
                 avatar={t.assignee && <Avatar name={t.assignee.name} src={t.assignee.avatar_url ?? undefined} size="md" className="!h-9 !w-9" />}
@@ -365,6 +351,7 @@ export const TasksPage: React.FC = () => {
                 subtitle={`${t.project_name} › ${t.subfolder_name}`}
                 chip={
                   <span className="flex items-center gap-1.5">
+                    <TaskLiveTime task={t} />
                     {isOverdue(t) && <OverdueMark onLight={t.id === selected?.id} />}
                     <StatusPill status={t.status} />
                   </span>

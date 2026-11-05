@@ -22,12 +22,15 @@ import { reviewApi, type Review } from '../../../services/http/reviewApi';
 import { formatDate } from '../../../utils/time';
 import { formatDuration } from '../../../utils/format';
 import { isOverdue, progressTone, StatusDot } from '../components/TaskMeta';
+import { useReloadOnTimerChange } from '../components/TaskTimer';
+import { useTimerStore } from '../../../store/useTimerStore';
 import { TaskFormModal } from '../components/TaskFormModal';
 import { ReviewActions } from '../../reviews/components/ReviewActions';
 import { ReviewRounds } from '../../reviews/components/ReviewRounds';
 import { SubmitReviewModal } from '../../reviews/components/SubmitReviewModal';
 import { RichText } from '../../../components/editor/RichText';
 import { ActivityPanel } from '../../activity/components/ActivityPanel';
+import { TimerLogCard } from '../components/TimerLogCard';
 import { DriveFileViewer } from '../../google/DriveFileViewer';
 import { DriveKindIcon } from '../../google/DriveKindIcon';
 import { AttachMenu } from '../../google/AttachMenu';
@@ -59,7 +62,7 @@ export const TaskDetailPage: React.FC = () => {
   const [editing, setEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [rounds, setRounds] = useState<Review[]>([]);
-  const [busy, setBusy] = useState(false);
+  const timerBusy = useTimerStore((s) => s.busy);
   const [previewing, setPreviewing] = useState<Asset | null>(null);
 
   // Live timer display: seconds since the last fetch, added to the server total.
@@ -102,6 +105,8 @@ export const TaskDetailPage: React.FC = () => {
     [id, load]
   );
 
+  useReloadOnTimerChange(load);
+
   useEffect(() => {
     if (!task?.timer_running) return;
     const timer = setInterval(() => setTick(Math.floor((Date.now() - fetchedAt.current) / 1000)), 1000);
@@ -124,25 +129,9 @@ export const TaskDetailPage: React.FC = () => {
   const progress = STATUS_PROGRESS[task.status];
   const totalSeconds = task.total_seconds + (task.timer_running ? tick : 0);
 
-  const run = async (work: () => Promise<void>) => {
-    setBusy(true);
-    try {
-      await work();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Something went wrong');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const startTimer = () =>
-    run(async () => {
-      const res = await taskApi.startTimer(task.id);
-      apply(res.task);
-      if (res.stopped_task_id) toast.info('Timer switched', 'The timer on your other task was stopped.');
-    });
-
-  const stopTimer = () => run(async () => apply(await taskApi.stopTimer(task.id)));
+  // Play / pause go through the shared timer (one running timer per person, toast on a switch); this page refreshes after.
+  const startTimer = () => useTimerStore.getState().play(task);
+  const stopTimer = () => useTimerStore.getState().pause();
 
   const remove = () =>
     confirm({
@@ -218,7 +207,6 @@ export const TaskDetailPage: React.FC = () => {
               {task.can_edit && task.status !== 'approved' && (
                 <div className="flex flex-wrap items-center gap-2">
                   <AttachMenu
-                    busy={busy}
                     onUpload={async (files) => {
                       try {
                         await addAssets(await assetApi.upload(files));
@@ -372,11 +360,11 @@ export const TaskDetailPage: React.FC = () => {
             </div>
             {task.can_work &&
               (task.timer_running ? (
-                <Button size="sm" variant="danger" className="w-full" isLoading={busy} onClick={stopTimer} leftIcon={<Square className="h-4 w-4" />}>
+                <Button size="sm" variant="danger" className="w-full" isLoading={timerBusy} onClick={stopTimer} leftIcon={<Square className="h-4 w-4" />}>
                   Stop timer
                 </Button>
               ) : (
-                <Button size="sm" className="w-full" isLoading={busy} onClick={startTimer} leftIcon={<Play className="h-4 w-4" />}>
+                <Button size="sm" className="w-full" isLoading={timerBusy} onClick={startTimer} leftIcon={<Play className="h-4 w-4" />}>
                   Start timer
                 </Button>
               ))}
@@ -411,6 +399,8 @@ export const TaskDetailPage: React.FC = () => {
               )}
             </CardContent>
           </Card>
+
+          <TimerLogCard taskId={task.id} />
 
           {rounds.length > 0 && (
             <Card>

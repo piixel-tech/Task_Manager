@@ -72,9 +72,15 @@ async def test_photo_must_be_the_posters_own_image_upload(client, team):
 
 
 # --- Notifications ---------------------------------------------------------------------------------------
-async def test_new_post_notifies_every_other_team_member_with_a_matching_link(client, team):
+async def test_an_ordinary_post_notifies_nobody(client, team):
     await Notification.find_all().delete()
-    await post(client, team.mia, "AC is dripping on desk 4", "facilities")
+    await post(client, team.mia, "Coffee is finished", "pantry")
+    assert await Notification.find(Notification.type == "office_post").count() == 0
+
+
+async def test_important_post_notifies_every_other_team_member_with_a_matching_link(client, team):
+    await Notification.find_all().delete()
+    await post(client, team.mia, "AC is dripping on desk 4", "facilities", important=True)
     notes = await Notification.find(Notification.type == "office_post").to_list()
     everyone = {team.admin, team.hana, team.max, team.vic, team.ollie}  # not Mia (actor), not the client
     assert {n.user_id for n in notes} == {p.user.id for p in everyone}

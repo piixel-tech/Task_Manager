@@ -228,6 +228,8 @@ async def group_outs(groups: list[ChatGroup], viewer: User) -> list[GroupOut]:
     for g in groups:
         last = lasts[g.id]
         sub = subs.get(g.subfolder_id) if g.subfolder_id else None
+        if sub is not None and viewer.id not in g.client_ids and not can(viewer, "subfolder.view", sub):
+            sub = None  # a subfolder they cannot open is not named to them
         out.append(
             GroupOut(
                 id=g.id,
@@ -246,7 +248,7 @@ async def group_outs(groups: list[ChatGroup], viewer: User) -> list[GroupOut]:
                 else None,
                 unread_count=await unread_count(g, viewer),
                 can_manage=can(viewer, "chat.manage", g, creator_id=g.created_by),
-                can_invite=can(viewer, "chat.invite", subs.get(g.subfolder_id) if g.subfolder_id else None),
+                can_invite=can(viewer, "chat.invite", sub),
                 can_pin=can(viewer, "chat.pin", g),
                 pinned_ids=[p.message_id for p in reversed(g.pins)],
                 created_at=as_utc(g.created_at),
@@ -294,7 +296,7 @@ async def notify_members(
     for role, base in (("admin", "/admin/chat"), ("employee", "/app/chat"), ("client", "/client/portal")):
         ids = [u.id for u in people.values() if u.role == role and u.is_active]
         link = base + (f"?group={group_id}" if group_id else "") + (f"&message={message_id}" if group_id and message_id else "")
-        await notify(ids, type=type, title=title, body=body, link=link, actor_id=actor.id)
+        await notify(ids, type=type, title=title, body=body, link=link, actor_id=actor.id, mute_key=f"chat:{group_id}" if group_id else None)
 
 
 async def add_receipts(

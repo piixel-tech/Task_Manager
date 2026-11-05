@@ -13,6 +13,8 @@ class Notification(Document):
     link: str | None = None
     actor_id: PydanticObjectId | None = None
     read: bool = False
+    priority: str = "normal"  # "important" (mentions, approvals, overdue tasks) ignores the sound mute
+    snoozed_until: datetime | None = None  # "Remind me in 1h": comes back as new when this passes
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:

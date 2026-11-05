@@ -5,17 +5,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.config import settings
 from app.core.deps import get_current_user, require_role
-from app.core.permissions import require
+from app.core.permissions import can, require
 from app.core.timeutil import today_local
 from app.integrations.runner import schedule_push
 from app.models import File, Subfolder, Task, TimeLog, User
 from app.models.chat import ChatMessage
-from app.models.task import OPEN_STATUSES, Priority, TaskStatus
+from app.models.task import Priority, TaskStatus
 from app.schemas.task import ProgressSet, ReminderRun, TaskCreate, TaskOut, TaskUpdate, TimeLogOut, TimerResult
 from app.services import richtext
 from app.services.activity import log_task
 from app.services.chat import member_group, publish_message
-from app.services.projects import get_subfolder_or_404, project_ids_for_staff, subfolders_of
+from app.services.projects import get_subfolder_or_404, subfolders_of, visible_subfolder_ids
 from app.services.reminders import run_reminders
 from app.services.trash import trash_task
 from app.services.tasks import (
@@ -23,11 +23,12 @@ from app.services.tasks import (
     check_assignee,
     copy_file,
     delete_tasks,
+    begin_timer,
     get_task_or_404,
     notify_task,
-    now_utc,
     stop_timers,
     task_outs,
+    workable_task,
 )
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -66,14 +67,14 @@ async def list_tasks(
     skip: int = Query(0, ge=0),
     user: User = Depends(get_current_user),
 ) -> list[TaskOut]:
-    """Admins see every task. Team members see tasks in their projects plus tasks assigned to them."""
+    """Admins see every task. Team members see tasks in the subfolders they can open plus tasks assigned to them."""
     if user.role == "client":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Insufficient permissions")
 
     conditions: list[dict] = []
     if user.role != "admin":
-        ids = await project_ids_for_staff(user)
-        conditions.append({"$or": [{"project_id": {"$in": ids}}, {"assignee_id": user.id}]})
+        ids = await visible_subfolder_ids(user)  # only subfolders they can open, plus tasks handed to them
+        conditions.append({"$or": [{"subfolder_id": {"$in": ids}}, {"assignee_id": user.id}]})
     if project_id:
         conditions.append({"project_id": project_id})
     if subfolder_id:
@@ -271,19 +272,10 @@ async def delete_task(task_id: PydanticObjectId, user: User = Depends(get_curren
 
 
 # --- Progress and timer: the assignee only --------------------------------------------------------
-async def _workable(task_id: PydanticObjectId, user: User) -> Task:
-    task = await get_task_or_404(task_id)
-    sub = await Subfolder.get(task.subfolder_id)
-    require(user, "task.work", sub, target_id=task.assignee_id)
-    if task.status not in OPEN_STATUSES:
-        raise HTTPException(status.HTTP_409_CONFLICT, f"This task is {task.status.replace('_', ' ')}")
-    return task
-
-
 @router.patch("/{task_id}/progress", response_model=TaskOut)
 async def set_progress(task_id: PydanticObjectId, body: ProgressSet, user: User = Depends(get_current_user)) -> TaskOut:
     """The assignee sets 0-99. Approval is what takes a task to 100."""
-    task = await _workable(task_id, user)
+    task = await workable_task(task_id, user)
     if body.progress != task.progress:
         await log_task(task, user, f"changed progress from {task.progress}% to {body.progress}%")
     task.progress = body.progress
@@ -296,20 +288,13 @@ async def set_progress(task_id: PydanticObjectId, body: ProgressSet, user: User 
 @router.post("/{task_id}/timer/start", response_model=TimerResult)
 async def start_timer(task_id: PydanticObjectId, user: User = Depends(get_current_user)) -> TimerResult:
     """Start tracking time. A timer already running on another task is stopped first."""
-    task = await _workable(task_id, user)
+    task = await workable_task(task_id, user)
 
     already = await TimeLog.find_one(TimeLog.task_id == task.id, TimeLog.user_id == user.id, TimeLog.running == True)  # noqa: E712
     if already:
         raise HTTPException(status.HTTP_409_CONFLICT, "The timer is already running on this task")
 
-    stopped = await stop_timers(user_id=user.id)
-    try:
-        await TimeLog(task_id=task.id, user_id=user.id, started_at=now_utc()).insert()
-    except Exception:  # unique index: a second tab started one at the same moment
-        raise HTTPException(status.HTTP_409_CONFLICT, "A timer is already running")
-    if task.status == "todo":
-        task.status = "in_progress"
-        await task.save()
+    stopped = await begin_timer(task, user)
     task = await get_task_or_404(task.id)
     return TimerResult(task=await _one(task, user), stopped_task_id=stopped[0].task_id if stopped else None)
 

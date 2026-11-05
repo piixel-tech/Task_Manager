@@ -4,6 +4,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Eye, Pencil } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
+import { MuteMenu } from '../../../components/ui/MuteMenu';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { PillTabs } from '../../../components/ui/PillTabs';
 import { EmptyState } from '../../../components/ui/EmptyState';
@@ -13,6 +14,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { projectApi, type ProjectDetail, type Subfolder } from '../../../services/http/projectApi';
 import { PersonChip } from '../components/PersonChip';
 import { SubfolderFormModal } from '../components/SubfolderFormModal';
+import { ViewOnlyBadge, VisibilityIcon } from '../components/VisibilityIcon';
 import { ChecklistTab } from '../components/ChecklistTab';
 import { DeliverablesTab } from '../components/DeliverablesTab';
 import { ChangesBox } from '../../activity/components/ChangesBox';
@@ -86,7 +88,9 @@ export const SubfolderPage: React.FC = () => {
         title={
           <span className="flex flex-wrap items-center gap-3">
             {subfolder.name}
+            <VisibilityIcon visibility={subfolder.visibility} className="h-4 w-4 text-[var(--tm-ink-soft)]" />
             {subfolder.viewer_is_head && <HeadBadge />}
+            {!subfolder.can_work && <ViewOnlyBadge />}
           </span>
         }
         description={
@@ -99,11 +103,14 @@ export const SubfolderPage: React.FC = () => {
           </button>
         }
         actions={
-          subfolder.can_edit && (
-            <Button size="sm" onClick={() => setEditing(true)} leftIcon={<Pencil className="h-4 w-4" />}>
-              Edit subfolder
-            </Button>
-          )
+          <div className="flex items-center gap-2">
+            <MuteMenu mutedKey={`subfolder:${subfolder.id}`} />
+            {subfolder.can_edit && (
+              <Button size="sm" onClick={() => setEditing(true)} leftIcon={<Pencil className="h-4 w-4" />}>
+                Edit subfolder
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -127,7 +134,14 @@ export const SubfolderPage: React.FC = () => {
       {tab === 'deliverables' && <DeliverablesTab key={subfolder.id} subfolderId={subfolder.id} />}
       {tab === 'changes' && <ChangesBox subfolderId={subfolder.id} projectId={project.id} onCount={setOpenChanges} />}
 
-      {tab === 'overview' && !subfolder.can_edit && (
+      {!subfolder.can_work && (
+        <div className="flex items-center gap-2.5 rounded-[var(--tm-radius-md)] bg-[var(--tm-info-bg)] px-4 py-3 text-[13px] text-[var(--tm-info)]">
+          <Eye className="h-4 w-4 shrink-0" />
+          View only. You can read this subfolder, but not add tasks, checklist items or comments.
+        </div>
+      )}
+
+      {tab === 'overview' && subfolder.can_work && !subfolder.can_edit && (
         <div className="flex items-center gap-2.5 rounded-[var(--tm-radius-md)] bg-[var(--tm-info-bg)] px-4 py-3 text-[13px] text-[var(--tm-info)]">
           <Eye className="h-4 w-4 shrink-0" />
           Read-only. Only the heads of this subfolder (and admins) can change its name, members or heads.
@@ -142,7 +156,7 @@ export const SubfolderPage: React.FC = () => {
             </CardHeader>
             <CardContent className="flex flex-wrap gap-x-6 gap-y-3">
               {subfolder.heads.map((h) => (
-                <PersonChip key={h.id} person={h} isHead size="md" />
+                <PersonChip key={h.id} person={h} isHead size="md" active={taskData.activeIds.has(h.id)} />
               ))}
             </CardContent>
           </Card>
@@ -158,7 +172,7 @@ export const SubfolderPage: React.FC = () => {
                 <ul className="grid gap-3">
                   {others.map((m) => (
                     <li key={m.id} className="min-w-0">
-                      <PersonChip person={m} size="md" />
+                      <PersonChip person={m} size="md" active={taskData.activeIds.has(m.id)} />
                     </li>
                   ))}
                 </ul>
@@ -182,7 +196,10 @@ export const SubfolderPage: React.FC = () => {
                         onClick={() => navigate(`${prefix}/projects/${project.id}/subfolders/${s.id}`)}
                         className="flex w-full items-center justify-between gap-3 rounded-[var(--tm-radius-md)] bg-[var(--tm-card-muted)] px-4 py-3 text-left transition-colors hover:bg-[var(--tm-bg-sunken)]"
                       >
-                        <span className="truncate text-[13px] font-bold text-[var(--tm-ink)]">{s.name}</span>
+                        <span className="flex min-w-0 items-center gap-2">
+                          <VisibilityIcon visibility={s.visibility} className="h-3.5 w-3.5 text-[var(--tm-ink-soft)]" />
+                          <span className="truncate text-[13px] font-bold text-[var(--tm-ink)]">{s.name}</span>
+                        </span>
                         {s.viewer_is_head && <HeadBadge />}
                       </button>
                     </li>

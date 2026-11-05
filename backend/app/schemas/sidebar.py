@@ -1,3 +1,5 @@
+from typing import Literal
+
 from beanie import PydanticObjectId
 from pydantic import BaseModel, Field, field_validator
 
@@ -39,6 +41,8 @@ class SubfolderNode(BaseModel):
     can_chat: bool  # start a chat group linked to it
     can_rename: bool
     can_delete: bool
+    visibility: Literal["private", "view_only", "open"] = "private"
+    can_work: bool = False  # false when you can only read it (view-only)
 
 
 class ProjectNode(BaseModel):

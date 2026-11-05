@@ -1,3 +1,6 @@
+from datetime import datetime, timedelta, timezone
+
+from beanie import PydanticObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.config import settings
@@ -8,6 +11,7 @@ from app.schemas.notification import (
     MarkReadResult,
     NotificationOut,
     NotificationPage,
+    Snooze,
     TestNotification,
     UnreadCount,
 )
@@ -49,6 +53,18 @@ async def mark_read(body: MarkRead, user: User = Depends(get_current_user)) -> M
         query = query.find({"_id": {"$in": body.ids}})
     result = await query.update({"$set": {"read": True}})
     return MarkReadResult(updated=result.modified_count if result else 0)
+
+
+@router.post("/{notification_id}/snooze", response_model=MarkReadResult)
+async def snooze(notification_id: PydanticObjectId, body: Snooze, user: User = Depends(get_current_user)) -> MarkReadResult:
+    """"Remind me in 1h": reads it now, and it comes back as new when the time is up."""
+    until = datetime.now(timezone.utc) + timedelta(minutes=body.minutes)
+    result = await Notification.find({"_id": notification_id, "user_id": user.id}).update(
+        {"$set": {"snoozed_until": until, "read": True}}
+    )
+    if not result or result.matched_count != 1:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Notification not found")
+    return MarkReadResult(updated=1)
 
 
 if settings.ENVIRONMENT == "development":

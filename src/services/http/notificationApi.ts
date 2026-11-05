@@ -9,6 +9,7 @@ export interface ApiNotification {
   body: string;
   link: string | null;
   read: boolean;
+  priority?: 'normal' | 'important';
   created_at: string;
   actor?: { id: string; name: string; avatar_url: string | null } | null;
 }
@@ -26,6 +27,7 @@ export function toNotification(n: ApiNotification): AppNotification {
     link: n.link ?? '',
     createdAt: asUtc(n.created_at),
     read: n.read,
+    priority: n.priority === 'important' ? 'important' : 'normal',
     actor: n.actor ? { id: n.actor.id, name: n.actor.name, avatarUrl: n.actor.avatar_url } : undefined
   };
 }
@@ -53,5 +55,15 @@ export const notificationApi = {
   },
   async markAllRead(): Promise<void> {
     await api.post('/notifications/read', { all: true });
+  },
+  /** "Remind me in 1h": it is read now and comes back as new when the time is up. */
+  async snooze(id: string, minutes = 60): Promise<void> {
+    await api.post(`/notifications/${id}/snooze`, { minutes });
+  },
+  async mutes(): Promise<Record<string, string>> {
+    return (await api.get<Record<string, string>>('/me/mutes')).data;
+  },
+  async setMute(key: string, duration: '8h' | '1w' | 'always' | 'off'): Promise<Record<string, string>> {
+    return (await api.put<Record<string, string>>('/me/mutes', { key, duration })).data;
   }
 };

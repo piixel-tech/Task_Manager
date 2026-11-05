@@ -81,8 +81,9 @@ async def create_post(body: PostCreate, user: User = Depends(get_current_user)) 
         await check_photo(body.photo_id, user)
     category = body.category or "general"
     label, emoji = CATEGORIES[category]
-    post = await OfficePost(author_id=user.id, text=body.text, category=category, emoji=emoji, photo_id=body.photo_id).insert()
-    await tell_everyone(user, type="office_post", title=f"{emoji} {label}: {user.name} posted", body=snippet(post.text))
+    post = await OfficePost(author_id=user.id, text=body.text, category=category, emoji=emoji, photo_id=body.photo_id, important=body.important).insert()
+    if body.important:
+        await tell_everyone(user, type="office_post", title=f"{emoji} {label}: {user.name} posted", body=snippet(post.text))
     return await _one(post.id, user)
 
 

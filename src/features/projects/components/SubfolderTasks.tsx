@@ -13,9 +13,13 @@ import { ItemCardSkeletons } from '../../../components/ui/ItemCard';
 import { useAuthStore } from '../../../store/authStore';
 import { socket } from '../../../services/socket';
 import { taskApi, type ApiTask } from '../../../services/http/taskApi';
+import type { UserBrief } from '../../../services/http/projectApi';
 import { formatDate } from '../../../utils/time';
 import { formatDuration } from '../../../utils/format';
 import { isOverdue, StatusDot } from '../../tasks/components/TaskMeta';
+import { TaskTimerButton, useReloadOnTimerChange } from '../../tasks/components/TaskTimer';
+import { useSubfolderPresence } from './useSubfolderPresence';
+import { WorkingAvatars } from './WorkingAvatars';
 
 export type TaskFilter = 'all' | 'in_progress' | 'upcoming' | 'overdue' | 'completed';
 type Group = 'in_progress' | 'upcoming' | 'completed';
@@ -71,6 +75,7 @@ export const useSubfolderTasks = (subfolderId: string) => {
   }, [load]);
 
   useEffect(() => socket.on('notification', (n: { type?: string }) => n?.type?.startsWith('task_') && load()), [load]);
+  useReloadOnTimerChange(load);
 
   useEffect(() => {
     const t = setInterval(() => document.visibilityState === 'visible' && load(), REFRESH_MS);
@@ -92,7 +97,10 @@ export const useSubfolderTasks = (subfolderId: string) => {
     return Number.isNaN(start) ? 0 : Math.max(0, (now - start) / 1000);
   };
 
-  return { tasks, error, spent, sessionSeconds };
+  // Who has a timer running, live (the same websocket as chat).
+  const { workersOn, activeIds } = useSubfolderPresence(subfolderId);
+
+  return { tasks, error, spent, sessionSeconds, workersOn, activeIds };
 };
 
 export type SubfolderTasksData = ReturnType<typeof useSubfolderTasks>;
@@ -148,12 +156,25 @@ const WorkingNow: React.FC<{ tasks: ApiTask[]; sessionSeconds: (t: ApiTask) => n
   );
 };
 
-const TaskRow: React.FC<{ task: ApiTask; spent: number; sessionSeconds: number; onOpen: () => void }> = ({ task: t, spent, sessionSeconds, onOpen }) => (
+const TaskRow: React.FC<{ task: ApiTask; spent: number; sessionSeconds: number; workers: UserBrief[]; onOpen: () => void }> = ({
+  task: t,
+  spent,
+  sessionSeconds,
+  workers,
+  onOpen
+}) => (
   <StaggerItem>
+    <div className="relative">
     <button
       type="button"
       onClick={onOpen}
-      className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 rounded-[var(--tm-radius-card)] border border-[var(--tm-border)] bg-[var(--tm-card)] p-4 text-left shadow-soft-sm transition-[border-color,box-shadow] hover:border-[var(--tm-primary-light)] hover:shadow-soft"
+      className={`flex w-full flex-wrap items-center gap-x-4 gap-y-2 rounded-[var(--tm-radius-card)] border bg-[var(--tm-card)] p-4 text-left shadow-soft-sm transition-[border-color,box-shadow] hover:shadow-soft ${
+        t.can_work ? 'pr-16' : ''
+      } ${
+        t.timer_running
+          ? 'border-[var(--tm-success)] shadow-[0_0_0_3px_var(--tm-success-bg)]'
+          : 'border-[var(--tm-border)] hover:border-[var(--tm-primary-light)]'
+      }`}
     >
       <span className="flex min-w-0 flex-1 basis-[220px] items-center gap-3">
         <Avatar name={t.assignee?.name ?? '?'} src={t.assignee?.avatar_url ?? undefined} size="md" />
@@ -162,6 +183,7 @@ const TaskRow: React.FC<{ task: ApiTask; spent: number; sessionSeconds: number; 
           <span className="block truncate text-[12px] text-[var(--tm-ink-muted)]">{t.assignee?.name ?? 'Unassigned'}</span>
         </span>
       </span>
+      <WorkingAvatars people={workers} />
       <StatusChip status={t.status} size="sm" />
       <span
         className={`flex ${t.start_date ? 'w-40' : 'w-24'} items-center gap-1.5 text-[12.5px] font-semibold ${isOverdue(t) ? 'text-[var(--tm-danger)]' : 'text-[var(--tm-ink-soft)]'}`}
@@ -181,6 +203,12 @@ const TaskRow: React.FC<{ task: ApiTask; spent: number; sessionSeconds: number; 
         </span>
       )}
     </button>
+    {t.can_work && (
+      <span className="absolute right-4 top-1/2 -translate-y-1/2">
+        <TaskTimerButton task={t} />
+      </span>
+    )}
+    </div>
   </StaggerItem>
 );
 
@@ -194,7 +222,7 @@ interface TabProps {
 export const SubfolderTasksTab: React.FC<TabProps> = ({ data, filter, onFilter }) => {
   const navigate = useNavigate();
   const taskPath = useTaskPath();
-  const { tasks, error, spent, sessionSeconds } = data;
+  const { tasks, error, spent, sessionSeconds, workersOn } = data;
   const [search, setSearch] = useState('');
   const [allCompleted, setAllCompleted] = useState(false);
 
@@ -258,7 +286,7 @@ export const SubfolderTasksTab: React.FC<TabProps> = ({ data, filter, onFilter }
                 </h3>
                 <Stagger className="space-y-3" role="list">
                   {rows.map((t) => (
-                    <TaskRow key={t.id} task={t} spent={spent(t)} sessionSeconds={sessionSeconds(t)} onOpen={() => navigate(taskPath(t.id))} />
+                    <TaskRow key={t.id} task={t} spent={spent(t)} sessionSeconds={sessionSeconds(t)} workers={workersOn(t.id)} onOpen={() => navigate(taskPath(t.id))} />
                   ))}
                 </Stagger>
                 {g.id === 'completed' && all.length > COMPLETED_SHOWN && (
@@ -281,7 +309,7 @@ export const SubfolderTasksTab: React.FC<TabProps> = ({ data, filter, onFilter }
 export const SubfolderTaskSummary: React.FC<{ data: SubfolderTasksData; onOpen: (f: TaskFilter) => void; className?: string }> = ({ data, onOpen, className = '' }) => {
   const navigate = useNavigate();
   const taskPath = useTaskPath();
-  const { tasks, error, spent } = data;
+  const { tasks, error, spent, workersOn } = data;
   const c = useMemo(() => counts(tasks ?? []), [tasks]);
   const active = (tasks ?? []).filter((t) => groupOf(t) === 'in_progress').sort(byDue).slice(0, 3);
 
@@ -327,14 +355,17 @@ export const SubfolderTaskSummary: React.FC<{ data: SubfolderTasksData; onOpen: 
             {active.length > 0 && (
               <ul className="space-y-2">
                 {active.map((t) => (
-                  <li key={t.id}>
+                  <li key={t.id} className="relative">
                     <button
                       type="button"
                       onClick={() => navigate(taskPath(t.id))}
-                      className="flex w-full items-center gap-3 rounded-[var(--tm-radius-md)] px-2 py-1.5 text-left transition-colors hover:bg-[var(--tm-card-muted)]"
+                      className={`flex w-full items-center gap-3 rounded-[var(--tm-radius-md)] px-2 py-1.5 text-left transition-colors hover:bg-[var(--tm-card-muted)] ${t.can_work ? 'pr-12' : ''} ${
+                        t.timer_running ? 'bg-[var(--tm-success-bg)]' : ''
+                      }`}
                     >
                       <Avatar name={t.assignee?.name ?? '?'} src={t.assignee?.avatar_url ?? undefined} size="sm" />
                       <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[var(--tm-ink)]">{t.title}</span>
+                      <WorkingAvatars people={workersOn(t.id)} />
                       {t.timer_running && (
                         <span className="inline-flex items-center gap-1 text-[11.5px] font-bold text-[var(--tm-success)]">
                           <Timer className="h-3.5 w-3.5" />
@@ -342,6 +373,11 @@ export const SubfolderTaskSummary: React.FC<{ data: SubfolderTasksData; onOpen: 
                         </span>
                       )}
                     </button>
+                    {t.can_work && (
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2">
+                        <TaskTimerButton task={t} size="sm" />
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>

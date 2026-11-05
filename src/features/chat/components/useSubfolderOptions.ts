@@ -7,7 +7,7 @@ export interface SubfolderOption {
   label: string;
 }
 
-/** Subfolders the person can link a group to: the ones they belong to (all of them for admins). Loads when `enabled`. */
+/** Subfolders the person can link a group to: the ones they can work in (all of them for admins). Loads when `enabled`. */
 export function useSubfolderOptions(enabled: boolean): SubfolderOption[] {
   const me = useAuthStore((s) => s.user);
   const [options, setOptions] = useState<SubfolderOption[]>([]);
@@ -24,7 +24,7 @@ export function useSubfolderOptions(enabled: boolean): SubfolderOption[] {
           details.flatMap((d) =>
             d
               ? d.subfolders
-                  .filter((s) => me.role === 'admin' || s.members.some((m) => m.id === me.id))
+                  .filter((s) => me.role === 'admin' || s.can_work)
                   .map((s) => ({ value: s.id, label: `${d.name} › ${s.name}` }))
               : []
           )

@@ -4,7 +4,7 @@ from typing import Iterable
 from beanie import PydanticObjectId
 from fastapi import HTTPException, status
 
-from app.core.permissions import can
+from app.core.permissions import can, sees
 from app.core.timeutil import as_utc
 from app.models import Company, User
 from app.models.project import Project, Subfolder
@@ -92,10 +92,32 @@ async def get_subfolder_or_404(subfolder_id: PydanticObjectId) -> Subfolder:
     return sub
 
 
+def visible_filter(user: User) -> dict:
+    """The Mongo filter for the subfolders this team member can see: their own, and the ones shared with their company. Admins see all."""
+    if user.role == "admin":
+        return {}
+    options: list[dict] = [{"member_ids": user.id}, {"head_ids": user.id}]
+    if user.company_id is not None:
+        options.append({"visibility": {"$in": ["view_only", "open"]}, "company_ids": user.company_id})
+    return {"$or": options}
+
+
+async def visible_subfolders(user: User) -> list[Subfolder]:
+    return await Subfolder.find(visible_filter(user)).to_list()
+
+
+async def visible_subfolder_ids(user: User) -> list[PydanticObjectId]:
+    return [s.id for s in await visible_subfolders(user)]
+
+
 async def project_ids_for_staff(user: User) -> list[PydanticObjectId]:
-    """Projects a staff user belongs to (member or head of any of their subfolders)."""
-    subs = await Subfolder.find({"$or": [{"member_ids": user.id}, {"head_ids": user.id}]}).to_list()
-    return unique(s.project_id for s in subs)
+    """Projects a staff user can see: those with at least one subfolder they belong to or that is shared with their company."""
+    return unique(s.project_id for s in await visible_subfolders(user))
+
+
+async def sync_company_ids(project: Project) -> None:
+    """Copy the project's companies onto its subfolders (permission checks read them there)."""
+    await Subfolder.find(Subfolder.project_id == project.id).update({"$set": {"company_ids": companies_of(project)}})
 
 
 async def client_team_ids(user: User) -> set[PydanticObjectId]:
@@ -121,6 +143,9 @@ async def subfolder_out(sub: Subfolder, siblings: list[Subfolder], viewer: User)
         created_at=sub.created_at,
         can_edit=can(viewer, "subfolder.edit", sub, siblings=siblings),
         viewer_is_head=viewer.id in sub.head_ids,
+        visibility=sub.visibility,
+        can_set_visibility=can(viewer, "subfolder.visibility", sub),
+        can_work=can(viewer, "checklist.write", sub),
     )
 
 
@@ -135,7 +160,7 @@ def project_out(project: Project, siblings: list[Subfolder], viewer: User) -> Pr
         client_ids=project.client_ids,
         created_by=project.created_by,
         created_at=project.created_at,
-        subfolder_count=len(siblings),
+        subfolder_count=sum(1 for s in siblings if sees(viewer, s)),  # only the ones this person can open
         can_edit=can(viewer, "project.edit"),
         can_create_subfolder=can(viewer, "subfolder.create", siblings=siblings),
     )
@@ -168,4 +193,4 @@ async def notify_people(
             link = f"{prefix}/projects/{project_id}" + (f"/subfolders/{subfolder_id}" if subfolder_id else "")
             if tab:
                 link += f"?tab={tab}"
-        await notify(uids, type=type, title=title, body=body, link=link, actor_id=actor.id)
+        await notify(uids, type=type, title=title, body=body, link=link, actor_id=actor.id, mute_key=f"subfolder:{subfolder_id}" if subfolder_id else None)

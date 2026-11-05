@@ -7,6 +7,9 @@ import { socket } from '../../services/socket';
 import { amFocused } from '../../store/useFocusStore';
 import { useFocusSync } from '../focus/useFocusSync';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import { useMutesStore } from '../../store/useMutesStore';
+import { router } from '../../app/router';
+import { playNotificationSound, showDesktopNotification } from './notificationAlerts';
 import { toNotification, type ApiNotification } from '../../services/http/notificationApi';
 
 /**
@@ -33,12 +36,22 @@ export function useNotificationSync(): void {
     }
 
     fetchNotifications();
+    void useMutesStore.getState().load();
 
     const off = socket.on('notification', (data: ApiNotification) => {
       const notification = toNotification(data);
       addLive(notification);
       // In Focus mode the server sends nothing live; this covers a notification already in flight.
-      if (!amFocused()) toast.info(stripEmoji(notification.title), stripEmoji(notification.message), notification.link || undefined);
+      if (!amFocused()) {
+        const title = stripEmoji(notification.title);
+        const message = stripEmoji(notification.message);
+        toast.info(title, message, notification.link || undefined, notification);
+        // Sound and OS popup are for other people's actions, not the ones I just did myself.
+        if (notification.actor?.id !== userId) {
+          playNotificationSound(notification.priority);
+          showDesktopNotification(title, message, () => notification.link && router.navigate(notification.link), notification.id);
+        }
+      }
     });
     // An admin ended this sign-in: leave straight away instead of waiting for the next request to fail.
     const offRevoked = socket.on('session:revoked', () => {

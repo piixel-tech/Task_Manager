@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Literal
 
 from beanie import PydanticObjectId
 from pydantic import BaseModel, Field
@@ -25,6 +26,10 @@ class SubfolderUpdate(BaseModel):
     member_ids: list[PydanticObjectId] | None = None
 
 
+class SubfolderVisibility(BaseModel):
+    visibility: Literal["private", "view_only", "open"]
+
+
 class SubfolderOut(BaseModel):
     id: PydanticObjectId
     project_id: PydanticObjectId
@@ -36,6 +41,9 @@ class SubfolderOut(BaseModel):
     # What the signed-in user may do here (drives read-only vs editable UI).
     can_edit: bool
     viewer_is_head: bool
+    visibility: Literal["private", "view_only", "open"] = "private"
+    can_set_visibility: bool = False  # admins and the heads of this subfolder
+    can_work: bool = False  # false for someone who can only read it (view-only)
 
 
 class ProjectCreate(BaseModel):

@@ -113,10 +113,10 @@ export const TaskFormModal: React.FC<Props> = ({ isOpen, onClose, task, defaultP
       .catch((e) => setError(e.message));
   }, [isOpen, projectId]);
 
-  // Only subfolders the person can work in: everything for admins, their own for everyone else.
+  // Only subfolders the person can work in: their own, and open ones (a view-only subfolder is read only).
   const subfolders = useMemo<Subfolder[]>(
-    () => (detail?.subfolders ?? []).filter((s) => isAdmin || s.members.some((m) => m.id === me?.id)),
-    [detail, isAdmin, me?.id]
+    () => (detail?.subfolders ?? []).filter((s) => isAdmin || s.can_work),
+    [detail, isAdmin]
   );
   const subfolder = subfolders.find((s) => s.id === subfolderId) ?? null;
 
@@ -124,8 +124,10 @@ export const TaskFormModal: React.FC<Props> = ({ isOpen, onClose, task, defaultP
   const assignees = useMemo<UserBrief[]>(() => {
     if (isAdmin) return directory;
     if (subfolder?.viewer_is_head) return subfolder.members;
-    return subfolder?.members.filter((m) => m.id === me?.id) ?? [];
-  }, [isAdmin, directory, subfolder, me?.id]);
+    const self = subfolder?.members.find((m) => m.id === me?.id);
+    // In an open subfolder you are not a member of, you can still give yourself a task.
+    return self ? [self] : subfolder && me ? [{ id: me.id, name: me.name, avatar_url: me.avatarUrl ?? null, role: me.role, company_id: null }] : [];
+  }, [isAdmin, directory, subfolder, me]);
 
   // Keep the selection valid when the subfolder (and so the allowed assignees) changes.
   useEffect(() => {

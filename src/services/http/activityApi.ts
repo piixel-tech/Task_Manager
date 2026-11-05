@@ -30,6 +30,8 @@ export interface ActivityEntry {
 export interface ActivityList {
   items: ActivityEntry[];
   unresolved: number;
+  /** False for someone who can only read (a view-only subfolder): the composer is hidden. */
+  can_post?: boolean;
 }
 
 export interface ActivityInput {

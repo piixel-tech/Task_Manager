@@ -10,6 +10,9 @@ export interface UserBrief {
   focus_until?: string | null;
 }
 
+/** Who beyond its own members can see a subfolder: nobody, everyone in the project's company (read only), or everyone there (as members). */
+export type Visibility = 'private' | 'view_only' | 'open';
+
 export interface Subfolder {
   id: string;
   project_id: string;
@@ -22,6 +25,11 @@ export interface Subfolder {
   /** Only heads of this subfolder (and admins) can edit it. */
   can_edit: boolean;
   viewer_is_head: boolean;
+  visibility: Visibility;
+  /** Admins and the heads of this subfolder. */
+  can_set_visibility: boolean;
+  /** False when the person can only read it (view only). */
+  can_work: boolean;
 }
 
 export interface Project {
@@ -85,6 +93,9 @@ export const projectApi = {
   getSubfolder: (id: string) => call<Subfolder>(() => api.get(`/subfolders/${id}`), 'Could not load the subfolder'),
   updateSubfolder: (id: string, input: Partial<SubfolderInput>) =>
     call<Subfolder>(() => api.patch(`/subfolders/${id}`, input), 'Could not save the subfolder'),
+
+  setVisibility: (id: string, visibility: Visibility) =>
+    call<Subfolder>(() => api.patch(`/subfolders/${id}/visibility`, { visibility }), 'Could not change who can see the subfolder'),
 
   deleteSubfolder: (id: string) => call<void>(() => api.delete(`/subfolders/${id}`), 'Could not delete the subfolder'),
 

@@ -8,7 +8,9 @@ from apscheduler.triggers.interval import IntervalTrigger
 from app.core.config import settings
 from app.core.timeutil import tz
 from app.integrations.runner import run_integration_sync
+from app.services.alerts import run_digest, run_late_timers, run_meeting_reminders, run_snoozed
 from app.services.approvals import run_approval_reminders
+from app.services.monthly_report import finalize_previous_month
 from app.services.reminders import run_reminders
 from app.services.scheduled import run_scheduled_sends
 from app.services.trash import purge_expired
@@ -23,6 +25,30 @@ async def _reminder_job() -> None:
         log.info("Task reminders sent: %s", sent)
     except Exception:  # a failed run must not kill the scheduler
         log.exception("Task reminder job failed")
+
+
+async def _safely(name: str, job) -> None:
+    try:
+        n = await job()
+        if n:
+            log.info("%s: %s", name, n)
+    except Exception:
+        log.exception("%s failed", name)
+
+
+async def _digest_job() -> None:
+    await _safely("Daily digest", run_digest)
+
+
+async def _month_end_job() -> None:
+    await _safely("Monthly reports finalized", finalize_previous_month)
+
+
+async def _minute_job() -> None:
+    # Snoozed notifications coming back, meetings starting within 10 minutes, timers left on after 8 PM.
+    await _safely("Snoozed notifications", run_snoozed)
+    await _safely("Meeting reminders", run_meeting_reminders)
+    await _safely("Late timers", run_late_timers)
 
 
 async def _approval_reminder_job() -> None:
@@ -80,6 +106,16 @@ def start_scheduler() -> None:
         replace_existing=True,
         coalesce=True,
         max_instances=1,
+    )
+    scheduler.add_job(
+        _digest_job, CronTrigger(hour=9, minute=30), id="daily_digest", replace_existing=True, coalesce=True, misfire_grace_time=3600
+    )
+    # On the 1st, last month's reports are frozen. A later request makes any that were missed (server down), once.
+    scheduler.add_job(
+        _month_end_job, CronTrigger(day=1, hour=0, minute=30), id="monthly_reports", replace_existing=True, coalesce=True, misfire_grace_time=6 * 3600
+    )
+    scheduler.add_job(
+        _minute_job, IntervalTrigger(minutes=1), id="alerts_minute", replace_existing=True, coalesce=True, max_instances=1
     )
     scheduler.add_job(
         _trash_job,

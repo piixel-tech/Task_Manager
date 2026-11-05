@@ -24,7 +24,8 @@ In-house tool for ~15 people across two companies (Piixel, Unwork). Each user be
 | Create first subfolder + appoint head | Yes | No | No | No |
 | Create new subfolder in a project | Yes | Yes, if head of any subfolder in that project | No | No |
 | Edit subfolder (name, members, heads) | Any | Only where head | No | No |
-| View other subfolders in same project | Yes | Read-only | Read-only if project member | No |
+| See / open a subfolder | Any | Own subfolders; others only when shared (Phase 20) | Own subfolders; others only when shared (Phase 20) | No (portal only) |
+| Change a subfolder's visibility (private / view only / open) | Any | Only where head | No | No |
 | Add members / invite clients to groups | Yes | Yes | No | No |
 | Assign tasks | Anyone | Members and other heads of their subfolder | Only themselves | No |
 | Approve / request changes on tasks | Yes | Yes, when picked as approver | No | No |
@@ -92,7 +93,7 @@ In-house tool for ~15 people across two companies (Piixel, Unwork). Each user be
 - **Workload view for heads:** each member's open tasks, due this week, status today; warn when assigning a task due on a day the person is on leave.
 - **Ctrl+K command palette:** search and jump to any project, task, person, chat, or run actions.
 - **Saved replies:** reusable message templates for common client updates.
-- **Installable app (PWA)** with push notifications on phones.
+- ~~Installable app (PWA) with push notifications on phones.~~ Tried and removed (see Phase 16).
 
 ## Phase 11b/11c — Google Drive, Docs, Sheets, Meet and booking invites
 Extends the 11a Google connection (same OAuth app per company, same per-user connection).
@@ -141,6 +142,90 @@ Shared components in the current theme colours, the same for admin, employee and
   - `PUT /subfolders/{id}/deliverables/stages` takes `{stages: [{key?, label}], move_items}` (a `key` keeps a stage, none adds one, stages left out are deleted) and answers with the tracker. `GET .../deliverables` now also returns `stage_labels` (key to name); `stages` stays the ordered list of keys.
 - **Defaults.** New subfolders start with Shooted → Editing → Reel → Posted. Subfolders created before this keep their seven original stages until someone edits them, so nothing already tracked changes. The client portal, CSV export (stage names, not keys) and the portal summary (counts by stage name) follow each subfolder's own stages.
 
+## Phase 15 — Task timer (play / pause on every task card)
+
+One timer per person, started from any task card. It builds on the per-task timer that already existed (Phase 4): the same sessions, the same totals, the same rules about who may run it.
+
+- **Entries.** The `time_entries` of this phase are the existing `time_logs` collection, not a second one: one document per session with `user_id`, `task_id`, `subfolder_id` (new; empty on older sessions), `started_at`, `ended_at` (empty while running) and `seconds`. `running` is kept as the flag the database index uses.
+- **One running entry per person, enforced by the database** (unique partial index on `user_id` where `running`), not just by the app. Starting closes the person's running entry and opens the new one in one call; if two starts arrive at the same moment (two tabs, a double click) the loser's insert is refused, it closes the winner's session and tries once more, so exactly one entry is ever running.
+- **Time comes from the server.** Start and end are stamped with the server clock and seconds are worked out from the saved timestamps; the browser sends no times. The browser only ticks the clock between answers, starting from the server's totals.
+- **API** (`/timer`; start, pause, resume and current are always about the signed-in person):
+  - `POST /timer/start {task_id}`: only the assignee of an open task (same rule as before: 403 otherwise, 409 for a submitted or approved task). Closes the running entry, if any, and opens a new one. Playing the task that is already running changes nothing. The answer names the task it closed (`stopped_task`).
+  - `POST /timer/pause`: closes the running entry (409 if none).
+  - `POST /timer/resume`: opens a new entry on the task paused last, if it is still open and theirs (409 otherwise).
+  - `GET /timer/current`: `{server_now, state: running | paused | idle, task{id, title, subfolder_id, progress, total_seconds}, started_at, stopped_task}`.
+  - The per-task `POST /tasks/{id}/timer/start|stop` stay and use the same code. A person's timer is not shared with anyone, so these calls send no notifications.
+- **Play / pause on task cards.** One shared control (`TaskTimerButton`, `features/tasks/components/TaskTimer.tsx`), a round button, charcoal with a play glyph, green with a pause glyph and a soft pulse while running. It shows only on tasks you can work on (you are the assignee and the task is open) and is used by: the Tasks page list rows and its detail panel (My tasks, All tasks, Pending review), the subfolder Tasks tab rows and the overview card, the dashboard "My tasks" rows, and the task page. Clicking it never opens the card. The calendar and the other boards show no task cards today, so there is nothing to add there; a new task card must use this component.
+- **Switching.** Play on another task pauses the current one and starts this one, with a small toast "Paused X, started Y" (or "Started Y", "Paused X", "Resumed X"). All cards follow the server's answer at once (`useTimerStore`); lists fetch again after every change, and when the tab regains focus (a timer changed in another tab or on another device).
+- **Running card.** The running task's card gets a green edge (row) or border and soft ring (subfolder card) and a live time chip with a pulsing dot, counting from the server's total. Theme tokens only (`--tm-success`, `--tm-ink`, `--tm-card`), so it follows every theme and dark mode; the pulse is off under reduced motion.
+- **Left rail timer** (`RailTimer`, bottom of the rail, every role except clients). Idle: a small play icon (a lavender filled one when a timer is paused and can be resumed). Running: a ring that fills with the task's progress, a clock glyph and a pulsing green dot. Hovering shows a tooltip with the task name and its live time (`MM:SS`, `H:MM:SS` from one hour). Clicking opens a small glass panel: the current task, the live time, a progress bar, **Pause** / **Resume** and **Open task**. The rail reserves its height when it works out what fits, so nothing is cut off.
+- **Browser tab title.** While the timer runs the tab reads `▶ 42:18 · Task name` (the task's total time, ticking every second from the server's number); when it stops or is paused the normal title comes back (`useTimerTitle`, mounted once in `AppShell`).
+- **In sync everywhere.** Every change (play, pause, switch, a task submitted or reassigned while running) is pushed by the server over the websocket chat uses: a `timer` message with the person's full state to all of their tabs and devices, so every card, the rail and the tab title agree at once; the app asks again when the socket reconnects and when the tab regains focus. Lists on the open page fetch again when the timer moved. Signing in as someone else clears the previous person's timer.
+- **Working now (subfolders only).** `GET /timer/working/{subfolder_id}` lists who has a timer running on a task of the subfolder (`{task_id, started_at, user}`); allowed for anyone who can open the subfolder (`subfolder.view`: admins and the staff of its project), 403 for everyone else, clients included. Changes arrive as `presence` messages (`{subfolder_id, task_id, running, started_at, user}`) sent to exactly those people. On the subfolder's Tasks tab and overview card each task shows avatars with a pulsing green dot for the people working on it; the Heads and Members cards mark who is working in this subfolder right now ("Working now" and a dot). Nothing of this shows outside subfolders, and the task list pages keep showing only your own running state.
+- **Not done / by design.** Other people's tasks show their running state and live time but have no button: only the assignee can run a timer.
+
+## Phase 16 — Installable app (PWA): removed
+
+The app is **not** installable any more. It was built (manifest with shortcuts, a minimal service worker, a Settings > Install app page, a dot on the app icon while a timer ran) and then taken out completely: no `manifest.json`, no service worker, no icons for it, no install page or menu item, no badge code and no `/shortcut/*` routes. There was never a PWA plugin in the Vite config.
+
+- **Cleanup for people who installed it.** On every start (`main.tsx` calls `removeLegacyServiceWorkers`, `utils/removeServiceWorkers.ts`) the app unregisters every service worker of the site, deletes any cache one made and clears the icon badge. It never throws, and does nothing where there is nothing to remove. An installed copy keeps its window until the person uninstalls it from the browser (chrome://apps, or the app's menu > Uninstall); it then just opens the website. Keep this call for a few releases; once nobody can still have the old worker it can go.
+- **What stays.** The timer, the left rail timer, the browser tab title and "working now" in subfolders (Phase 15) are unchanged. The browser-tab icon is still the new lavender check (`public/favicon.svg`); the page colour `theme-color` is back to `#F6F5F9`.
+
+## Phase 17 — Desktop helper: removed
+
+A desktop helper (Tauri app with a floating timer button and tray icon) was built and then taken out completely. Nothing of it is left in the repository.
+
+- **Gone:** the `/desktop` app, its GitHub Actions release workflow (`.github/`), Settings > Desktop app (`DesktopAppSection`, its menu item and its tests).
+- **Gone from the backend:** the long-lived helper sign-in (`client` / `device_name` on `POST /auth/login`, `DESKTOP_REFRESH_DAYS`, the `cl` claim on refresh tokens, `client` / `device_name` on sessions and in Settings > Security), the Tauri CORS origins (`DESKTOP_ORIGINS`) and `GET /tasks/recent`. Sign-ins are all web sign-ins again: refresh tokens last `REFRESH_TOKEN_DAYS` (7).
+- **What stays (Phase 15):** the `/timer` endpoints, play / pause buttons on task cards, the left rail timer, the browser tab title, "working now" in subfolders and the `timer` websocket message. They belong to the web app.
+- **Old data:** sessions saved while the helper existed may still carry `client` / `device_name` fields in the database; they are ignored.
+
+## Phase 18 — Monthly Report (rail item "Monthly Report", admin and employee panels)
+
+One report per employee per month: attendance, tasks, time and changes. Read-only everywhere; the only action is **Download PDF**.
+
+- **Who sees what** (`can(user, "report.view", target_id)`): an employee sees only their own reports; an admin sees every employee's; heads and clients see none (403, and there is no menu item or route for clients). Reports exist for users with the role `employee`.
+- **API** (`/reports`): `GET /reports/monthly?month=YYYY-MM&company_id=&q=` (admin: one row per employee for the list), `GET /reports/monthly/all.zip?month=&company_id=&q=` (admin: the listed employees' PDFs in a ZIP), `GET /reports/monthly/{user_id}?month=` (the report as JSON) and `GET /reports/monthly/{user_id}/pdf?month=`. A future month is 422. Nothing can be created, edited or deleted through the API.
+- **Current month = live.** Built from the live data on every request and marked `in_progress`. The page refreshes it every 30 s while visible, on window focus, and when a timer, daily-status or notification event arrives over the websocket.
+- **Past months = frozen.** A finished month is built once, saved in `monthly_reports` (`user_id`, `month`, `data`, `finalized_at`; unique on user + month) and from then on returned unchanged, whatever happens to tasks or attendance afterwards. A scheduler job on the 1st at 00:30 freezes the month that just ended for every employee who existed by its end. If the server was down, the first request for that month makes the snapshot instead, once.
+- **Content, page 1 (summary):** name, company, role, month; attendance counts (Present / WFH / Leave / Half day) and average login time; tasks assigned, completed, early, on time, late and pending; total time tracked and average per working day; total changes requested; the top 3 tasks by time spent.
+- **Content, page 2+ (details):** an attendance table (date, status, login time) and one row per task: name, description cut to about 80 characters, project / subfolder, start, due and completed dates, result (Early / On time / Late +X days / Pending), time spent, changes (count and the last resolved date) and the files and links from the task's submissions (count; links are clickable, uploaded files are only named because they cannot be opened without signing in; no previews).
+- **How the numbers are worked out** (no new status or task logic; all from existing data):
+  - **Login time** = when the day's status was first set (`daily_status.first_set_at`, new; older records fall back to `set_at`, the latest change), shown in the office timezone. Average login = the mean of those times.
+  - **Which tasks:** assigned to the person and either due in the month, or completed in the month, or (with no due date) created in the month. A task still open when its due month is over stays in that month's report as Pending and is not repeated in later months.
+  - **Completed** = approved; its completed date is the date of its latest approving review. **Early** = completed before the due date, **On time** = on the due date (or no due date), **Late +X days** = after it, **Pending** = not approved.
+  - **Time** = the person's timer sessions that started in the month (a running one counts up to now); a session counts on the day it started. **Average per working day** = total / days with status Present, WFH or Half day (days with time logged if no status was set). Time per task is the same month-only sum.
+  - **Changes requested** = Mid-way change requests (Activity panel) on the report's tasks; the row shows the count and the latest resolved date. Reviews sent back for changes are not counted here.
+- **PDF** is made on the backend (`reportlab`, portrait A4, lavender headers and charcoal text like the app, repeating table headers). Built-in fonts only: characters outside Western Latin print as `?`. Filename `Monthly-Report-<Name>-<YYYY-MM>.pdf`.
+- **Employee view** (`/app/reports`): month picker (arrows, "This month", a month field; no future months), the report preview and Download PDF.
+- **Admin view** (`/admin/reports`): month picker; one row per employee with company, Present / WFH / Leave / Half day, on-time % (early or on time, of completed tasks), hours tracked, **View** (opens that report on the same page, `?user=`) and **PDF**; filters for company and name; **Download all (ZIP)** follows the same filters.
+- **Look (seventh redesign: two charts only):** a top bar (month picker, In progress / Final chip, Download PDF) and a light-card grid (12 columns from 1100px, 2 below, 1 on mobile). Admins get a header card first (avatar, name, role, company, month, working days; chips for overdue tasks, average delay of late tasks, changes requested, leave dates). Row 1: **Attendance** (status chips and the tinted calendar; no other chart) and the **Login** log, a plain table with one row per day (`Mon 2 Nov`, status dot and word Present / WFH / Half / Leave, login time, a dash on leave days; the usual login on the right; scrolls after 10 rows). Row 2: **Time tracked** (the total, one bar chart of hours per day with the busiest day highlighted, and every task with its time and a thin share bar; click a task to open it). Row 3: the task table (Task + project, Start, Due, Completed, Status pill, Time, Changes and Files as count chips that expand; sorted Overdue, Late, Pending, then done). There are no KPI cards, login chart, project donut or task-status donut any more. Status words: **Early by Xd**, **On time**, **Late by Xd** (done after the due date), **Overdue Xd** (not done, due date passed; counted in `tasks.overdue`, not in Pending), **Pending**. The report carries `time_by_day` and `time_by_project` (older frozen snapshots do not; the chart then says no time was tracked). The PDF (landscape A4) follows the same order: header and summary chips, Attendance and Login side by side, Time tracked (matplotlib bar chart in `app/services/report_charts.py`, then the task times), then the task table, which continues onto more pages when long.
+- **Which tasks (changed):** a task the person tracked time on this month is listed even if it was not assigned to them or not due/finished in the month, so Time spent and the task list always match. **Working days** = the month's days up to today minus the weekly offs and holidays that apply to the person's company (`attendance.scheduled_days`, `off_dates`).
+- **Not done / by design:** reports for admins or clients; a "changes requested" count for sent-back reviews; a PDF font for non-Latin names; links to uploaded files; emailing the reports.
+
+## Phase 19 — System notifications (browser Notifications API)
+
+New notifications also appear as a Windows / macOS system notification while the app is open in a browser but not in front of the person.
+
+- **Enable:** Settings > Notifications > Alerts has an **Enable Notifications** button (the browser asks only after that click, never on page load) with this browser's state (Allowed / Blocked / Not enabled) and, once allowed, **Send a test**. The saved "Desktop popups" switch is per account; the browser permission is per browser, so a second device must press Enable once.
+- **When one is shown:** the person has Desktop popups on, the browser allowed it, and they are not looking at the app: the tab is hidden or minimised, or the browser window is behind another app. While they look at the app the in-app toast is shown as before and no system notification is made.
+- **What triggers it:** every live notification the server pushes (task assigned, due tomorrow / today, overdue, reminders, task updates, reviews, mentions, bookings...) and chat messages, after the server's own filters: the per-kind switches (`notif_prefs`), Focus mode and muted chats / subfolders. Nothing was added to the backend or to the in-app bell, toasts or sounds.
+- **Click:** brings the browser forward and opens the notification's link (the task page for task notifications).
+- **No duplicates:** the notification id is the OS tag, a repeat of the same id is ignored in the same tab, and when several tabs are open the first one to claim the id (`localStorage`, one minute) shows it.
+- **Not built: Web Push for a fully closed browser.** It needs a service worker, VAPID keys and a push endpoint on the backend. Phase 16 removed service workers on purpose and the app unregisters any on every start, so this stays off unless that decision changes. The system notifications above need the browser (any tab) to be open.
+
+## Phase 20 — Subfolder visibility (backend only, no UI yet)
+
+Every subfolder has a `visibility`: **private** (the default), **view_only** or **open**. It decides who beyond the subfolder's own members and heads can see it.
+
+- **private:** only its members, the heads of that subfolder and admins can see it. Nobody else gets any of its data: not the subfolder, its tasks, checklist, deliverables, mid-way changes, working-now list or files, and its name is left out of project pages, the sidebar tree, requirement tags and chat groups.
+- **view_only:** every team member (admin or employee) of one of the project's companies can also see and read it, but cannot add or edit tasks, add checklist items, move deliverables, post comments or mid-way changes, or link a chat group to it.
+- **open:** the same people can see it and work in it like a member (employees still assign tasks only to themselves; editing a task still needs being its creator or a head; only heads and admins manage members, stages and visibility).
+- **Who can change it:** `PATCH /subfolders/{id}/visibility` with `{"visibility": "private" | "view_only" | "open"}`: admins and the heads of that subfolder only (403 for everyone else, 422 for any other value). It answers with the subfolder (`visibility`, `can_set_visibility`, `can_work`) and notifies its members.
+- **Where it is enforced:** one rule in `core/permissions.py` (`sees`, `works_in`, the `subfolder.view`, `task.view`, `checklist.*`, `deliverable.*`, `activity.post` and `chat.link` actions) and one list filter in `services/projects.py` (`visible_filter`, `visible_subfolders`, `project_ids_for_staff`). Lists are filtered, never just flagged: `GET /projects` and `GET /projects/{id}` (only visible subfolders, and `subfolder_count` counts only those), `GET /sidebar/tree`, `GET /tasks` (the subfolders you can open, plus tasks assigned to you), requirement tags and the requirement subfolder filter, chat groups (a subfolder you cannot open is not named) and the live "working now" presence. Hidden items answer 403 on direct access.
+- **Stays as it was:** a task assigned to you stays visible to you even if you are no longer in a private subfolder; chat groups remain visible to their own members; clients keep their access through the project (portal, deliverables, requirements, their invited chat groups), because visibility is about the team; admin-only exports, trash and dashboards are unchanged.
+- **Storage:** `subfolders.visibility` and `subfolders.company_ids` (a copy of the project's companies, kept in step when the project's companies change, so permission checks need no extra lookup). On every start, subfolders without a `visibility` become `private` and every subfolder gets its project's companies (`core/db.py` `migrate_subfolders`, safe to repeat). A shared subfolder is visible only to people whose company is one of the project's companies; people without a company never see someone else's shared subfolder.
+
 ## Collections
 | Collection | Key fields |
 |---|---|
@@ -148,12 +233,12 @@ Shared components in the current theme colours, the same for admin, employee and
 | users | name, email, password_hash, role, company_id, avatar_url, is_active, created_at |
 | files | owner_id, name, mime, size, kind (upload/link), storage_key, url, drive{file_id, mime, kind, icon_url, modified_at} (Drive files: kind link + drive), created_at |
 | notifications | user_id, type, title, body, link, actor_id, read, created_at |
-| daily_status | user_id, date (YYYY-MM-DD), status, set_at — unique (user_id, date) |
+| daily_status | user_id, date (YYYY-MM-DD), status, set_at (latest change), first_set_at (first set that day = login time) — unique (user_id, date) |
 | bookings | host_user_id, booked_by, start, end, title, note, attendees[{email, name, user_id}], meet_url, meet_owner_id, created_at |
 | projects | name, company_id, client_ids, created_by |
-| subfolders | project_id, name, head_ids, member_ids, file_ids (linked Google files), deliverable_stages[{key, label}] (null = the legacy seven), created_by |
+| subfolders | project_id, name, head_ids, member_ids, visibility (private / view_only / open), company_ids (the project's companies), file_ids (linked Google files), deliverable_stages[{key, label}] (null = the legacy seven), created_by |
 | tasks | subfolder_id, project_id, title, description, assignee_id, created_by, due_date, priority, status (todo/in_progress/submitted/changes_requested/approved), progress, asset_ids, total_seconds |
-| time_logs | task_id, user_id, started_at, ended_at, seconds |
+| time_logs (the timer's time entries) | task_id, user_id, subfolder_id, started_at, ended_at (empty while running), seconds, running — one running entry per user (unique partial index) |
 | task_reviews | task_id, round, submitted_by, approver_id, note, file_ids, decision (pending/approved/changes_requested), comments, decided_at |
 | checklist_items | subfolder_id, text, done, done_by, done_at, attachments, created_by |
 | deliverable_plans | subfolder_id, month, items[{type, number, title, stage (a stage key of the subfolder), updated_by, updated_at}] |
@@ -164,6 +249,8 @@ Shared components in the current theme colours, the same for admin, employee and
 | invites | group_id, token, created_by, expires_at, used_by |
 | scheduled_messages | group_id, author_id, body_html, file_ids, send_at, status (scheduled/sent/cancelled) |
 | task_activity | task_id or subfolder_id, kind (change_request/comment/log), body_html, file_ids, author_id, assigned_to, resolved, resolved_by, reactions, parent_id, created_at |
+| monthly_reports | user_id, month (YYYY-MM), data (the finished report as the API returns it), finalized_at; unique on user + month |
+| sessions | user_id, user_agent, ip, revoked, created_at, last_seen_at |
 | (users extra fields) | title, phone, bio, focus_until, settings{theme, density, notif_prefs, sound}, sidebar_state |
 | requirements | project_id, subfolder_id (optional), title, details, attachment_ids, created_by, history[{details, attachment_ids, edited_by, edited_at}], created_at |
 
@@ -184,3 +271,8 @@ Shared components in the current theme colours, the same for admin, employee and
 12. DONE — visual polish: Hold to Delete, zigzag deliverables timeline, Focus mode pill toggle, morphing Download button (see Phase 12).
 13. DONE — Send animation (+ chat mini plane), booking confirmed popup, floating scrollbar with back-to-top and clock (see Phase 13).
 14. DONE — each deliverable is its own dropdown (collapsed by default, several can be open), and per-subfolder editable stages (rename, add, hold-to-delete, drag to reorder) from an opened deliverable (see Phase 14).
+15. DONE — task timer: play / pause on every task card, rail timer, tab title, "working now" in subfolders (live), one running timer per person, "Paused X, started Y" toast, live time on the running card (see Phase 15).
+16. REMOVED — installable app (PWA): built, then taken out completely; old service workers are unregistered on start (see Phase 16).
+17. REMOVED — desktop helper: built, then taken out completely, with its backend parts (see Phase 17). The timer stays in the web app (Phase 15).
+18. DONE — Monthly Report: live current month, frozen past months, PDF and ZIP downloads, admin list and employee view (see Phase 18).
+20. DONE (backend) — subfolder visibility: private / view only / open, who can change it, enforced on every subfolder, task, checklist, deliverable, chat and requirement response (see Phase 20). No UI yet.

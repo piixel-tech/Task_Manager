@@ -6,7 +6,7 @@ import { PillTabs } from '../../../components/ui/PillTabs';
 import { socket } from '../../../services/socket';
 import { notificationApi } from '../../../services/http/notificationApi';
 import { useNotificationStore } from '../../../store/useNotificationStore';
-import { AllCaughtUp, NotificationGroups, NotificationSkeleton } from '../notificationVisuals';
+import { AllCaughtUp, matchesTab, NOTIFICATION_TABS, NotificationGroups, NotificationSkeleton, unreadByTab, type NotificationTab } from '../notificationVisuals';
 import type { AppNotification } from '../../../types';
 
 const PAGE = 30;
@@ -15,7 +15,11 @@ const PAGE = 30;
 export const ActivityPage: React.FC = () => {
   const navigate = useNavigate();
   const unreadCount = useNotificationStore((s) => s.unreadCount);
-  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const bell = useNotificationStore((s) => s.notifications);
+  // One row of tabs: All, Unread (asked of the server), Mentions and Approvals (the bell's filters, applied to the list).
+  const [tab, setTab] = useState<NotificationTab | 'unread'>('all');
+  const filter: 'all' | 'unread' = tab === 'unread' ? 'unread' : 'all';
+  const [allTotal, setAllTotal] = useState<number | undefined>();
   const [items, setItems] = useState<AppNotification[] | null>(null);
   const [total, setTotal] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -27,6 +31,7 @@ export const ActivityPage: React.FC = () => {
       .then((p) => {
         setItems(p.items);
         setTotal(p.total);
+        if (filter === 'all') setAllTotal(p.total);
         setError(null);
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Could not load your activity'));
@@ -45,6 +50,7 @@ export const ActivityPage: React.FC = () => {
       const p = await notificationApi.page({ unreadOnly: filter === 'unread', limit: PAGE, skip: items.length });
       setItems([...items, ...p.items]);
       setTotal(p.total);
+      if (filter === 'all') setAllTotal(p.total);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load more');
     } finally {
@@ -80,11 +86,12 @@ export const ActivityPage: React.FC = () => {
       />
       <PillTabs
         size="sm"
-        activeTab={filter}
-        onChange={(id) => setFilter(id as 'all' | 'unread')}
+        activeTab={tab}
+        onChange={(id) => setTab(id as NotificationTab | 'unread')}
         tabs={[
-          { id: 'all', label: 'All' },
-          { id: 'unread', label: 'Unread', count: unreadCount || undefined }
+          { id: 'all', label: 'All', count: allTotal || undefined },
+          { id: 'unread', label: 'Unread', count: unreadCount || undefined },
+          ...NOTIFICATION_TABS.filter((t) => t.id !== 'all').map((t) => ({ id: t.id, label: t.label, count: unreadByTab(bell)[t.id] || undefined }))
         ]}
       />
 
@@ -92,7 +99,7 @@ export const ActivityPage: React.FC = () => {
 
       {items === null ? (
         error ? null : <NotificationSkeleton count={6} />
-      ) : items.length === 0 ? (
+      ) : items.filter((n) => matchesTab(n, tab === 'unread' ? 'all' : tab)).length === 0 && items.length >= total ? (
         <div className="rounded-[var(--tm-radius-lg)] border border-[var(--tm-border)] bg-[var(--tm-card)]">
           <AllCaughtUp
             title={filter === 'unread' ? 'You are all caught up' : 'Nothing here yet'}
@@ -102,7 +109,7 @@ export const ActivityPage: React.FC = () => {
       ) : (
         <>
           <div className="rounded-[var(--tm-radius-lg)] border border-[var(--tm-border)] bg-[var(--tm-card)] px-2 pt-1 shadow-soft-xs">
-            <NotificationGroups items={items} onOpen={open} />
+            <NotificationGroups items={items.filter((n) => matchesTab(n, tab === 'unread' ? 'all' : tab))} onOpen={open} />
           </div>
           {items.length < total && (
             <div className="flex justify-center">

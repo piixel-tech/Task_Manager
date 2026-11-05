@@ -35,9 +35,9 @@ async def test_removed_theme_falls_back_to_purple(client, team):
 
 async def test_settings_default_and_can_be_saved(client, team):
     s = (await me(client, team.mia))["settings"]
-    assert s == {"theme": "system", "palette": "purple", "density": "comfortable", "sound": True, "notif_prefs": {"tasks": True, "reviews": True, "chat": True, "mentions": True, "office": True, "bookings": True}}
+    assert s == {"theme": "system", "palette": "purple", "density": "comfortable", "sound": True, "alert_sound": "chime", "alert_sound_important": "bell", "alert_volume": 70, "alert_muted": False, "desktop_popups": False, "notif_prefs": {"tasks": True, "reviews": True, "chat": True, "mentions": True, "office": True, "bookings": True}}
 
-    body = {"theme": "dark", "palette": "blue", "density": "compact", "sound": False, "notif_prefs": {**s["notif_prefs"], "office": False}}
+    body = {"theme": "dark", "palette": "blue", "density": "compact", "sound": False, "alert_sound": "bell", "alert_sound_important": "ding", "alert_volume": 40, "alert_muted": True, "desktop_popups": True, "notif_prefs": {**s["notif_prefs"], "office": False}}
     r = await client.put("/me/settings", json=body, headers=team.mia.headers)
     assert r.status_code == 200, r.text
     assert (await me(client, team.mia))["settings"] == body

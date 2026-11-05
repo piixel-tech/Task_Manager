@@ -5,6 +5,7 @@ import { useToastStore, type ToastTone } from '../../store/useToastStore';
 import { router } from '../../app/router';
 import { useMotionPrefs } from './useMotionPrefs';
 import { toastVariants } from './motion';
+import { NotificationIcon } from '../../features/notifications/notificationVisuals';
 
 const TONES: Record<ToastTone, { icon: React.ReactNode; color: string }> = {
   info: { icon: <Bell className="h-4 w-4" />, color: 'var(--tm-primary)' },
@@ -39,7 +40,7 @@ export const ToastHost: React.FC = () => {
               className="glass-strong pointer-events-auto flex items-start gap-3 rounded-[var(--tm-radius-lg)] p-4"
             >
               <span className="mt-0.5 shrink-0" style={{ color: tone.color }}>
-                {tone.icon}
+                {t.notification ? <NotificationIcon n={t.notification} /> : tone.icon}
               </span>
               <button
                 type="button"

@@ -43,6 +43,15 @@ export function formatCompanyBadge(company: 'piixel' | 'unwork' | 'both'): { tex
   };
 }
 
+/** A running clock: 2538 -> "42:18", 3738 -> "1:02:18". */
+export function formatClock(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+  const ss = String(s % 60).padStart(2, '0');
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
 /** 3725 -> "1h 02m", 95 -> "1m 35s", 40 -> "40s". */
 export function formatDuration(totalSeconds: number): string {
   const s = Math.max(0, Math.floor(totalSeconds));

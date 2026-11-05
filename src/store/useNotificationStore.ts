@@ -12,6 +12,8 @@ interface NotificationState {
   /** A notification pushed over the WebSocket. */
   addLive: (notification: AppNotification) => void;
   markAsRead: (id: string) => Promise<void>;
+  /** "Remind me in 1h". */
+  snooze: (id: string, minutes?: number) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   clear: () => void;
 }
@@ -53,6 +55,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       unreadCount: Math.max(0, state.unreadCount - 1)
     }));
     await notificationApi.markRead([id]).catch(() => get().fetchNotifications());
+  },
+
+  snooze: async (id, minutes = 60) => {
+    await get().markAsRead(id); // it leaves the unread count now and returns as new later
+    await notificationApi.snooze(id, minutes).catch(() => undefined);
   },
 
   markAllAsRead: async () => {

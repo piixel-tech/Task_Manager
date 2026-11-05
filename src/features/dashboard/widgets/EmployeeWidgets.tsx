@@ -18,21 +18,28 @@ import { useChatStore } from '../../../store/useChatStore';
 import { useNotificationStore } from '../../../store/useNotificationStore';
 import { getTodayDateString } from '../../../utils/time';
 import { dailyCounts, upcomingCounts } from '../../../utils/trend';
+import { TaskLiveTime, TaskTimerButton, useReloadOnTimerChange } from '../../tasks/components/TaskTimer';
 import { DashboardCard, RowLink, WidgetEmpty, WidgetSkeleton, timeOf } from './DashboardCard';
 
 const OPEN = ['todo', 'in_progress', 'changes_requested'];
 
 const TaskRow: React.FC<{ t: ApiTask; tag?: string }> = ({ t, tag }) => (
-  <li>
-    <RowLink to={`/app/tasks/${t.id}`}>
-      <span className="min-w-0">
-        <span className="line-clamp-1 block text-[13.5px] font-semibold text-[var(--tm-ink)]">{t.title}</span>
-        <span className="block text-[11.5px] text-[var(--tm-ink-muted)]">
-          {t.project_name} · {t.subfolder_name}
+  <li className={`flex items-center gap-1 rounded-[var(--tm-radius-sm)] pr-2 ${t.timer_running ? 'bg-[var(--tm-success-bg)] shadow-[inset_3px_0_0_var(--tm-success)]' : ''}`}>
+    <div className="min-w-0 flex-1">
+      <RowLink to={`/app/tasks/${t.id}`}>
+        <span className="min-w-0">
+          <span className="line-clamp-1 block text-[13.5px] font-semibold text-[var(--tm-ink)]">{t.title}</span>
+          <span className="block text-[11.5px] text-[var(--tm-ink-muted)]">
+            {t.project_name} · {t.subfolder_name}
+          </span>
         </span>
-      </span>
-      {tag && <span className="shrink-0 text-[11.5px] font-bold text-[var(--tm-ink-soft)]">{tag}</span>}
-    </RowLink>
+        <span className="flex shrink-0 items-center gap-2">
+          <TaskLiveTime task={t} />
+          {tag && <span className="text-[11.5px] font-bold text-[var(--tm-ink-soft)]">{tag}</span>}
+        </span>
+      </RowLink>
+    </div>
+    {t.can_work && <TaskTimerButton task={t} size="sm" />}
   </li>
 );
 
@@ -58,6 +65,11 @@ export const EmployeeWidgets: React.FC = () => {
     load();
     return socket.on('notification', load);
   }, [load]);
+  useReloadOnTimerChange(
+    useCallback(() => {
+      taskApi.list({ mine: true }).then(setTasks).catch(() => undefined);
+    }, [])
+  );
 
   const today = getTodayDateString();
   const open = (tasks ?? []).filter((t) => OPEN.includes(t.status));

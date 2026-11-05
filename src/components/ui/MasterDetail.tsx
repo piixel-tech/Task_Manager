@@ -99,16 +99,21 @@ export const MasterRow: React.FC<{
   variant?: 'default' | 'dark';
   /** Deadline tint (see utils/deadlineHeat). Not shown on the selected row, which has its own fill. */
   heat?: Heat | null;
-}> = ({ selected, onSelect, avatar, title, subtitle, chip, variant = 'default', heat = null }) => {
+  /** A control that sits beside the row (e.g. a timer button). It is outside the row's own button, so clicking it never selects the row. */
+  action?: React.ReactNode;
+  /** Something is happening on this row (a running timer): a green edge on the left. */
+  active?: boolean;
+}> = ({ selected, onSelect, avatar, title, subtitle, chip, variant = 'default', heat = null, action, active = false }) => {
   const h = selected ? {} : heatAttrs(heat);
   return (
+  <div className="relative">
   <button
     type="button"
     onClick={onSelect}
     aria-current={selected}
     data-heat={h['data-heat']}
     style={h.style}
-    className={`${h.className ?? ''} flex w-full items-center gap-3 px-3 py-3 text-left transition-colors ${
+    className={`${h.className ?? ''} ${action ? 'pr-14' : ''} ${active ? 'shadow-[inset_3px_0_0_var(--tm-success)]' : ''} flex w-full items-center gap-3 px-3 py-3 text-left transition-colors ${
       variant === 'dark' ? 'rounded-2xl' : 'rounded-[var(--tm-radius-md)]'
     } ${
       variant === 'dark'
@@ -131,6 +136,8 @@ export const MasterRow: React.FC<{
     </span>
     {chip && <span className="shrink-0">{chip}</span>}
   </button>
+  {action && <span className="absolute right-3 top-1/2 -translate-y-1/2">{action}</span>}
+  </div>
   );
 };
 

@@ -22,6 +22,7 @@ class NotificationOut(BaseModel):
     actor_id: PydanticObjectId | None
     actor: Actor | None = None
     read: bool
+    priority: str = "normal"
     created_at: datetime
 
 
@@ -41,6 +42,10 @@ class MarkRead(BaseModel):
 
     ids: list[PydanticObjectId] | None = None
     all: bool = False
+
+
+class Snooze(BaseModel):
+    minutes: int = Field(default=60, ge=1, le=7 * 24 * 60)
 
 
 class MarkReadResult(BaseModel):

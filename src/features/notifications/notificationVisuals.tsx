@@ -61,6 +61,9 @@ export const typeVisual = (type: string, title = ''): TypeVisual => {
   const rejected = /^rejected/i.test(lead);
 
   // From the system
+  if (t === 'daily_digest') return { icon: ClipboardList, tone: 'primary', system: true };
+  if (t === 'timer_running_late') return { icon: Clock, tone: 'warning', system: true };
+  if (t === 'booking_starting') return { icon: Calendar, tone: 'warning', system: true };
   if (t === 'task_overdue' || t === 'overdue') return { icon: AlertTriangle, tone: 'danger', system: true };
   if (['task_due', 'task_reminder', 'task_reminders', 'approval_reminder', 'daily_status'].includes(t)) return { icon: Clock, tone: 'warning', system: true };
   if (t.startsWith('festival')) return { icon: PartyPopper, tone: 'primary', system: true };
@@ -120,6 +123,22 @@ export const NotificationIcon: React.FC<{ n: Pick<AppNotification, 'type' | 'tit
   );
 };
 
+/** The tabs of the bell and the Activity page: one definition, so both filter the same way. */
+export type NotificationTab = 'all' | 'mentions' | 'approvals';
+export const NOTIFICATION_TABS: { id: NotificationTab; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'mentions', label: 'Mentions' },
+  { id: 'approvals', label: 'Approvals' }
+];
+export const matchesTab = (n: Pick<AppNotification, 'type'>, tab: NotificationTab): boolean =>
+  tab === 'mentions' ? n.type === 'mention' : tab === 'approvals' ? /^(approval|client_approval|review_)/.test(n.type) : true;
+/** Unread per tab, from the notifications the bell already holds. */
+export const unreadByTab = (items: Pick<AppNotification, 'type' | 'read'>[]): Record<NotificationTab, number> => ({
+  all: items.filter((n) => !n.read).length,
+  mentions: items.filter((n) => !n.read && matchesTab(n, 'mentions')).length,
+  approvals: items.filter((n) => !n.read && matchesTab(n, 'approvals')).length
+});
+
 export interface DayGroup {
   /** Today, Yesterday, a weekday (this week) or a date such as "25 Oct". */
   label: string;
@@ -166,9 +185,11 @@ interface CardProps {
   n: AppNotification;
   index: number;
   onClick: () => void;
+  /** "Remind me in 1h": shown on hover when given. */
+  onSnooze?: () => void;
 }
 
-export const NotificationCard: React.FC<CardProps> = ({ n, index, onClick }) => {
+export const NotificationCard: React.FC<CardProps> = ({ n, index, onClick, onSnooze }) => {
   const { reduced } = useMotionPrefs();
   return (
     <motion.li
@@ -176,8 +197,21 @@ export const NotificationCard: React.FC<CardProps> = ({ n, index, onClick }) => 
       initial={reduced ? false : { opacity: 0, y: 12, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1, transition: { ...spring, delay: reduced ? 0 : Math.min(index, 8) * 0.04 } }}
       exit={reduced ? undefined : { opacity: 0, x: 28, scale: 0.97, transition: { duration: 0.2 } }}
-      className="list-none"
+      className="group/card relative list-none"
     >
+      {onSnooze && (
+        <button
+          type="button"
+          onClick={onSnooze}
+          title="Remind me in 1 hour"
+          aria-label="Remind me in 1 hour"
+          className="absolute bottom-2 right-2 z-10 flex items-center gap-1 rounded-full bg-[var(--tm-card)] px-2 py-0.5 text-[10.5px] font-bold text-[var(--tm-primary-dark)]
+            opacity-0 shadow-soft-sm transition-opacity hover:bg-[var(--tm-primary-soft)] focus-visible:opacity-100 group-hover/card:opacity-100"
+        >
+          <Clock className="h-3 w-3" />
+          Remind me in 1h
+        </button>
+      )}
       <motion.button
         type="button"
         onClick={onClick}
@@ -224,7 +258,8 @@ export const NotificationCard: React.FC<CardProps> = ({ n, index, onClick }) => 
 export const NotificationGroups: React.FC<{
   items: AppNotification[];
   onOpen: (n: AppNotification) => void;
-}> = ({ items, onOpen }) => {
+  onSnooze?: (n: AppNotification) => void;
+}> = ({ items, onOpen, onSnooze }) => {
   let index = 0;
   return (
     <>
@@ -234,7 +269,7 @@ export const NotificationGroups: React.FC<{
           <ul className="space-y-1.5 pb-2">
             <AnimatePresence mode="popLayout" initial>
               {g.items.map((n) => (
-                <NotificationCard key={n.id} n={n} index={index++} onClick={() => onOpen(n)} />
+                <NotificationCard key={n.id} n={n} index={index++} onClick={() => onOpen(n)} onSnooze={onSnooze ? () => onSnooze(n) : undefined} />
               ))}
             </AnimatePresence>
           </ul>

@@ -6,6 +6,8 @@ import { useMotionPrefs } from '../ui/useMotionPrefs';
 import { spring } from '../ui/motion';
 import { CountBadge } from '../ui/CountBadge';
 import { WithNavItems, type NavItem, type NavModel } from './navItems';
+import { RailTimer } from '../../features/tasks/components/RailTimer';
+import { useAuthStore } from '../../store/authStore';
 
 /** Every item is the same size: icon over a one-line label. On short screens the rail goes "dense": slightly lower items, tighter gaps. */
 const itemClass = (dense: boolean) =>
@@ -49,7 +51,11 @@ interface Entry {
 }
 
 /** What fits in `avail` px: everything at normal spacing if it can, else the dense rail with items moved into More one by one. */
-export function fitRail(ordered: Entry[], avail: number): { dense: boolean; hidden: string[] } {
+/** Height the timer at the bottom of the rail takes (divider, gaps and the 44px button). */
+export const TIMER_SLOT = 64;
+
+export function fitRail(ordered: Entry[], avail: number, reserve = 0): { dense: boolean; hidden: string[] } {
+  avail -= reserve;
   const labels = ordered.map((o) => o.item.label);
   const cutOrder = [
     ...MOVE_FIRST.filter((l) => labels.includes(l)),
@@ -76,6 +82,7 @@ const SideNavBody: React.FC<NavModel> = ({ main, more }) => {
   const [fit, setFit] = useState<{ dense: boolean; hidden: string }>({ dense: false, hidden: '' });
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ left: 0, bottom: 0 });
+  const showTimer = useAuthStore((s) => s.user?.role) !== 'client';
   const all = [...main, ...more];
 
   const top = all.filter((i) => MAIN.includes(i.label)).sort((a, b) => rank(MAIN, a) - rank(MAIN, b));
@@ -100,7 +107,7 @@ const SideNavBody: React.FC<NavModel> = ({ main, more }) => {
     const el = navRef.current;
     if (!el) return;
     const measure = () => {
-      const r = fitRail(ordered, el.clientHeight);
+      const r = fitRail(ordered, el.clientHeight, showTimer ? TIMER_SLOT : 0);
       const hidden = r.hidden.join('|');
       setFit((cur) => (cur.dense === r.dense && cur.hidden === hidden ? cur : { dense: r.dense, hidden }));
     };
@@ -113,7 +120,7 @@ const SideNavBody: React.FC<NavModel> = ({ main, more }) => {
       window.removeEventListener('resize', measure);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, showTimer]);
 
   const dense = fit.dense;
   const hiddenLabels = fit.hidden ? fit.hidden.split('|') : [];
@@ -224,6 +231,12 @@ const SideNavBody: React.FC<NavModel> = ({ main, more }) => {
               </span>
               <span className="text-[10px] font-bold leading-none">More</span>
             </button>
+          </div>
+        )}
+        {showTimer && (
+          <div className="flex shrink-0 flex-col items-center">
+            <Divider dense={dense} />
+            <RailTimer />
           </div>
         )}
       </nav>

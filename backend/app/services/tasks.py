@@ -4,9 +4,10 @@ from typing import Iterable
 
 from beanie import PydanticObjectId
 from fastapi import HTTPException, status
+from pymongo.errors import DuplicateKeyError
 
 from app.core.config import settings
-from app.core.permissions import can
+from app.core.permissions import can, require
 from app.core.timeutil import as_utc
 from app.models import File, Project, Subfolder, Task, TaskReview, TimeLog, User
 from app.models import ChatGroup, ChatMessage
@@ -18,6 +19,7 @@ from app.services.activity import delete_activity, unresolved_counts
 from app.services.chat import publish_message
 from app.services.notify import notify
 from app.services.projects import brief, load_users, unique
+from app.services.timer import publish_change
 from app.services.storage import get_storage
 
 
@@ -40,7 +42,8 @@ async def notify_task(
         if not person.is_active:
             continue
         await notify(
-            [person.id], type=type, title=title, body=body, link=link_for(person, task.id, page), actor_id=actor.id if actor else None
+            [person.id], type=type, title=title, body=body, link=link_for(person, task.id, page), actor_id=actor.id if actor else None,
+            mute_key=f"subfolder:{task.subfolder_id}" if getattr(task, "subfolder_id", None) else None,
         )
 
 
@@ -85,7 +88,7 @@ async def copy_file(f: File, owner: User) -> File:
 
 
 # --- Timer ----------------------------------------------------------------------------------
-async def stop_log(log: TimeLog, at: datetime | None = None) -> bool:
+async def stop_log(log: TimeLog, at: datetime | None = None, *, publish: bool = True) -> bool:
     """Close a running session and add it to the task total. False if someone else already did."""
     at = at or now_utc()
     seconds = max(0, int((at - as_utc(log.started_at)).total_seconds()))
@@ -95,10 +98,14 @@ async def stop_log(log: TimeLog, at: datetime | None = None) -> bool:
     if not result or result.modified_count != 1:
         return False
     await Task.find(Task.id == log.task_id).update({"$inc": {"total_seconds": seconds}})
+    if publish:
+        await publish_change(log.user_id, stopped=[log])
     return True
 
 
-async def stop_timers(*, task_id: PydanticObjectId | None = None, user_id: PydanticObjectId | None = None) -> list[TimeLog]:
+async def stop_timers(
+    *, task_id: PydanticObjectId | None = None, user_id: PydanticObjectId | None = None, publish: bool = True
+) -> list[TimeLog]:
     """Stop every running session matching the filter. Returns the sessions that were stopped."""
     filters = [TimeLog.running == True]  # noqa: E712
     if task_id:
@@ -107,8 +114,42 @@ async def stop_timers(*, task_id: PydanticObjectId | None = None, user_id: Pydan
         filters.append(TimeLog.user_id == user_id)
     stopped = []
     for log in await TimeLog.find(*filters).to_list():
-        if await stop_log(log):
+        if await stop_log(log, publish=publish):
             stopped.append(log)
+    return stopped
+
+
+async def workable_task(task_id: PydanticObjectId, user: User) -> Task:
+    """The task if `user` may work on it (they are the assignee) and it is still open; 403 / 404 / 409 otherwise."""
+    task = await get_task_or_404(task_id)
+    sub = await Subfolder.get(task.subfolder_id)
+    require(user, "task.work", sub, target_id=task.assignee_id)
+    if task.status not in OPEN_STATUSES:
+        raise HTTPException(status.HTTP_409_CONFLICT, f"This task is {task.status.replace('_', ' ')}")
+    return task
+
+
+async def begin_timer(task: Task, user: User) -> list[TimeLog]:
+    """
+    Close whatever `user` has running and open a session on `task`. Returns the sessions that were closed.
+
+    One running session per person is enforced by the database (unique partial index on user_id), so two requests at the same
+    moment (two tabs, a double click) cannot both win: the loser's insert is refused, it closes the winner's session and tries
+    once more. The start time is the server clock, never the browser's.
+    """
+    stopped: list[TimeLog] = []
+    for attempt in range(2):
+        stopped += await stop_timers(user_id=user.id, publish=False)
+        try:
+            started = await TimeLog(task_id=task.id, user_id=user.id, subfolder_id=task.subfolder_id, started_at=now_utc()).insert()
+            break
+        except DuplicateKeyError:
+            if attempt:
+                raise HTTPException(status.HTTP_409_CONFLICT, "A timer is already running")
+    if task.status == "todo":
+        task.status = "in_progress"
+        await task.save()
+    await publish_change(user.id, started=started, stopped=stopped)  # one message for the whole switch
     return stopped
 
 

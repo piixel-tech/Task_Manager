@@ -71,7 +71,7 @@ export const ActivityPanel: React.FC<{ task: ApiTask }> = ({ task }) => {
         {tab === 'changes' && (
           <>
             <p className="text-[12px] text-[var(--tm-ink-muted)]">Something needs to change while the work is under way? Post it here. The assignee or a head ticks it off when it is done.</p>
-            <EntryComposer kind="change_request" people={people} placeholder="Describe the change" onPost={post} />
+            {list?.can_post !== false && <EntryComposer kind="change_request" people={people} placeholder="Describe the change" onPost={post} />}
             {!list ? (
               error ? null : <div className="space-y-2" role="status" aria-label="Loading"><Skeleton className="h-14 w-full" rounded="lg" /><Skeleton className="h-14 w-full" rounded="lg" /></div>
             ) : changes.length === 0 ? (
@@ -84,7 +84,7 @@ export const ActivityPanel: React.FC<{ task: ApiTask }> = ({ task }) => {
 
         {tab === 'comments' && (
           <>
-            <EntryComposer kind="comment" people={everyone} placeholder="Write a comment. Type @ to mention someone" onPost={post} />
+            {list?.can_post !== false && <EntryComposer kind="comment" people={everyone} placeholder="Write a comment. Type @ to mention someone" onPost={post} />}
             {!list ? null : comments.length === 0 ? (
               <p className="py-3 text-center text-[13px] text-[var(--tm-ink-muted)]">No comments yet.</p>
             ) : (

@@ -21,8 +21,9 @@ from app.services.tasks import check_assets
 router = APIRouter(tags=["requirements"])
 
 
-def _check_tag(subfolder_id: PydanticObjectId | None, siblings: list[Subfolder]) -> None:
-    if subfolder_id is not None and subfolder_id not in {s.id for s in siblings}:
+def _check_tag(subfolder_id: PydanticObjectId | None, siblings: list[Subfolder], user: User) -> None:
+    allowed = {s.id for s in siblings if user.role == "client" or can(user, "subfolder.view", s)}  # only a subfolder they can open
+    if subfolder_id is not None and subfolder_id not in allowed:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "That subfolder is not part of this project")
 
 
@@ -53,6 +54,7 @@ async def list_requirements(
     project, siblings = await _project_ctx(project_id, user, "requirement.view")
     query: dict = {"project_id": project.id}
     if subfolder_id:
+        _check_tag(subfolder_id, siblings, user)
         query["subfolder_id"] = subfolder_id
     if q and q.strip():
         rx = {"$regex": re.escape(q.strip()), "$options": "i"}
@@ -70,7 +72,7 @@ async def list_requirements(
 async def add_requirement(project_id: PydanticObjectId, body: RequirementCreate, user: User = Depends(get_current_user)) -> RequirementDetail:
     """The client, an admin, or a head of any subfolder in the project adds to the record."""
     project, siblings = await _project_ctx(project_id, user, "requirement.add")
-    _check_tag(body.subfolder_id, siblings)
+    _check_tag(body.subfolder_id, siblings, user)
     await check_assets(body.attachment_ids, user)
     req = await Requirement(
         project_id=project.id,
@@ -107,7 +109,8 @@ async def edit_requirement(requirement_id: PydanticObjectId, body: RequirementUp
     tag = body.subfolder_id if "subfolder_id" in sent else req.subfolder_id
     if not details and not attachments:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Write some details or attach a file or link")
-    _check_tag(tag, siblings)
+    if tag != req.subfolder_id:  # an unchanged tag stays even if that subfolder is hidden from this person now
+        _check_tag(tag, siblings, user)
     new_files = [a for a in attachments if a not in req.attachment_ids]
     await check_assets(new_files, user)
 

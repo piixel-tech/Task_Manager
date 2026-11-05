@@ -20,6 +20,7 @@ export const NewPostModal: React.FC<Props> = ({ isOpen, onClose, onPosted }) => 
   const input = useRef<HTMLInputElement>(null);
   const [text, setText] = useState('');
   const [photo, setPhoto] = useState<{ asset: Asset; preview: string } | null>(null);
+  const [important, setImportant] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,10 +70,10 @@ export const NewPostModal: React.FC<Props> = ({ isOpen, onClose, onPosted }) => 
     let created: OfficePost | null = null;
     const ok = await confirm({
       title: 'Post to the office board?',
-      message: 'Everyone on the team is notified straight away.',
+      message: important ? 'Everyone on the team is notified straight away.' : 'It goes on the board. Nobody is notified.',
       confirmLabel: 'Post',
       action: async () => {
-        created = await officeApi.create(body, photo?.asset.id ?? null);
+        created = await officeApi.create(body, photo?.asset.id ?? null, important);
       },
       successTitle: 'Posted to the office board'
     });
@@ -128,6 +129,11 @@ export const NewPostModal: React.FC<Props> = ({ isOpen, onClose, onPosted }) => 
             </Button>
           )}
         </div>
+
+        <label className="flex items-center gap-2 text-[13px] font-semibold text-[var(--tm-ink-soft)]">
+          <input type="checkbox" checked={important} onChange={(e) => setImportant(e.target.checked)} className="h-4 w-4 accent-[var(--tm-primary)]" />
+          Important: notify the whole team
+        </label>
 
         <div className="flex justify-end gap-3 border-t border-[var(--tm-border)] pt-5">
           <Button variant="outline" type="button" onClick={close}>

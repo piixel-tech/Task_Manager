@@ -6,6 +6,7 @@ import {
   CheckSquare,
   ClipboardCheck,
   ClipboardList,
+  FileText,
   Home,
   Activity,
   Layers,
@@ -75,6 +76,7 @@ const TeamSource: React.FC<{ children: Render }> = ({ children }) => {
     { label: 'Activity', icon: Activity, path: `${prefix}/activity`, count: unreadNotifications },
     { label: 'Calendar', icon: Calendar, path: `${prefix}/calendar` },
     { label: 'Reviews', icon: ClipboardCheck, path: `${prefix}/reviews`, count: counts.pendingSubmissions },
+    { label: 'Monthly Report', icon: FileText, path: `${prefix}/reports` },
     ...(isAdmin
       ? [
           { label: 'Team Members', icon: Users, path: `${prefix}/users` },

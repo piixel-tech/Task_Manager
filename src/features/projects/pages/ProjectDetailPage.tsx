@@ -19,6 +19,7 @@ import { RequirementsPanel } from '../../requirements/components/RequirementsPan
 import { PersonChip } from '../components/PersonChip';
 import { ProjectFormModal } from '../components/ProjectFormModal';
 import { SubfolderFormModal } from '../components/SubfolderFormModal';
+import { ViewOnlyBadge, VisibilityIcon } from '../components/VisibilityIcon';
 
 export const ProjectDetailPage: React.FC = () => {
   const { id = '' } = useParams<{ id: string }>();
@@ -144,7 +145,7 @@ export const ProjectDetailPage: React.FC = () => {
       {editableCount === 0 && user?.role !== 'admin' && (
         <div className="flex items-center gap-2.5 rounded-[var(--tm-radius-md)] bg-[var(--tm-info-bg)] px-4 py-3 text-[13px] text-[var(--tm-info)]">
           <Eye className="h-4 w-4 shrink-0" />
-          You can view every subfolder in this project. Only the heads of a subfolder can edit it.
+          You can open the subfolders shown here. Only the heads of a subfolder can edit it.
         </div>
       )}
 
@@ -160,7 +161,9 @@ export const ProjectDetailPage: React.FC = () => {
               badge={
                 <span className="flex items-center gap-1.5">
                   {s.viewer_is_head && <HeadBadge />}
-                  {!s.can_edit && (
+                  <VisibilityIcon visibility={s.visibility} className="h-3.5 w-3.5 text-[var(--tm-ink-soft)]" />
+                  {!s.can_work && <ViewOnlyBadge />}
+                  {s.can_work && !s.can_edit && (
                     <Badge variant="default" size="sm" className="inline-flex items-center gap-1">
                       <Eye className="h-3 w-3" /> Read-only
                     </Badge>

@@ -1,5 +1,6 @@
 """The signed-in person's own account: profile, settings and password."""
 import re
+from datetime import datetime, timedelta, timezone
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -10,6 +11,7 @@ from app.core.deps import bearer, get_current_user, user_for_token
 from app.core.security import hash_password, verify_password
 from app.models import File, Session, User
 from app.schemas.user import UserOut
+from app.services.notify import is_muted
 from app.services.prefs import UserSettings
 from app.services.themes import CUSTOM_PALETTE
 
@@ -66,6 +68,33 @@ async def _check_avatar(value: str | None, user: User) -> str | None:
     if f.size > MAX_PHOTO_BYTES:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Pick a photo under 2 MB")
     return value
+
+
+class MuteBody(BaseModel):
+    key: str = Field(pattern=r"^(chat|subfolder):[0-9a-f]{24}$")
+    duration: str = Field(pattern=r"^(8h|1w|always|off)$")
+
+
+@router.get("/mutes")
+async def my_mutes(user: User = Depends(get_current_user)) -> dict[str, str]:
+    """Chats and subfolders this person muted (expired ones left out)."""
+    now = datetime.now(timezone.utc)
+    return {k: v for k, v in (user.mutes or {}).items() if is_muted(user, k, now)}
+
+
+@router.put("/mutes")
+async def set_mute(body: MuteBody, user: User = Depends(get_current_user)) -> dict[str, str]:
+    """Mute a chat or subfolder for 8 hours, a week or always (or "off"). Mentions and approvals still come through."""
+    mutes = {k: v for k, v in (user.mutes or {}).items() if is_muted(user, k)}
+    if body.duration == "off":
+        mutes.pop(body.key, None)
+    elif body.duration == "always":
+        mutes[body.key] = "always"
+    else:
+        mutes[body.key] = (datetime.now(timezone.utc) + timedelta(hours=8 if body.duration == "8h" else 24 * 7)).isoformat()
+    user.mutes = mutes
+    await user.save()
+    return mutes
 
 
 @router.put("/settings", response_model=UserSettings)
