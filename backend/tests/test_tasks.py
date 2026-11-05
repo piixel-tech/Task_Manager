@@ -179,9 +179,9 @@ async def test_list_visibility_and_filters(client, team):
 
     names = lambda r: sorted(t["title"] for t in r.json())  # noqa: E731
     assert names(await client.get("/tasks", headers=team.admin.headers)) == ["A", "B", "V"]
-    assert names(await client.get("/tasks", headers=team.mia.headers)) == ["A", "B", "V"]  # project member sees the whole project
+    assert names(await client.get("/tasks", headers=team.mia.headers)) == ["A", "B"]  # only the subfolders she is in: Video is private
     assert names(await client.get("/tasks?mine=true", headers=team.mia.headers)) == ["A"]
-    assert names(await client.get(f"/tasks?subfolder_id={team.video.id}", headers=team.mia.headers)) == ["V"]
+    assert names(await client.get(f"/tasks?subfolder_id={team.video.id}", headers=team.mia.headers)) == []  # asking for a hidden subfolder returns nothing
     assert names(await client.get("/tasks?status=in_progress", headers=team.mia.headers)) == ["A"]
     assert names(await client.get(f"/tasks?assignee_id={team.max.id}", headers=team.admin.headers)) == ["B"]
     assert await client.get("/tasks", headers=team.ollie.headers) is not None

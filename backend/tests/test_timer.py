@@ -127,7 +127,7 @@ async def test_working_now_lists_who_has_a_running_timer_in_the_subfolder(client
     for viewer in (team.hana, team.max, team.admin, team.mia):  # head, member, admin, the worker
         rows = (await working(client, viewer, team.design)).json()
         assert len(rows) == 1 and rows[0]["task_id"] == t["id"] and rows[0]["user"]["id"] == team.mia.id, viewer
-    assert (await working(client, team.hana, team.video)).json() == []  # another subfolder
+    assert (await working(client, team.hana, team.video)).status_code == 403  # another subfolder: Video is private to its own people
 
     await client.post("/timer/pause", headers=team.mia.headers)
     assert (await working(client, team.hana, team.design)).json() == []
@@ -155,8 +155,8 @@ async def test_timer_changes_are_pushed_live(client, team, monkeypatch):
     seen = [s for s in sent if s[1] == "presence"]
     assert len(seen) == 1 and seen[0][2]["running"] is True and seen[0][2]["task_id"] == a["id"]
     audience = seen[0][0]
-    assert {team.hana.user.id, team.max.user.id, team.mia.user.id, team.admin.user.id, team.vic.user.id} <= audience
-    assert team.cleo.user.id not in audience and team.ollie.user.id not in audience
+    assert {team.hana.user.id, team.max.user.id, team.mia.user.id, team.admin.user.id} <= audience
+    assert team.vic.user.id not in audience and team.cleo.user.id not in audience and team.ollie.user.id not in audience  # Design is private
 
     sent.clear()
     await start(client, team.mia, b)  # a switch is one "timer" message and two presence messages

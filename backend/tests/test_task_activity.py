@@ -227,21 +227,21 @@ async def test_subfolder_mid_way_changes(client, team):
     assert len(await notes("change_request", team.hana)) == 1  # the head
     assert (await notes("change_request", team.hana))[0].link == f"/app/projects/{team.project.id}/subfolders/{team.design.id}?entry={e['id']}"
 
-    # other people on the project (Vic, head of Video) can see and post; people outside it can't
-    assert (await client.post(changes(team.design), json={"kind": "change_request", "body": "<p>ok</p>"}, headers=team.vic.headers)).status_code == 201
+    # Design is private: Vic (head of Video, same project) cannot post or read here, and nor can anyone outside it
+    assert (await client.post(changes(team.design), json={"kind": "change_request", "body": "<p>ok</p>"}, headers=team.vic.headers)).status_code == 403
     assert (await client.get(changes(team.design), headers=team.ollie.headers)).status_code == 403
     assert (await client.post(changes(team.design), json={"kind": "change_request", "body": "<p>x</p>"}, headers=team.cleo.headers)).status_code == 403
     assert (await client.post(changes(team.design), json={"kind": "comment", "body": "<p>x</p>"}, headers=team.max.headers)).status_code == 422
 
     listed = (await client.get(changes(team.design), headers=team.mia.headers)).json()
-    assert listed["unresolved"] == 2 and len(listed["items"]) == 2
+    assert listed["unresolved"] == 1 and len(listed["items"]) == 1 and listed["can_post"] is True
 
     assert (await client.put(f"/activity/{e['id']}/resolved", json={"resolved": True}, headers=team.mia.headers)).status_code == 403  # a plain member
     assert (await client.put(f"/activity/{e['id']}/resolved", json={"resolved": True}, headers=team.hana.headers)).status_code == 200  # the head
-    assert (await client.get(changes(team.design), headers=team.mia.headers)).json()["unresolved"] == 1
+    assert (await client.get(changes(team.design), headers=team.mia.headers)).json()["unresolved"] == 0
     open_only = (await client.get(changes(team.design), params={"open_only": True}, headers=team.mia.headers)).json()
-    assert len(open_only["items"]) == 1
-    assert (await client.get(changes(team.video), headers=team.mia.headers)).json()["items"] == []  # per subfolder
+    assert len(open_only["items"]) == 0
+    assert (await client.get(changes(team.video), headers=team.mia.headers)).status_code == 403  # per subfolder, and Video is private
 
 
 async def test_subfolder_changes_stay_apart_from_task_ones(client, team):

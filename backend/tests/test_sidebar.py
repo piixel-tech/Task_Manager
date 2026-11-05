@@ -36,9 +36,10 @@ async def test_a_head_manages_their_subfolder_but_not_the_project(client, team):
     acme = project(await tree(client, team.hana))
     assert acme["can_rename"] is False and acme["can_delete"] is False  # admin only
     assert acme["can_add_subfolder"] is True and acme["can_add_requirement"] is True  # heads of any subfolder in the project
-    design, video = sub(acme, "Design"), sub(acme, "Video")
+    design = sub(acme, "Design")
     assert design["is_head"] and all(design[k] for k in ("can_add_task", "can_add_checklist", "can_edit_deliverables", "can_chat", "can_rename", "can_delete"))
-    assert video["is_head"] is False and not any(video[k] for k in ("can_add_task", "can_add_checklist", "can_edit_deliverables", "can_chat", "can_rename", "can_delete"))
+    assert design["visibility"] == "private" and design["can_work"] is True
+    assert [s["name"] for s in acme["subfolders"]] == ["Design"]  # Video is private to its own people: not in the tree
 
 
 async def test_a_plain_member_gets_only_the_member_actions(client, team):
@@ -49,8 +50,7 @@ async def test_a_plain_member_gets_only_the_member_actions(client, team):
     design = sub(acme, "Design")
     assert design["can_add_task"] and design["can_add_checklist"] and design["can_chat"]
     assert not any(design[k] for k in ("can_edit_deliverables", "can_rename", "can_delete"))
-    video = sub(acme, "Video")  # on the project but not in this subfolder
-    assert not any(video[k] for k in ("can_add_task", "can_add_checklist", "can_chat", "can_edit_deliverables", "can_rename", "can_delete"))
+    assert [s["name"] for s in acme["subfolders"]] == ["Design"]  # Video is on the project but private: never listed to someone not in it
 
 
 async def test_people_only_see_projects_they_belong_to_and_clients_get_none(client, team):
@@ -67,7 +67,7 @@ async def test_badges_count_my_open_tasks_per_subfolder_and_project(client, team
     await make_task(client, team, assignee=team.max)  # someone else's
     t = await tree(client, team.mia)
     acme = project(t)
-    assert acme["open_tasks"] == 1 and sub(acme, "Design")["open_tasks"] == 1 and sub(acme, "Video")["open_tasks"] == 0
+    assert acme["open_tasks"] == 1 and sub(acme, "Design")["open_tasks"] == 1 and [s["name"] for s in acme["subfolders"]] == ["Design"]
     assert project(await tree(client, team.max))["open_tasks"] == 1
     assert project(await tree(client, team.admin))["open_tasks"] == 0  # the admin has none of their own
 

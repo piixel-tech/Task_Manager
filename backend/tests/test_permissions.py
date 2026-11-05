@@ -106,9 +106,9 @@ def test_head_of_one_subfolder_can_edit_only_that_one():
     "who,expected",
     [
         (admin, True),
-        (head_a, True),  # read-only on B
-        (member_a, True),  # project member
-        (reader, True),
+        (head_a, False),  # B is private: not a member of B (before visibility, project members could read it)
+        (member_a, False),
+        (reader, True),  # a member of B
         (outsider, False),  # not a project member
         (other_head, False),
         (client, False),
@@ -246,7 +246,7 @@ def test_head_is_per_subfolder_not_a_role():
         (admin, None, True),
         (head_a, None, True),
         (member_a, None, True),  # project member
-        (reader, None, True),  # member of the sibling: still the same project
+        (reader, None, False),  # a member of the sibling only: A is private
         (outsider, None, False),
         (outsider, "self", True),  # assigned to it
         (client, "self", False),

@@ -32,9 +32,8 @@ async def test_text_validation(client, team):
 
 async def test_checklist_access_follows_the_roles_table(client, team):
     await add(client, team.mia, team.design)
-    # a member of the sibling subfolder can read but not write; an outsider can't even read
-    assert (await client.get(cl(team.design), headers=team.vic.headers)).status_code == 200
-    assert (await client.get(cl(team.design), headers=team.vic.headers)).json()["can_write"] is False
+    # Design is private: a member of the sibling subfolder cannot read it either, nor can an outsider
+    assert (await client.get(cl(team.design), headers=team.vic.headers)).status_code == 403
     assert (await add(client, team.vic, team.design)).status_code == 403
     assert (await client.get(cl(team.design), headers=team.ollie.headers)).status_code == 403
     assert (await add(client, team.ollie, team.design)).status_code == 403
@@ -272,10 +271,9 @@ async def test_stage_permissions_and_validation(client, team):
 async def test_viewing_deliverables_follows_the_roles_table(client, team):
     await set_counts(client, team.hana, team.design, {"Reels": 1})
     url = f"/subfolders/{team.design.id}/deliverables?month={MONTH}"
-    for who, code in ((team.hana, 200), (team.mia, 200), (team.vic, 200), (team.admin, 200), (team.ollie, 403), (team.cleo, 403)):
+    for who, code in ((team.hana, 200), (team.mia, 200), (team.vic, 403), (team.admin, 200), (team.ollie, 403), (team.cleo, 403)):
         r = await client.get(url, headers=who.headers)
         assert r.status_code == code, who
-    assert (await client.get(url, headers=team.vic.headers)).json()["can_set_stage"] is False  # read-only for a sibling's member
 
     await Project.find_all().update({"$addToSet": {"client_ids": team.cleo.user.id}})  # Cleo joins the project
     r = await client.get(url, headers=team.cleo.headers)

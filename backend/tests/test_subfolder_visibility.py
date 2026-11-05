@@ -67,8 +67,7 @@ async def test_every_read_and_write_of_a_hidden_subfolder_is_refused(client, tea
     assert (await client.get(f"/tasks/{team.task.id}/activity", headers=vic)).status_code == 403
     assert (await client.get(f"/subfolders/{sub.id}/checklist", headers=vic)).status_code == 403
     assert (await client.post(f"/subfolders/{sub.id}/checklist", json={"text": "x"}, headers=vic)).status_code == 403
-    assert (await client.get(f"/subfolders/{sub.id}/deliverables".replace("/subfolders/", "/deliverables?subfolder_id=").replace("/deliverables", "", 1), headers=vic)).status_code in (403, 404, 422)
-    assert (await client.get(f"/deliverables?subfolder_id={sub.id}", headers=vic)).status_code == 403
+    assert (await client.get(f"/subfolders/{sub.id}/deliverables", headers=vic)).status_code == 403
     assert (await client.get(f"/subfolders/{sub.id}/changes", headers=vic)).status_code == 403
     assert (await client.get(f"/subfolders/{sub.id}/files", headers=vic)).status_code == 403
     assert (await client.get(f"/timer/working/{sub.id}", headers=vic)).status_code == 403
@@ -102,7 +101,7 @@ async def test_view_only_lets_the_companys_team_read_but_not_work(client, team):
         assert (await client.get(f"/tasks/{team.task.id}", headers=h)).status_code == 200
         assert [t["id"] for t in (await client.get(f"/tasks?subfolder_id={sub.id}", headers=h)).json()] == [str(team.task.id)]
         assert (await client.get(f"/subfolders/{sub.id}/checklist", headers=h)).status_code == 200
-        assert (await client.get(f"/deliverables?subfolder_id={sub.id}", headers=h)).status_code == 200
+        assert (await client.get(f"/subfolders/{sub.id}/deliverables", headers=h)).status_code == 200
         assert (await client.get(f"/tasks/{team.task.id}/activity", headers=h)).status_code == 200
         # ...but cannot add or edit tasks, add checklist items or post
         assert (await client.post("/tasks", json={"subfolder_id": str(sub.id), "title": "T", "description": "x", "assignee_id": who.id}, headers=h)).status_code == 403

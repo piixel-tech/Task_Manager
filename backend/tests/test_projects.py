@@ -90,15 +90,15 @@ async def test_clients_cannot_use_the_project_api_yet(client, client_user):
     assert (await client.get("/projects", headers=client_user.headers)).status_code == 403
 
 
-async def test_member_sees_every_subfolder_read_only(client, admin, alice, bob, carol, company):
+async def test_member_sees_only_the_subfolders_they_are_in(client, admin, alice, bob, carol, company):
     project = await make_project(client, admin, company, heads=[alice], members=[bob], sub="Design")
     await add_subfolder(client, admin, project["id"], heads=[carol], name="Video")
 
     r = await client.get(f"/projects/{project['id']}", headers=bob.headers)  # plain member of Design
     assert r.status_code == 200
     subs = {s["name"]: s for s in r.json()["subfolders"]}
-    assert set(subs) == {"Design", "Video"}  # sees the sibling too
-    assert subs["Design"]["can_edit"] is False and subs["Video"]["can_edit"] is False
+    assert set(subs) == {"Design"}  # Video is private: a sibling is not listed to someone who is not in it
+    assert subs["Design"]["can_edit"] is False and r.json()["subfolder_count"] == 1
     assert r.json()["can_create_subfolder"] is False and r.json()["can_edit"] is False
 
 
@@ -108,7 +108,7 @@ async def test_head_can_edit_only_their_own_subfolder(client, admin, alice, caro
 
     subs = {s["name"]: s for s in (await client.get(f"/projects/{project['id']}", headers=alice.headers)).json()["subfolders"]}
     assert subs["Design"]["can_edit"] is True and subs["Design"]["viewer_is_head"] is True
-    assert subs["Video"]["can_edit"] is False and subs["Video"]["viewer_is_head"] is False
+    assert "Video" not in subs  # someone else's private subfolder never shows
 
 
 async def test_outsiders_cannot_open_a_project_or_its_subfolders(client, admin, alice, dave, company):
