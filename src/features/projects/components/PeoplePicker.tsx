@@ -12,6 +12,10 @@ interface PeoplePickerProps {
   /** Shown ticked and locked (e.g. heads are always members). */
   lockedIds?: string[];
   error?: string | null;
+  /** What the search matches against (default: the name). */
+  searchText?: (person: UserBrief) => string;
+  /** What to say when the search finds nobody (default: "No one found."). */
+  emptyText?: (query: string) => string;
 }
 
 /** Searchable checklist of people. */
@@ -22,12 +26,14 @@ export const PeoplePicker: React.FC<PeoplePickerProps> = ({
   value,
   onChange,
   lockedIds = [],
-  error
+  error,
+  searchText = (p) => p.name,
+  emptyText = () => 'No one found.'
 }) => {
   const [query, setQuery] = useState('');
   const shown = useMemo(
-    () => people.filter((p) => p.name.toLowerCase().includes(query.trim().toLowerCase())),
-    [people, query]
+    () => people.filter((p) => searchText(p).toLowerCase().includes(query.trim().toLowerCase())),
+    [people, query, searchText]
   );
 
   const toggle = (id: string) =>
@@ -59,7 +65,7 @@ export const PeoplePicker: React.FC<PeoplePickerProps> = ({
         </div>
         <ul className="max-h-44 overflow-y-auto p-1">
           {shown.length === 0 ? (
-            <li className="px-3 py-4 text-center text-[12px] text-[var(--tm-ink-muted)]">No one found.</li>
+            <li className="px-3 py-4 text-center text-[12px] text-[var(--tm-ink-muted)]">{emptyText(query.trim())}</li>
           ) : (
             shown.map((p) => {
               const locked = lockedIds.includes(p.id);

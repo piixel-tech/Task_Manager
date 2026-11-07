@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Moon } from 'lucide-react';
+import { Goal } from 'lucide-react';
 import { FocusBeam, FocusPill } from './FocusToggle';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -137,7 +137,7 @@ export const FocusMenu: React.FC = () => {
           className="absolute right-0 top-[calc(100%+8px)] z-50 w-72 rounded-[var(--tm-radius-lg)] glass-strong p-4"
         >
           <h3 className="mb-2 flex items-center gap-2 text-[14px] font-extrabold text-[var(--tm-ink)]">
-            <Moon className="h-4 w-4" /> Focus mode
+            <Goal className="h-4 w-4" /> Focus mode
           </h3>
           <FocusControls onDone={() => setOpen(false)} />
         </div>

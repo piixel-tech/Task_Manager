@@ -98,7 +98,8 @@ def visible_filter(user: User) -> dict:
         return {}
     options: list[dict] = [{"member_ids": user.id}, {"head_ids": user.id}]
     if user.company_id is not None:
-        options.append({"visibility": {"$in": ["view_only", "open"]}, "company_ids": user.company_id})
+        options.append({"visibility": "everyone", "company_ids": user.company_id})
+    options.append({"visibility": "selected", "viewer_ids": user.id})
     return {"$or": options}
 
 
@@ -144,6 +145,7 @@ async def subfolder_out(sub: Subfolder, siblings: list[Subfolder], viewer: User)
         can_edit=can(viewer, "subfolder.edit", sub, siblings=siblings),
         viewer_is_head=viewer.id in sub.head_ids,
         visibility=sub.visibility,
+        viewers=[brief(p) for p in (await load_users(sub.viewer_ids)).values()] if sub.visibility == "selected" and can(viewer, "subfolder.visibility", sub) else [],
         can_set_visibility=can(viewer, "subfolder.visibility", sub),
         can_work=can(viewer, "checklist.write", sub),
     )

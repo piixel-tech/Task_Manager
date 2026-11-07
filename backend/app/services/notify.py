@@ -7,6 +7,7 @@ from app.models import Notification, User
 from app.schemas.notification import Actor, NotificationOut
 from app.services.focus import focused_ids
 from app.services.prefs import wants
+from app.services.push import schedule_push
 from app.services.ws_manager import manager
 
 
@@ -77,6 +78,7 @@ async def notify(
 
     # Live push is best-effort: the notification is already stored. People in Focus find it in the bell later.
     quiet = await focused_ids(recipients)
+    push_to: list[Notification] = []
     for doc, out in zip(docs, await outs_with_actors(docs)):
         if doc.user_id in quiet:
             continue
@@ -84,4 +86,9 @@ async def notify(
         if priority == "normal" and person is not None and is_muted(person, mute_key):
             continue
         await manager.send_to_users([doc.user_id], "notification", out.model_dump(mode="json"))
+        push_to.append(doc)
+
+    # Web Push reaches people whose app is closed (those with it open already got the live toast). Same mute/Focus rules as above.
+    for doc in push_to:
+        schedule_push([doc.user_id], {"id": str(doc.id) if doc.id else None, "title": title, "body": body, "url": doc.link or "/", "priority": priority})
     return docs

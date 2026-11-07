@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     GOOGLE_PUSH_ENABLED: bool = False
     PUBLIC_BASE_URL: str = ""  # e.g. https://tm.example.com  (the webhook is PUBLIC_BASE_URL/api/v1/integrations/google/webhook)
 
+    # Web Push (notifications while the tab is closed). Generate the pair with:  python -m scripts.generate_vapid
+    VAPID_PUBLIC_KEY: str = ""
+    VAPID_PRIVATE_KEY: str = ""
+    VAPID_SUBJECT: str = "mailto:admin@example.com"  # a contact the push services can reach: mailto:you@company.com or an https URL
+
     ADMIN_EMAIL: str | None = None
     ADMIN_PASSWORD: str | None = None
 

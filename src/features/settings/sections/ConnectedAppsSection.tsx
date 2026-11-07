@@ -270,7 +270,7 @@ const AppCard: React.FC<{ app: ConnectedApp; confirm: ReturnType<typeof useConfi
               ) : (
                 <Button onClick={startConnect}>
                   <Link2 className="mr-2 h-4 w-4" />
-                  Reconnect
+                  Reconnect {app.name}
                 </Button>
               )}
               <Button variant="ghost" className="text-[var(--tm-danger)]" onClick={disconnect}>

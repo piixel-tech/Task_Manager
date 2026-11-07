@@ -45,7 +45,7 @@ export interface UserSettings {
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
-  theme: 'system',
+  theme: 'light',
   palette: 'purple',
   density: 'comfortable',
   sound: true,

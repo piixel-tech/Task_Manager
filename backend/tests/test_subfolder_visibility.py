@@ -1,4 +1,5 @@
-"""Subfolder visibility: private (default), view_only and open, and that a hidden subfolder never comes back in any response."""
+"""Subfolder visibility: hidden (default), everyone and selected people, and that a hidden subfolder never comes back in any response.
+Whoever is not a member can only ever read it."""
 from types import SimpleNamespace
 
 import pytest_asyncio
@@ -38,9 +39,9 @@ def names(rows):
     return {r["name"] for r in rows}
 
 
-# --- The default: private ----------------------------------------------------------------------------------
+# --- The default: hidden ----------------------------------------------------------------------------------
 async def test_a_new_subfolder_is_private_and_only_members_and_admins_see_it(client, team):
-    assert (await client.get(f"/subfolders/{team.design.id}", headers=team.mia.headers)).json()["visibility"] == "private"
+    assert (await client.get(f"/subfolders/{team.design.id}", headers=team.mia.headers)).json()["visibility"] == "hidden"
     for who in (team.vic, team.pat, team.zed):  # same project / same company / other company: none of them
         assert (await client.get(f"/subfolders/{team.design.id}", headers=who.headers)).status_code == 403
     assert (await client.get(f"/subfolders/{team.design.id}", headers=team.admin.headers)).status_code == 200
@@ -78,26 +79,26 @@ async def test_every_read_and_write_of_a_hidden_subfolder_is_refused(client, tea
 # --- Changing it --------------------------------------------------------------------------------------------
 async def test_only_admins_and_heads_of_that_subfolder_can_change_it(client, team):
     for who in (team.mia, team.vic, team.pat):  # a plain member, a head of another subfolder, an outsider
-        assert (await set_vis(client, who, team.design, "open")).status_code == 403
-    assert (await set_vis(client, team.hana, team.design, "view_only")).json()["visibility"] == "view_only"
-    assert (await set_vis(client, team.admin, team.design, "private")).json()["visibility"] == "private"
-    assert (await set_vis(client, team.hana, team.design, "everyone")).status_code == 422
-    assert (await set_vis(client, team.hana, Subfolder(project_id=team.project.id, name="x", created_by=team.admin.user.id, id=team.task.id), "open")).status_code == 404
+        assert (await set_vis(client, who, team.design, "everyone")).status_code == 403
+    assert (await set_vis(client, team.hana, team.design, "everyone")).json()["visibility"] == "everyone"
+    assert (await set_vis(client, team.admin, team.design, "hidden")).json()["visibility"] == "hidden"
+    assert (await set_vis(client, team.hana, team.design, "nobody")).status_code == 422
+    assert (await set_vis(client, team.hana, Subfolder(project_id=team.project.id, name="x", created_by=team.admin.user.id, id=team.task.id), "everyone")).status_code == 404
     fresh = await Subfolder.get(team.design.id)
-    assert fresh.visibility == "private"
+    assert fresh.visibility == "hidden"
     out = (await client.get(f"/subfolders/{team.design.id}", headers=team.hana.headers)).json()
     assert out["can_set_visibility"] is True
     assert (await client.get(f"/subfolders/{team.design.id}", headers=team.mia.headers)).json()["can_set_visibility"] is False
 
 
-# --- view_only: read, nothing else ---------------------------------------------------------------------------
+# --- everyone: read, nothing else ---------------------------------------------------------------------------
 async def test_view_only_lets_the_companys_team_read_but_not_work(client, team):
-    await set_vis(client, team.hana, team.design, "view_only")
+    await set_vis(client, team.hana, team.design, "everyone")
     sub = team.design
     for who in (team.vic, team.pat):  # on the project's company
         h = who.headers
         out = (await client.get(f"/subfolders/{sub.id}", headers=h)).json()
-        assert out["visibility"] == "view_only" and out["can_work"] is False and out["can_set_visibility"] is False
+        assert out["visibility"] == "everyone" and out["can_work"] is False and out["can_set_visibility"] is False
         assert (await client.get(f"/tasks/{team.task.id}", headers=h)).status_code == 200
         assert [t["id"] for t in (await client.get(f"/tasks?subfolder_id={sub.id}", headers=h)).json()] == [str(team.task.id)]
         assert (await client.get(f"/subfolders/{sub.id}/checklist", headers=h)).status_code == 200
@@ -120,34 +121,16 @@ async def test_view_only_lets_the_companys_team_read_but_not_work(client, team):
     assert (await client.post(f"/subfolders/{sub.id}/checklist", json={"text": "still works"}, headers=team.mia.headers)).status_code == 201
 
 
-# --- open: work like a member --------------------------------------------------------------------------------
-async def test_open_lets_the_companys_team_work_like_members(client, team):
-    await set_vis(client, team.hana, team.design, "open")
-    sub, h = team.design, team.pat.headers
-    assert (await client.get(f"/subfolders/{sub.id}", headers=h)).json()["can_work"] is True
-    made = await client.post("/tasks", json={"subfolder_id": str(sub.id), "title": "Mine", "description": "x", "assignee_id": team.pat.id}, headers=h)
-    assert made.status_code == 201, made.text
-    assert (await client.post("/tasks", json={"subfolder_id": str(sub.id), "title": "For Mia", "description": "x", "assignee_id": team.mia.id}, headers=h)).status_code == 403  # employees assign only themselves
-    assert (await client.patch(f"/tasks/{made.json()['id']}", json={"title": "Mine, renamed"}, headers=h)).status_code == 200  # their own
-    assert (await client.patch(f"/tasks/{team.task.id}", json={"title": "Not theirs"}, headers=h)).status_code == 403
-    assert (await client.post(f"/subfolders/{sub.id}/checklist", json={"text": "from Pat"}, headers=h)).status_code == 201
-    assert (await client.post(f"/tasks/{team.task.id}/activity", json={"kind": "comment", "body": "<p>hello</p>"}, headers=h)).status_code == 201
-    # visibility itself stays with the heads and admins, and the other company stays out
-    assert (await set_vis(client, team.pat, sub, "private")).status_code == 403
-    assert (await client.get(f"/subfolders/{sub.id}", headers=team.zed.headers)).status_code == 403
-    assert (await client.post("/tasks", json={"subfolder_id": str(sub.id), "title": "Z", "description": "x", "assignee_id": team.zed.id}, headers=team.zed.headers)).status_code == 403
-
-
 async def test_going_back_to_private_hides_it_again(client, team):
-    await set_vis(client, team.hana, team.design, "open")
+    await set_vis(client, team.hana, team.design, "everyone")
     assert (await client.get(f"/subfolders/{team.design.id}", headers=team.pat.headers)).status_code == 200
-    await set_vis(client, team.hana, team.design, "private")
+    await set_vis(client, team.hana, team.design, "hidden")
     assert (await client.get(f"/subfolders/{team.design.id}", headers=team.pat.headers)).status_code == 403
     assert (await client.get("/projects", headers=team.pat.headers)).json() == []
 
 
 async def test_changing_the_projects_companies_moves_who_can_see_a_shared_subfolder(client, team):
-    await set_vis(client, team.hana, team.design, "view_only")
+    await set_vis(client, team.hana, team.design, "everyone")
     unwork = await Company.get(team.zed.user.company_id)
     r = await client.patch(f"/projects/{team.project.id}", json={"company_ids": [str(unwork.id)]}, headers=team.admin.headers)
     assert r.status_code == 200, r.text
@@ -184,17 +167,91 @@ async def test_presence_reaches_only_people_who_can_open_the_subfolder(client, t
 
     ids = set(await viewers(team.design))
     assert {team.hana.user.id, team.mia.user.id, team.admin.user.id} <= ids and team.vic.user.id not in ids and team.pat.user.id not in ids
-    await set_vis(client, team.hana, team.design, "view_only")
+    await set_vis(client, team.hana, team.design, "everyone")
     ids = set(await viewers(await Subfolder.get(team.design.id)))
     assert {team.vic.user.id, team.pat.user.id} <= ids and team.zed.user.id not in ids
 
 
 # --- Migration ----------------------------------------------------------------------------------------------------------------
-async def test_existing_subfolders_become_private_with_their_projects_companies(team):
+async def test_existing_subfolders_are_migrated_to_the_new_levels(team):
     coll = Subfolder.get_motor_collection()
-    await coll.update_one({"_id": team.design.id}, {"$unset": {"visibility": "", "company_ids": ""}})  # a subfolder from before this feature
+    await coll.update_one({"_id": team.design.id}, {"$unset": {"visibility": "", "company_ids": "", "viewer_ids": ""}})  # from before visibility existed
     await migrate_subfolders()
     sub = await Subfolder.get(team.design.id)
-    assert sub.visibility == "private" and sub.company_ids == [team.piixel.id]
+    assert sub.visibility == "hidden" and sub.company_ids == [team.piixel.id] and sub.viewer_ids == []
+    for old, new in (("private", "hidden"), ("view_only", "everyone"), ("read_only", "everyone"), ("open", "everyone")):
+        await coll.update_one({"_id": team.design.id}, {"$set": {"visibility": old}})
+        await migrate_subfolders()
+        assert (await Subfolder.get(team.design.id)).visibility == new, old
     await migrate_subfolders()  # safe to run again
-    assert (await Subfolder.get(team.design.id)).visibility == "private"
+    assert (await Subfolder.get(team.design.id)).visibility == "everyone"
+
+
+# --- selected people ---------------------------------------------------------------------------------------------------------------
+async def pick(client, who, sub, *people):
+    return await client.patch(f"/subfolders/{sub.id}/visibility", json={"visibility": "selected", "viewer_ids": [p.id for p in people]}, headers=who.headers)
+
+
+async def test_selected_people_can_read_but_never_change_anything(client, team):
+    r = await pick(client, team.hana, team.design, team.pat)
+    assert r.status_code == 200, r.text
+    assert r.json()["visibility"] == "selected" and [v["name"] for v in r.json()["viewers"]] == ["Pat Piixel"]
+    sub, h = team.design, team.pat.headers
+    out = (await client.get(f"/subfolders/{sub.id}", headers=h)).json()
+    assert out["can_work"] is False and out["can_set_visibility"] is False and out["viewers"] == []  # the list is only for those who can change it
+    assert (await client.get(f"/tasks/{team.task.id}", headers=h)).status_code == 200
+    assert (await client.get(f"/subfolders/{sub.id}/checklist", headers=h)).status_code == 200
+    assert names((await client.get(f"/projects/{team.project.id}", headers=h)).json()["subfolders"]) == {"Design"}
+    assert any(n["name"] == "Design" for n in [s for p in (await client.get("/sidebar/tree", headers=h)).json()["projects"] for s in p["subfolders"]])
+    # read-only: no tasks, edits, checklist items, comments or changes
+    assert (await client.post("/tasks", json={"subfolder_id": str(sub.id), "title": "T", "description": "x", "assignee_id": team.pat.id}, headers=h)).status_code == 403
+    assert (await client.patch(f"/tasks/{team.task.id}", json={"title": "Renamed"}, headers=h)).status_code == 403
+    assert (await client.post(f"/subfolders/{sub.id}/checklist", json={"text": "x"}, headers=h)).status_code == 403
+    assert (await client.post(f"/tasks/{team.task.id}/activity", json={"kind": "comment", "body": "<p>hi</p>"}, headers=h)).status_code == 403
+    assert (await set_vis(client, team.pat, sub, "hidden")).status_code == 403
+    # someone not picked, on the same company, still sees nothing; so does another company
+    for who in (team.vic, team.zed):
+        assert (await client.get(f"/subfolders/{sub.id}", headers=who.headers)).status_code == 403
+    # members keep working
+    assert (await client.post(f"/subfolders/{sub.id}/checklist", json={"text": "still works"}, headers=team.mia.headers)).status_code == 201
+
+
+async def test_picking_people_is_checked_and_listed_without_members(client, team):
+    listed = (await client.get(f"/subfolders/{team.design.id}/viewer-candidates", headers=team.hana.headers)).json()
+    assert [p["name"] for p in listed] == ["Pat Piixel", "Vic Video"]  # company employees; Hana and Mia are members, Zed is another company, Cleo a client
+    assert all("@" in p["email"] for p in listed)  # so the list can be searched by email
+    for who in (team.mia, team.pat):
+        assert (await client.get(f"/subfolders/{team.design.id}/viewer-candidates", headers=who.headers)).status_code == 403
+    assert (await pick(client, team.hana, team.design, team.zed)).status_code == 422  # another company
+    assert (await pick(client, team.hana, team.design, team.cleo)).status_code == 422  # a client
+    assert (await pick(client, team.mia, team.design, team.pat)).status_code == 403  # a member who is not a head
+    r = await pick(client, team.admin, team.design, team.pat, team.mia)  # a member in the list is simply dropped: they already see it
+    assert r.status_code == 200 and [v["name"] for v in r.json()["viewers"]] == ["Pat Piixel"]
+
+
+async def test_changing_the_pick_or_the_level_updates_who_can_see_it(client, team):
+    await pick(client, team.hana, team.design, team.pat)
+    await pick(client, team.hana, team.design, team.vic)  # replaces the list
+    assert (await client.get(f"/subfolders/{team.design.id}", headers=team.pat.headers)).status_code == 403
+    assert (await client.get(f"/subfolders/{team.design.id}", headers=team.vic.headers)).status_code == 200
+    assert (await set_vis(client, team.hana, team.design, "everyone")).status_code == 200
+    assert (await Subfolder.get(team.design.id)).viewer_ids == []  # the pick is cleared when it is no longer used
+    assert (await client.get(f"/subfolders/{team.design.id}", headers=team.pat.headers)).status_code == 200
+    await set_vis(client, team.hana, team.design, "hidden")
+    assert (await client.get(f"/subfolders/{team.design.id}", headers=team.pat.headers)).status_code == 403
+
+
+async def test_everyone_is_view_only_for_non_members_including_comments(client, team):
+    await set_vis(client, team.hana, team.design, "everyone")
+    h = team.pat.headers
+    assert (await client.post(f"/tasks/{team.task.id}/activity", json={"kind": "comment", "body": "<p>hi</p>"}, headers=h)).status_code == 403
+    assert (await client.post(f"/subfolders/{team.design.id}/checklist", json={"text": "x"}, headers=h)).status_code == 403
+    assert (await client.get(f"/subfolders/{team.design.id}", headers=h)).json()["can_work"] is False
+
+
+async def test_presence_also_reaches_the_picked_people(client, team):
+    from app.services.timer import viewers
+
+    await pick(client, team.hana, team.design, team.pat)
+    ids = set(await viewers(await Subfolder.get(team.design.id)))
+    assert team.pat.user.id in ids and team.vic.user.id not in ids

@@ -1,6 +1,6 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Moon } from 'lucide-react';
+import { Goal } from 'lucide-react';
 import { useMotionPrefs } from '../../components/ui/useMotionPrefs';
 
 /** Where the stars sit inside the pill (percent from the left / top) and when they start twinkling. */
@@ -40,7 +40,7 @@ export const FocusPill: React.FC<{ on: boolean }> = ({ on }) => (
             : 'translate-x-0 bg-[color-mix(in_srgb,var(--tm-on-dark)_22%,transparent)] text-[var(--tm-on-dark)]'
         }`}
     >
-      <Moon className={`h-4 w-4 transition-all duration-500 ${on ? 'fill-current' : ''}`} />
+      <Goal className="h-4 w-4 transition-all duration-500" />
     </span>
   </span>
 );

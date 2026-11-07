@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Activity, AlertTriangle, CalendarClock, ClipboardCheck, FolderKanban, ShieldQuestion, Users } from 'lucide-react';
+import { AlertTriangle, CalendarClock, ClipboardCheck, FolderKanban, ShieldQuestion, Users } from 'lucide-react';
 import { StatCard } from '../../../components/ui/StatCard';
 import { ProgressBar } from '../../../components/ui/ProgressRing';
 import { Avatar } from '../../../components/ui/Avatar';
@@ -8,7 +8,7 @@ import { CountUp } from '../../../components/ui/CountUp';
 import { socket } from '../../../services/socket';
 import { dashboardApi, type AdminDashboard } from '../../../services/http/dashboardApi';
 import { formatTimeAgo } from '../../../utils/time';
-import { DashboardCard, RowLink, WidgetEmpty, WidgetSkeleton, dayOf, timeOf } from './DashboardCard';
+import { DashboardCard, RowLink, WidgetEmpty, WidgetSkeleton, timeOf } from './DashboardCard';
 
 /** Bento tiles for the admin home. Renders straight into the page's 12-column grid. */
 export const AdminWidgets: React.FC = () => {
@@ -171,35 +171,6 @@ export const AdminWidgets: React.FC = () => {
         </DashboardCard>
       </StaggerItem>
 
-      {/* Recent activity */}
-      <StaggerItem className="lg:col-span-12">
-        <DashboardCard animate={false} icon={<Activity className="h-5 w-5" />} title="Recent activity" to="/admin/tasks" cta="Open tasks">
-          {loading ? (
-            <WidgetSkeleton rows={4} />
-          ) : data.activity.length === 0 ? (
-            <WidgetEmpty>No activity recorded yet.</WidgetEmpty>
-          ) : (
-            <ul className="grid gap-x-6 md:grid-cols-2">
-              {data.activity.map((a) => (
-                <li key={a.id}>
-                  <RowLink to={a.task_id ? `/admin/tasks/${a.task_id}` : `/admin/projects/${a.project_id}`}>
-                    <span className="min-w-0">
-                      <span className="block truncate text-[13px] font-bold text-[var(--tm-ink)]">
-                        {a.author?.name ?? 'Someone'}
-                        {a.task_title ? <span className="font-semibold text-[var(--tm-ink-soft)]"> · {a.task_title}</span> : null}
-                      </span>
-                      <span className="line-clamp-1 block text-[12px] text-[var(--tm-ink-muted)]">{a.text || a.kind.replace('_', ' ')}</span>
-                    </span>
-                    <span className="shrink-0 text-[11px] text-[var(--tm-ink-muted)]" title={dayOf(a.created_at)}>
-                      {formatTimeAgo(a.created_at)}
-                    </span>
-                  </RowLink>
-                </li>
-              ))}
-            </ul>
-          )}
-        </DashboardCard>
-      </StaggerItem>
     </>
   );
 };

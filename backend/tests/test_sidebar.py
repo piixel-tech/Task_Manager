@@ -38,7 +38,7 @@ async def test_a_head_manages_their_subfolder_but_not_the_project(client, team):
     assert acme["can_add_subfolder"] is True and acme["can_add_requirement"] is True  # heads of any subfolder in the project
     design = sub(acme, "Design")
     assert design["is_head"] and all(design[k] for k in ("can_add_task", "can_add_checklist", "can_edit_deliverables", "can_chat", "can_rename", "can_delete"))
-    assert design["visibility"] == "private" and design["can_work"] is True
+    assert design["visibility"] == "hidden" and design["can_work"] is True
     assert [s["name"] for s in acme["subfolders"]] == ["Design"]  # Video is private to its own people: not in the tree
 
 

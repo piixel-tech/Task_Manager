@@ -34,22 +34,9 @@ class WorkloadRow(BaseModel):
     overdue: int
 
 
-class ActivityRow(BaseModel):
-    id: PydanticObjectId
-    kind: str
-    text: str
-    author: UserBrief | None
-    task_id: PydanticObjectId | None
-    task_title: str | None
-    project_id: PydanticObjectId
-    subfolder_id: PydanticObjectId
-    created_at: datetime
-
-
 class AdminDashboard(BaseModel):
     tasks: TaskCounts
     projects: list[ProjectHealth]
     approvals: list[ApprovalItem]  # oldest first, only groups the admin is in
     workload: list[WorkloadRow]
     meetings: list[BookingOut]  # today
-    activity: list[ActivityRow]

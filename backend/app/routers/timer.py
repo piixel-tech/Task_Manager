@@ -2,15 +2,15 @@
 from beanie import PydanticObjectId
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, require_role
 from app.core.permissions import require
 from app.models import Task, TimeLog, User
 from app.core.timeutil import as_utc
 from app.services.tasks import get_task_or_404, now_utc
-from app.schemas.task import TimerCurrent, TimerLogEntry, TimerLogOut, TimerStart, WorkingNow
+from app.schemas.task import ActiveTimers, TimerCurrent, TimerLogEntry, TimerLogOut, TimerStart, WorkingNow
 from app.services.projects import brief, get_subfolder_or_404, load_users, subfolders_of
 from app.services.tasks import begin_timer, stop_timers, workable_task
-from app.services.timer import current_state, resumable, stopped_task
+from app.services.timer import active_timers, current_state, resumable, stopped_task
 
 router = APIRouter(prefix="/timer", tags=["timer"])
 
@@ -67,6 +67,12 @@ async def timer_log(task_id: PydanticObjectId, user: User = Depends(get_current_
     ]
     total = sum(e.seconds if not e.running else max(0, int((now - as_utc(e.started_at)).total_seconds())) for e in logs)
     return TimerLogOut(server_now=now, total_seconds=total, entries=entries)
+
+
+@router.get("/active", response_model=ActiveTimers)
+async def active(admin: User = Depends(require_role("admin"))) -> ActiveTimers:
+    """Admin only: every timer running right now (person, company, task, project and subfolder), for the dashboard's "Working now"."""
+    return await active_timers()
 
 
 @router.get("/working/{subfolder_id}", response_model=list[WorkingNow])

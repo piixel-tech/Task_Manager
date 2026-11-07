@@ -26,6 +26,8 @@ import { ProjectDetailPage } from '../features/projects/pages/ProjectDetailPage'
 import { SubfolderPage } from '../features/projects/pages/SubfolderPage';
 import { TasksPage } from '../features/tasks/pages/TasksPage';
 import { TaskDetailPage } from '../features/tasks/pages/TaskDetailPage';
+import { LeaveRequestsPage } from '../features/leave/pages/LeaveRequestsPage';
+import { AdminLeaveRequestsPage } from '../features/leave/admin/AdminLeaveRequestsPage';
 import { ChatPage } from '../features/chat/pages/ChatPage';
 import { ProfilePage } from '../features/employee/pages/ProfilePage';
 
@@ -106,6 +108,7 @@ export const router = createBrowserRouter([
       { path: 'submissions', element: <Navigate to="/admin/reviews" replace /> },
       { path: 'calendar', element: <CalendarPage /> },
       { path: 'calendar/:userId', element: <CalendarPage /> },
+      { path: 'leave-requests', element: <AdminLeaveRequestsPage /> },
       { path: 'office', element: <OfficePage /> },
       { path: 'activity', element: <ActivityPage /> },
       { path: 'inbox', element: <Navigate to="../activity" replace /> },
@@ -136,6 +139,7 @@ export const router = createBrowserRouter([
       { path: 'projects/:projectId/subfolders/:id', element: <SubfolderPage /> },
       { path: 'calendar', element: <CalendarPage /> },
       { path: 'calendar/:userId', element: <CalendarPage /> },
+      { path: 'leave-requests', element: <LeaveRequestsPage /> },
       { path: 'office', element: <OfficePage /> },
       { path: 'activity', element: <ActivityPage /> },
       { path: 'inbox', element: <Navigate to="../activity" replace /> },

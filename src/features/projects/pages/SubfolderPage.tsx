@@ -15,6 +15,7 @@ import { projectApi, type ProjectDetail, type Subfolder } from '../../../service
 import { PersonChip } from '../components/PersonChip';
 import { SubfolderFormModal } from '../components/SubfolderFormModal';
 import { ViewOnlyBadge, VisibilityIcon } from '../components/VisibilityIcon';
+import { VisibilityMenu } from '../components/VisibilityMenu';
 import { ChecklistTab } from '../components/ChecklistTab';
 import { DeliverablesTab } from '../components/DeliverablesTab';
 import { ChangesBox } from '../../activity/components/ChangesBox';
@@ -88,7 +89,7 @@ export const SubfolderPage: React.FC = () => {
         title={
           <span className="flex flex-wrap items-center gap-3">
             {subfolder.name}
-            <VisibilityIcon visibility={subfolder.visibility} className="h-4 w-4 text-[var(--tm-ink-soft)]" />
+            <VisibilityMenu subfolder={subfolder} onChanged={setSubfolder} />
             {subfolder.viewer_is_head && <HeadBadge />}
             {!subfolder.can_work && <ViewOnlyBadge />}
           </span>

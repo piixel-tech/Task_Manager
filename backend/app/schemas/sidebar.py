@@ -41,7 +41,7 @@ class SubfolderNode(BaseModel):
     can_chat: bool  # start a chat group linked to it
     can_rename: bool
     can_delete: bool
-    visibility: Literal["private", "view_only", "open"] = "private"
+    visibility: Literal["hidden", "everyone", "selected"] = "hidden"
     can_work: bool = False  # false when you can only read it (view-only)
 
 

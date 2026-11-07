@@ -17,11 +17,14 @@ so anything that depends on it needs the subfolder. Context (all optional):
 
 Invariant kept by the routers: every head is also in `member_ids`.
 
-Subfolder visibility (`subfolder.visibility`, with `subfolder.company_ids` = the project's companies):
+Subfolder visibility (`subfolder.visibility`; `subfolder.company_ids` = the project's companies; `subfolder.viewer_ids` = picked people):
 
-    private    only its members, its heads and admins can see it. The default.
-    view_only  every team member of the project's companies can also see and read it, but not add, edit or post.
-    open       they can see it and work in it like a member.
+    hidden     only its members, its heads and admins can see it. The default.
+    everyone   every team member of the project's companies can also see and read it.
+    selected   the people picked in `viewer_ids` can also see and read it.
+
+Whoever is not a member is ALWAYS view-only, in every option: they cannot add or edit tasks, files, the checklist, deliverables
+or comments. Only members, heads and admins work in a subfolder (`works_in`).
 
 Seeing a subfolder is what every read of its tasks, checklist, deliverables, activity and chat link hangs on, so the one
 rule lives here (`sees` / `works_in`) and the routers filter their lists with `visible_filter` in services/projects.py.
@@ -48,26 +51,31 @@ def is_member(user: User, subfolder: Any | None) -> bool:
     return user.id in people
 
 
-def _company_visible(user: User, subfolder: Any | None, levels: tuple[str, ...]) -> bool:
-    """A team member of one of the project's companies, and the subfolder is shared at one of these levels."""
-    company = getattr(user, "company_id", None)
-    if subfolder is None or user.role not in STAFF_ROLES or company is None:
+def _shared_with(user: User, subfolder: Any | None) -> bool:
+    """A team member this subfolder is shared with beyond its members: the whole company ("everyone") or the picked people ("selected")."""
+    if subfolder is None or user.role not in STAFF_ROLES:
         return False
-    return getattr(subfolder, "visibility", None) in levels and company in (getattr(subfolder, "company_ids", None) or [])
+    level = getattr(subfolder, "visibility", None)
+    if level == "everyone":
+        company = getattr(user, "company_id", None)
+        return company is not None and company in (getattr(subfolder, "company_ids", None) or [])
+    if level == "selected":
+        return user.id in (getattr(subfolder, "viewer_ids", None) or [])
+    return False
 
 
 def sees(user: User, subfolder: Any | None) -> bool:
     """May this person open the subfolder and read it."""
     if subfolder is None or not user.is_active:
         return False
-    return user.role == "admin" or (user.role in STAFF_ROLES and (is_member(user, subfolder) or _company_visible(user, subfolder, ("view_only", "open"))))
+    return user.role == "admin" or (user.role in STAFF_ROLES and (is_member(user, subfolder) or _shared_with(user, subfolder)))
 
 
 def works_in(user: User, subfolder: Any | None) -> bool:
-    """May this person work in it like a member: add tasks and checklist items, move deliverables, post."""
+    """May this person work in it: add tasks and checklist items, move deliverables, post. Members, heads and admins only."""
     if subfolder is None or not user.is_active:
         return False
-    return user.role == "admin" or (user.role in STAFF_ROLES and (is_member(user, subfolder) or _company_visible(user, subfolder, ("open",))))
+    return user.role == "admin" or (user.role in STAFF_ROLES and is_member(user, subfolder))
 
 
 def can(
@@ -111,7 +119,7 @@ def can(
         return admin or (staff and head)
     if action == "subfolder.view":  # one subfolder (see `sees`); with no subfolder: the project page, if any of its subfolders is visible
         return sees(user, subfolder) if subfolder is not None else (admin or (staff and sees_any))
-    if action == "subfolder.visibility":  # who beyond the members can see it: admins and the heads of that subfolder
+    if action == "subfolder.visibility":  # who beyond the members can see it (hidden / everyone / selected): admins and the heads of that subfolder
         return admin or (staff and head)
 
     # --- Work inside a subfolder ---------------------------------------------------
@@ -134,6 +142,8 @@ def can(
     if action == "activity.delete":  # your own entry, or an admin
         return admin or (staff and creator_id == user.id)
     if action == "task.work":  # progress and timer: the assignee only
+        return staff and target_id == user.id
+    if action == "task.stop":  # stop your own running timer: always allowed
         return staff and target_id == user.id
     if action == "task.review":  # approve / request changes, only when picked as approver
         return admin or (staff and head and approver_id == user.id)
@@ -191,6 +201,10 @@ def can(
     # --- Everyone on the team ------------------------------------------------------
     if action in ("status.set", "office.post", "office.view"):
         return staff
+    if action == "leave.request":  # ask for leave / work from home, and see and cancel your own requests: employees
+        return user.role == "employee"
+    if action == "leave.review":  # decide the requests sent to you: admins (the router also checks it was sent to this admin)
+        return admin
     if action == "office.resolve":  # the author or an admin
         return admin or (staff and creator_id == user.id)
     if action == "integration.manage":  # connect your own Google Calendar etc.; clients have no calendar of their own

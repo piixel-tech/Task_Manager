@@ -78,11 +78,11 @@ describe('Connected apps: one Google connection', () => {
     await waitFor(() => expect(integrationApi.connect).toHaveBeenCalledWith('google'));
   });
 
-  it('a revoked login shows Needs reconnecting and a plain Reconnect', async () => {
+  it('a revoked login shows Needs reconnecting and a Reconnect Google button', async () => {
     vi.mocked(integrationApi.connect).mockResolvedValue('');
     await show(app({ status: 'needs_reconnect' }), 'Needs reconnecting');
     expect(screen.queryByText(/Reconnect to Google once/)).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: /^Reconnect$/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reconnect Google' }));
     await waitFor(() => expect(integrationApi.connect).toHaveBeenCalledWith('google'));
   });
 });

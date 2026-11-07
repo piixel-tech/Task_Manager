@@ -29,18 +29,6 @@ export interface WorkloadRow {
   overdue: number;
 }
 
-export interface ActivityRow {
-  id: string;
-  kind: string;
-  text: string;
-  author: UserBrief | null;
-  task_id: string | null;
-  task_title: string | null;
-  project_id: string;
-  subfolder_id: string;
-  created_at: string;
-}
-
 export interface AdminDashboard {
   tasks: TaskCounts;
   projects: ProjectHealth[];
@@ -48,7 +36,6 @@ export interface AdminDashboard {
   approvals: ApprovalItem[];
   workload: WorkloadRow[];
   meetings: Booking[];
-  activity: ActivityRow[];
 }
 
 async function call<T>(fn: () => Promise<{ data: T }>, fallback: string): Promise<T> {

@@ -23,6 +23,7 @@ const METRICS = {
 /** Rail-only short labels; the full name stays in the tooltip. */
 const SHORT_LABEL: Record<string, string> = {
   'Office board': 'Board',
+  'Leave requests': 'Leave',
   'Team Members': 'Team',
   'Book a meeting': 'Meetings',
   Deliverables: 'Deliver',
@@ -30,7 +31,7 @@ const SHORT_LABEL: Record<string, string> = {
 };
 
 /** Group order inside the rail. Anything not listed lands in "work", so no item is ever dropped. */
-const MAIN = ['Home', 'Projects', 'My Tasks', 'Task Hub', 'Chats', 'Activity', 'Calendar'];
+const MAIN = ['Home', 'Projects', 'My Tasks', 'Task Hub', 'Chats', 'Activity', 'Calendar', 'Leave', 'Leave requests'];
 const WORK = ['Reviews', 'Office board'];
 const BOTTOM = ['Settings'];
 

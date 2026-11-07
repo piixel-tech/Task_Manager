@@ -277,3 +277,15 @@ Every subfolder has a `visibility`: **private** (the default), **view_only** or 
 17. REMOVED — desktop helper: built, then taken out completely, with its backend parts (see Phase 17). The timer stays in the web app (Phase 15).
 18. DONE — Monthly Report: live current month, frozen past months, PDF and ZIP downloads, admin list and employee view (see Phase 18).
 20. DONE (backend) — subfolder visibility: private / view only / open, who can change it, enforced on every subfolder, task, checklist, deliverable, chat and requirement response (see Phase 20). No UI yet.
+
+## Leave / work-from-home requests (backend)
+
+An employee asks for **leave** or to **work from home** and sends it to one admin of their own company; that admin approves or rejects it. Backend only for now (`routers/leave_requests.py`, `services/leave_requests.py`, `models/leave_request.py`, collection `leave_requests`).
+
+- **Fields.** Employee, company, type (`leave` | `wfh`), start and end date (`YYYY-MM-DD`), duration (`full` | `first_half` | `second_half`; a half day only when start = end), reason (required), the admin it was sent to, status (`pending` | `approved` | `rejected`), reject reason, created / decided timestamps, decided by.
+- **Employee** (`leave.request`, employees only): `GET /leave-requests/admins` (the active admins of their company: the "send to" list), `POST /leave-requests`, `GET /leave-requests/mine?status=`, `DELETE /leave-requests/{id}` (cancel their own while pending; the request is removed).
+- **Admin** (`leave.review`): `GET /leave-requests?status=&company_id=` (only requests sent to them), `POST /leave-requests/{id}/approve`, `POST /leave-requests/{id}/reject` (reason required). Only the admin a request was sent to can decide it, and only while it is pending.
+- **Rules.** End date is not before the start date; a start date in the past is refused (today is fine); a request cannot overlap another pending or approved request of the same employee (the first and second half of the same day do not overlap); the admin must be an active admin of the employee's company; the employee needs a company.
+- **Notifications** (`notify()`, so the bell, the live socket and Web Push): a new request tells the chosen admin; approving or rejecting tells the employee, and a rejection carries the reason. Links point to `/admin/leave-requests` (admin screen, to be built) and `/app/leave-requests` (the employee page: calendar, form, My requests, decision popups).
+- **Not wired yet:** an approved request does not change the employee's daily status or the calendar.
+

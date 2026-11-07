@@ -193,3 +193,48 @@ async def test_timer_log_is_for_the_assignee_the_head_and_admins_only(client, te
     for who in (team.max, team.vic, team.ollie, team.cleo):  # a fellow member, another head, an outsider, a client
         assert (await client.get(url, headers=who.headers)).status_code == 403, who
     assert (await client.get(f"/timer/log/{'a' * 24}", headers=team.admin.headers)).status_code == 404
+
+
+# --- Admin: who is working right now ---------------------------------------------------------------------------
+async def test_admin_sees_every_running_timer_with_task_person_and_company(client, team):
+    from app.models import Company, User
+
+    piixel = await Company.find_one(Company.name == "Piixel")
+    unwork = await Company(name="Unwork").insert()
+    await User.find_one(User.id == team.mia.user.id).update({"$set": {"company_id": piixel.id}})
+    await User.find_one(User.id == team.max.user.id).update({"$set": {"company_id": unwork.id}})
+    a = await make_task(client, team, title="Logo", description="<p>Make it <b>blue</b></p>", html=True, priority="high")
+    b = await make_task(client, team, assignee=team.max, title="Poster")
+    await start(client, team.mia, a)
+    await backdate_running(120)
+    await client.post("/timer/pause", headers=team.mia.headers)  # 2 minutes already tracked on Logo
+    await client.post("/timer/resume", headers=team.mia.headers)
+    await backdate_running(30)  # ...and a new session of 30 seconds
+    await start(client, team.max, b)
+
+    r = await client.get("/timer/active", headers=team.admin.headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert {c["name"] for c in body["companies"]} == {"Piixel", "Unwork"} and body["server_now"]
+    rows = {row["task"]["title"]: row for row in body["items"]}
+    assert set(rows) == {"Logo", "Poster"}
+    logo = rows["Logo"]
+    assert logo["user"]["name"] == "Mia Member" and logo["company_id"] == str(piixel.id) and logo["started_at"]
+    assert logo["task"]["priority"] == "high" and logo["task"]["project_name"] == "Acme" and logo["task"]["subfolder_name"] == "Design"
+    assert logo["task"]["description"] == "Make it blue"  # plain text, no markup
+    assert rows["Poster"]["company_id"] == str(unwork.id)
+    # the total is the same number the task shows: earlier sessions plus the running one
+    assert 148 <= logo["task"]["total_seconds"] <= 160
+    shown = next(t for t in (await client.get("/tasks", headers=team.mia.headers)).json() if t["id"] == a["id"])
+    assert abs(shown["total_seconds"] - logo["task"]["total_seconds"]) <= 3
+
+    # a paused timer is no longer "working"
+    await client.post("/timer/pause", headers=team.mia.headers)
+    names = {row["task"]["title"] for row in (await client.get("/timer/active", headers=team.admin.headers)).json()["items"]}
+    assert names == {"Poster"}
+
+
+async def test_only_admins_can_list_active_timers(client, team):
+    assert (await client.get("/timer/active")).status_code == 401
+    for who in (team.mia, team.hana):
+        assert (await client.get("/timer/active", headers=who.headers)).status_code == 403

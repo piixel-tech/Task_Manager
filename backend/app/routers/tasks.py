@@ -303,7 +303,7 @@ async def start_timer(task_id: PydanticObjectId, user: User = Depends(get_curren
 async def stop_timer(task_id: PydanticObjectId, user: User = Depends(get_current_user)) -> TaskOut:
     task = await get_task_or_404(task_id)
     sub = await Subfolder.get(task.subfolder_id)
-    require(user, "task.work", sub, target_id=task.assignee_id)  # allowed in any status: always let people stop
+    require(user, "task.stop", sub, target_id=task.assignee_id)  # allowed in any status (and in a read-only subfolder): always let people stop
     stopped = await stop_timers(task_id=task.id, user_id=user.id)
     if not stopped:
         raise HTTPException(status.HTTP_409_CONFLICT, "The timer is not running on this task")

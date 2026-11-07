@@ -1,7 +1,7 @@
 import { FadeIn } from '../../components/ui/FadeIn';
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { CalendarDays, Moon, Pencil } from 'lucide-react';
+import { CalendarDays, Goal, Pencil } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
 import { SkeletonRows } from '../../components/ui/Skeleton';
@@ -73,7 +73,7 @@ export const PersonProfilePage: React.FC = () => {
               <StatusChip tone="neutral">{ROLE_LABEL[person.role]}</StatusChip>
               {person.in_focus && (
                 <StatusChip tone="primary">
-                  <Moon className="mr-1 h-3 w-3" /> In focus mode
+                  <Goal className="mr-1 h-3 w-3" /> In focus mode
                 </StatusChip>
               )}
             </div>

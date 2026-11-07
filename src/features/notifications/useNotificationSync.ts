@@ -11,6 +11,7 @@ import { useMutesStore } from '../../store/useMutesStore';
 import { router } from '../../app/router';
 import { playNotificationSound, showDesktopNotification } from './notificationAlerts';
 import { toNotification, type ApiNotification } from '../../services/http/notificationApi';
+import { enablePush, listenForPushNavigation } from './webPush';
 
 /**
  * Keeps the bell in sync for the signed-in user: loads the list and badge,
@@ -37,6 +38,8 @@ export function useNotificationSync(): void {
 
     fetchNotifications();
     void useMutesStore.getState().load();
+    void enablePush(); // system notifications even when the tab is closed
+    const offPushClick = listenForPushNavigation((url) => void router.navigate(url));
 
     const off = socket.on('notification', (data: ApiNotification) => {
       const notification = toNotification(data);
@@ -63,6 +66,7 @@ export function useNotificationSync(): void {
     return () => {
       off();
       offRevoked();
+      offPushClick();
       socket.disconnect();
     };
   }, [userId]);

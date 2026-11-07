@@ -3,9 +3,8 @@ import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { useConfirm } from '../../../hooks/useConfirm';
-import { projectApi, type Subfolder, type UserBrief, type Visibility } from '../../../services/http/projectApi';
+import { projectApi, type Subfolder, type UserBrief } from '../../../services/http/projectApi';
 import { PeoplePicker } from './PeoplePicker';
-import { VISIBILITIES, VISIBILITY } from './VisibilityIcon';
 
 interface Props {
   isOpen: boolean;
@@ -24,14 +23,12 @@ export const SubfolderFormModal: React.FC<Props> = ({ isOpen, onClose, projectId
   const [name, setName] = useState('');
   const [heads, setHeads] = useState<string[]>([]);
   const [members, setMembers] = useState<string[]>([]);
-  const [visibility, setVisibility] = useState<Visibility>('private');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
     setError(null);
     setName(subfolder?.name ?? '');
-    setVisibility(subfolder?.visibility ?? 'private');
     setHeads(subfolder?.heads.map((h) => h.id) ?? []);
     // Heads are listed separately, so keep only the other members here.
     const headIds = new Set(subfolder?.heads.map((h) => h.id));
@@ -63,7 +60,6 @@ export const SubfolderFormModal: React.FC<Props> = ({ isOpen, onClose, projectId
         saved = subfolder
           ? await projectApi.updateSubfolder(subfolder.id, input)
           : await projectApi.createSubfolder(projectId, input);
-        if (subfolder?.can_set_visibility && visibility !== subfolder.visibility) saved = await projectApi.setVisibility(subfolder.id, visibility);
       },
       successTitle: subfolder ? 'Subfolder updated' : 'Subfolder created'
     });
@@ -96,30 +92,6 @@ export const SubfolderFormModal: React.FC<Props> = ({ isOpen, onClose, projectId
           onChange={toggleHead}
         />
         <PeoplePicker label="Members" people={people} value={members} onChange={setMembers} lockedIds={heads} />
-        {subfolder?.can_set_visibility && (
-          <fieldset>
-            <legend className="mb-2 text-[13px] font-bold text-[var(--tm-ink)]">Visibility</legend>
-            <div className="grid gap-2" role="radiogroup" aria-label="Visibility">
-              {VISIBILITIES.map((v) => {
-                const { label, hint, Icon } = VISIBILITY[v];
-                const on = visibility === v;
-                return (
-                  <label
-                    key={v}
-                    className={`flex cursor-pointer items-start gap-3 rounded-[var(--tm-radius-md)] border px-3.5 py-3 transition-colors ${on ? 'border-[var(--primary)] bg-[var(--tm-primary-soft)]' : 'border-[var(--tm-border)] hover:bg-[var(--tm-bg-sunken)]'}`}
-                  >
-                    <input type="radio" name="visibility" value={v} checked={on} onChange={() => setVisibility(v)} className="mt-1 accent-[var(--primary)]" />
-                    <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[var(--tm-ink)]" strokeWidth={2.1} />
-                    <span className="min-w-0">
-                      <span className="block text-[13.5px] font-bold text-[var(--tm-ink)]">{label}</span>
-                      <span className="block text-[12.5px] text-[var(--tm-ink-soft)]">{hint}</span>
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          </fieldset>
-        )}
         <div className="flex justify-end gap-3 border-t border-[var(--tm-border)] pt-5">
           <Button variant="outline" type="button" onClick={onClose}>
             Cancel

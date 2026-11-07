@@ -17,7 +17,7 @@
       try {
         localStorage.removeItem('tm.accent');
         // Apply light / dark ("system" follows the device) and compact spacing.
-        var m = localStorage.getItem('tm.mode') || 'system';
+        var m = localStorage.getItem('tm.mode') || 'light';
         var dark = m === 'dark' || (m === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
         document.documentElement.setAttribute('data-mode', dark ? 'dark' : 'light');
         // Colour theme (data-theme), applied before first paint so there is no flash.

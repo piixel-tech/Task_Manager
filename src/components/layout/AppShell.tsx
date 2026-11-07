@@ -11,6 +11,7 @@ import { AmbientEffects } from '../../features/effects/AmbientEffects';
 import { useAuthStore } from '../../store/authStore';
 import { useSidebarStore } from '../../store/useSidebarStore';
 import { useTimerTitle } from '../../features/tasks/components/useTimerTitle';
+import { LeaveDecisionHost } from '../../features/leave/components/LeaveDecisionHost';
 
 interface AppShellProps {
   /** Role-specific overlays and gates that sit beside the shell (status gate, celebrations). */
@@ -35,6 +36,7 @@ export const AppShell: React.FC<AppShellProps> = ({ extras, banner }) => {
     <div className="relative isolate min-h-screen bg-[var(--tm-bg)] pb-24 lg:pb-0">
       <AmbientEffects />
       {extras}
+      <LeaveDecisionHost />
       <Topbar />
       <NavDrawer />
       <SideNav />

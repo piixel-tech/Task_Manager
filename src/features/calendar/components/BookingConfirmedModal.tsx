@@ -38,7 +38,7 @@ const PIECES = Array.from({ length: 44 }, (_, i) => {
   };
 });
 
-const Confetti: React.FC = () => (
+export const Confetti: React.FC = () => (
   <div aria-hidden className="pointer-events-none absolute left-1/2 top-[34%] z-20 h-0 w-0">
     {PIECES.map((p, i) => (
       <motion.i

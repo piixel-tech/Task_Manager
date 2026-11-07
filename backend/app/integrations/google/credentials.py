@@ -44,6 +44,23 @@ def for_company(company: str) -> GoogleCredentials:
     return creds
 
 
+def config_warnings(companies: list[str]) -> list[str]:
+    """What is missing from .env for Google to work, one readable line each (empty when everything is set)."""
+    from app.integrations import crypto  # local import: crypto only needs settings, but keep this module's imports light
+
+    warnings: list[str] = []
+    if not crypto.key_is_valid():
+        warnings.append("INTEGRATIONS_FERNET_KEY is missing or invalid, so nobody can connect Google")
+    if not (settings.GOOGLE_REDIRECT_URI or "").strip():
+        warnings.append("GOOGLE_REDIRECT_URI is empty")
+    for company in companies:
+        prefix = env_prefix(company)
+        missing = [prefix + k for k in ("CLIENT_ID", "CLIENT_SECRET", "API_KEY") if not _env(prefix + k)]
+        if missing:
+            warnings.append(f"Google is not configured for {company}: set {', '.join(missing)}")
+    return warnings
+
+
 async def company_name(user: User) -> str:
     company = await Company.get(user.company_id) if user.company_id else None
     if company is None:

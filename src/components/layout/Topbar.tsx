@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { Bell, Calendar, Clock, Menu, Search, Shield } from 'lucide-react';
+import { Bell, Calendar, Clock, Menu, Moon, Search, Shield, Sun } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
 import { useAppStore } from '../../store/useAppStore';
 import { useNotificationStore } from '../../store/useNotificationStore';
 import { useDailyStatusStore } from '../../store/useDailyStatusStore';
@@ -25,7 +26,7 @@ import { EASE_OUT, popoverVariants } from '../ui/motion';
 
 /** Round header button: card-coloured, charcoal on hover. */
 const ICON_BTN =
-  'relative grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[var(--tm-border)] bg-[var(--tm-card)] ' +
+  'relative grid h-9 w-9 shrink-0 place-items-center sm:h-11 sm:w-11 rounded-full border border-[var(--tm-border)] bg-[var(--tm-card)] ' +
   'text-[var(--tm-ink)] shadow-soft-xs transition-colors hover:border-transparent hover:bg-[var(--tm-solid)] ' +
   'hover:text-[var(--tm-solid-ink)]';
 
@@ -66,6 +67,10 @@ export const Topbar: React.FC = () => {
   }, []);
 
   useShortcuts();
+  // Light / dark: the same setting as Settings > Appearance, so the two always agree. "System" counts as whatever the device shows.
+  const themeSetting = useSettingsStore((state) => state.settings.theme);
+  const updateSettings = useSettingsStore((state) => state.update);
+  const isDark = themeSetting === 'dark' || (themeSetting === 'system' && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches);
   const todayStatus = useDailyStatusStore((state) => state.today?.status);
   const openStatusEditor = useDailyStatusStore((state) => state.openEditor);
   const statusInfo = statusMeta(todayStatus);
@@ -97,9 +102,9 @@ export const Topbar: React.FC = () => {
       <header
         className="tm-topbar sticky top-0 z-30 bg-[color-mix(in_srgb,var(--tm-bg)_84%,transparent)] backdrop-blur-xl"
       >
-        <div className="relative mx-auto flex h-[76px] w-full max-w-[1600px] items-center justify-between gap-3 px-4 sm:px-6 lg:pl-[108px] lg:pr-8">
+        <div className="relative mx-auto flex min-h-[76px] w-full max-w-[1600px] flex-wrap items-center justify-end gap-x-3 gap-y-1.5 px-4 py-2 sm:px-6 lg:pl-[108px] lg:pr-8">
           {/* Left: menu toggle (phones) + logo */}
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="mr-auto flex min-w-0 items-center gap-3">
             <button
               onClick={toggleSidebar}
               className={`${ICON_BTN} lg:hidden`}
@@ -140,14 +145,14 @@ export const Topbar: React.FC = () => {
           </div>
 
           {/* Right: status, search, calendar, notifications, settings, avatar */}
-          <div className="flex shrink-0 items-center justify-end gap-2">
+          <>
             {user && !isClient && (
               <button
                 type="button"
                 onClick={openStatusEditor}
                 title="Change today's status"
-                className="hidden items-center gap-2 rounded-full bg-[var(--tm-card)] p-1 pr-1.5 text-[12px] font-semibold
-                  text-[var(--tm-ink)] shadow-soft-xs transition-all hover:-translate-y-px 2xl:flex"
+                className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-[var(--tm-card)] p-1 pr-1.5 text-[12px] font-semibold
+                  text-[var(--tm-ink)] shadow-soft-xs transition-all hover:-translate-y-px"
               >
                 <span className="flex items-center gap-1.5 rounded-full bg-[var(--tm-solid)] px-3 py-1.5 text-[11.5px] font-bold text-[var(--tm-solid-ink)]">
                   <Clock className="h-3.5 w-3.5 text-[var(--tm-solid-accent)]" />
@@ -163,22 +168,18 @@ export const Topbar: React.FC = () => {
                 </span>
               </button>
             )}
-            {user && !isClient && (
-              <button
-                type="button"
-                onClick={openStatusEditor}
-                title={statusInfo ? `Today: ${statusInfo.label}` : "Change today's status"}
-                aria-label="Change today's status"
-                className={`${ICON_BTN} hidden lg:grid 2xl:hidden`}
-              >
-                <Clock className="h-4 w-4" />
-                {statusInfo && (
-                  <span className="absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full bg-[var(--tm-accent)] ring-2 ring-[var(--tm-bg)]" />
-                )}
-              </button>
-            )}
-
+            <div className="flex shrink-0 items-center justify-end gap-2">
             {user && !isClient && <FocusMenu />}
+
+            <button
+              type="button"
+              onClick={() => void updateSettings({ theme: isDark ? 'light' : 'dark' })}
+              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={isDark ? 'Light mode' : 'Dark mode'}
+              className={ICON_BTN}
+            >
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
 
             <button type="button" onClick={() => setPaletteOpen(true)} aria-label="Search" title="Search (Ctrl+K)" className={ICON_BTN}>
               <Search className="h-4 w-4" />
@@ -289,7 +290,8 @@ export const Topbar: React.FC = () => {
             </div>
 
             <AccountMenu />
-          </div>
+            </div>
+          </>
 
           <AnimatePresence>
             {toastMessage && (

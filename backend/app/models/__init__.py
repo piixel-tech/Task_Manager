@@ -9,10 +9,12 @@ from app.models.approval import ClientApproval
 from app.models.file import File
 from app.models.integration import ExternalEvent, IntegrationConnection, IntegrationLink
 from app.models.invite import Invite
+from app.models.leave_request import LeaveRequest
 from app.models.monthly_report import MonthlyReport
 from app.models.notification import Notification
 from app.models.office import OfficePost
 from app.models.project import Project, Subfolder
+from app.models.push_subscription import PushSubscription
 from app.models.session import Session
 from app.models.requirement import Requirement
 from app.models.review import TaskReview
@@ -35,10 +37,12 @@ __all__ = [
     "IntegrationConnection",
     "IntegrationLink",
     "Invite",
+    "LeaveRequest",
     "MonthlyReport",
     "Notification",
     "OfficePost",
     "Project",
+    "PushSubscription",
     "Requirement",
     "ScheduledMessage",
     "Session",

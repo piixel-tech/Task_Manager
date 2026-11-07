@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { User } from '../types';
 import { authService } from '../services';
 import { setAuthFailureHandler } from '../services/api';
+import { disablePush } from '../features/notifications/webPush';
 
 interface AuthState {
   user: User | null;
@@ -65,6 +66,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: async () => {
     set({ isLoading: true });
+    await disablePush();
     await authService.logout();
     set({ user: null, isLoading: false, initialized: true, error: null });
   },

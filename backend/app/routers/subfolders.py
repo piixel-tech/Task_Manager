@@ -6,9 +6,10 @@ from app.core.deps import get_current_user
 from app.core.permissions import can, require
 from app.models import File, User
 from app.schemas.file import FileOut
-from app.schemas.project import SubfolderOut, SubfolderUpdate, SubfolderVisibility
+from app.schemas.project import SubfolderOut, SubfolderUpdate, SubfolderVisibility, ViewerCandidate
 from app.services.trash import trash_subfolder
 from app.services.projects import (
+    brief,
     check_staff,
     companies_of,
     get_project_or_404,
@@ -172,31 +173,71 @@ async def update_subfolder(
 
 
 VISIBILITY_WORDS = {
-    "private": "private: only its members, heads and admins can see it",
-    "view_only": "view only: everyone in the project's company can read it",
-    "open": "open: everyone in the project's company can work in it",
+    "hidden": "hidden: only its members can see it",
+    "everyone": "visible to everyone: everyone in the project's company can view it",
+    "selected": "visible to selected people: only the people picked can view it",
 }
+VISIBILITY_NAMES = {"hidden": "hidden", "everyone": "visible to everyone", "selected": "visible to selected people"}
+
+
+async def _viewer_candidates(sub, project) -> list[User]:
+    """Company employees who could be picked: active employees of the project's companies who are not already members."""
+    people = await User.find(
+        {"company_id": {"$in": companies_of(project)}, "role": "employee", "is_active": True, "_id": {"$nin": [*sub.member_ids, *sub.head_ids]}}
+    ).to_list()
+    return sorted(people, key=lambda p: p.name.lower())
+
+
+@router.get("/{subfolder_id}/viewer-candidates", response_model=list[ViewerCandidate])
+async def viewer_candidates(subfolder_id: PydanticObjectId, user: User = Depends(get_current_user)) -> list[ViewerCandidate]:
+    """The company employees a head can pick for "Visible to selected people" (members are left out: they already see it)."""
+    sub = await get_subfolder_or_404(subfolder_id)
+    require(user, "subfolder.visibility", sub)
+    return [ViewerCandidate(**brief(p).model_dump(), email=p.email) for p in await _viewer_candidates(sub, await get_project_or_404(sub.project_id))]
 
 
 @router.patch("/{subfolder_id}/visibility", response_model=SubfolderOut)
 async def set_visibility(subfolder_id: PydanticObjectId, body: SubfolderVisibility, user: User = Depends(get_current_user)) -> SubfolderOut:
-    """Who beyond the members can see this subfolder: private, view_only or open. Admins and the heads of this subfolder."""
+    """Who beyond the members can see this subfolder: hidden, everyone, or selected people. Admins and the heads of this subfolder.
+    Whoever is not a member can only ever read it, whatever is chosen."""
     sub = await get_subfolder_or_404(subfolder_id)
     require(user, "subfolder.visibility", sub)
     project = await get_project_or_404(sub.project_id)
-    if sub.visibility != body.visibility:
+
+    viewers: list[PydanticObjectId] = []
+    if body.visibility == "selected":
+        allowed = {p.id for p in await _viewer_candidates(sub, project)}
+        viewers = list(dict.fromkeys(i for i in body.viewer_ids if i not in sub.member_ids and i not in sub.head_ids))  # members already see it
+        if any(i not in allowed for i in viewers):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Pick active employees of this project's company")
+
+    level_changed = sub.visibility != body.visibility
+    added = [i for i in viewers if i not in sub.viewer_ids]
+    if level_changed or set(viewers) != set(sub.viewer_ids):
         sub.visibility = body.visibility
+        sub.viewer_ids = viewers
         sub.company_ids = companies_of(project)
         await sub.save()
-        await notify_people(
-            sub.member_ids,
-            type="subfolder_visibility",
-            title=f"{sub.name} is now {body.visibility.replace('_', ' ')}",
-            body=f"{user.name} made it {VISIBILITY_WORDS[body.visibility]}.",
-            project_id=project.id,
-            subfolder_id=sub.id,
-            actor=user,
-        )
+        if level_changed:
+            await notify_people(
+                sub.member_ids,
+                type="subfolder_visibility",
+                title=f"{sub.name} is now {VISIBILITY_NAMES[body.visibility]}",
+                body=f"{user.name} made it {VISIBILITY_WORDS[body.visibility]}.",
+                project_id=project.id,
+                subfolder_id=sub.id,
+                actor=user,
+            )
+        if added:
+            await notify_people(
+                added,
+                type="subfolder_shared",
+                title=f"{sub.name} was shared with you",
+                body=f"{user.name} gave you view access. You can read it but not make changes.",
+                project_id=project.id,
+                subfolder_id=sub.id,
+                actor=user,
+            )
     return await subfolder_out(sub, await subfolders_of(sub.project_id), user)
 
 

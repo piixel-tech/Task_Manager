@@ -1,5 +1,5 @@
 import type React from 'react';
-import { Bell, Building2, Download, HelpCircle, Keyboard, KeyRound, Moon, Palette, PartyPopper, Plug, Settings2, ShieldCheck, Trash2, User, Users } from 'lucide-react';
+import { Bell, Building2, Download, HelpCircle, Keyboard, KeyRound, Palette, PartyPopper, Plug, Settings2, Goal, ShieldCheck, Trash2, User, Users } from 'lucide-react';
 import type { UserRole } from '../../types';
 
 export interface SettingsItem {
@@ -18,7 +18,7 @@ export const ME_ITEMS: SettingsItem[] = [
   { id: 'profile', label: 'My profile', icon: User, roles: EVERYONE },
   { id: 'password', label: 'Change password', icon: KeyRound, roles: EVERYONE },
   { id: 'notifications', label: 'Notifications', icon: Bell, roles: EVERYONE },
-  { id: 'focus', label: 'Focus mode', icon: Moon, roles: TEAM },
+  { id: 'focus', label: 'Focus mode', icon: Goal, roles: TEAM },
   { id: 'appearance', label: 'Appearance', icon: Palette, roles: EVERYONE },
   { id: 'connected-apps', label: 'Connected apps', icon: Plug, roles: TEAM },
   { id: 'shortcuts', label: 'Keyboard shortcuts', icon: Keyboard, roles: TEAM },

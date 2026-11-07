@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Activity,
   ArrowRight,
   Clock,
   Coffee,
@@ -17,20 +16,20 @@ import {
 } from '../../../services';
 import type { Project, Task, User } from '../../../types';
 import { AdminWidgets } from '../../dashboard/widgets/AdminWidgets';
+import { WorkingNowSection } from '../../dashboard/widgets/WorkingNowSection';
+import { LeaveRequestsCard } from '../../leave/admin/LeaveRequestsCard';
 import { taskApi, type ApiTask } from '../../../services/http/taskApi';
 import { TodayOverview } from '../../status/components/TodayOverview';
 import { OfficeBoardCard } from '../../office/components/OfficeBoardCard';
 import { UpcomingHolidays } from '../../workspace/UpcomingHolidays';
 import { useDailyStatusStore } from '../../../store/useDailyStatusStore';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
+import { Card, CardContent } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { CornerButton } from '../../../components/ui/CornerButton';
 import { ItemsDrawer } from '../../../components/ui/ItemsDrawer';
 import { StatCard } from '../../../components/ui/StatCard';
 import { HeroCard, HeroStat } from '../../../components/ui/HeroCard';
 import { ProgressRing } from '../../../components/ui/ProgressRing';
-import { StatusChip } from '../../../components/ui/StatusChip';
-import { UserName } from '../../../components/ui/UserName';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { StaggerItem } from '../../../components/ui/Stagger';
 import { SkeletonCard } from '../../../components/ui/Skeleton';
@@ -94,7 +93,7 @@ export const AdminDashboardPage: React.FC = () => {
     <>
       <PageHeader
         title={`${greeting}, ${displayName}`}
-        description="Who is in today, workspace stats, project gauges and team activity."
+        description="Who is in today, who is working now, workspace stats and project gauges."
         actions={
           <>
             <Button
@@ -205,53 +204,11 @@ export const AdminDashboardPage: React.FC = () => {
           <TodayOverview />
         </div>
 
-        {/* Live Board Shortcut Widget */}
-        <Card lift className="lg:col-span-7">
-          <CardHeader>
-            <div>
-              <CardTitle className="flex items-center gap-2 text-base font-extrabold">
-                <Activity className="h-4 w-4 text-[var(--tm-primary-dark)]" />
-                Live Board Preview
-              </CardTitle>
-              <p className="mt-0.5 text-[12.5px] text-[var(--tm-ink-muted)]">
-                Tasks being worked on right now
-              </p>
-            </div>
-            <CornerButton label="Open Task Hub" onClick={() => navigate('/admin/tasks')} />
-          </CardHeader>
+        {/* Everyone with a timer running right now */}
+        <WorkingNowSection />
 
-          <CardContent>
-            {runningTasks.length === 0 ? (
-              <div className="rounded-[var(--tm-radius-md)] bg-[var(--tm-card-muted)] py-10 text-center text-xs text-[var(--tm-ink-muted)]">
-                No active timers running at this moment.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-                {runningTasks.slice(0, 4).map((t) => {
-                  const assignedUser = users.find((u) => u.id === t.assignee?.id);
-                  return (
-                    <div
-                      key={t.id}
-                      className="flex items-center justify-between gap-3 rounded-[var(--tm-radius-md)] bg-[var(--tm-card-muted)] p-4 transition-colors hover:bg-[var(--tm-bg-sunken)]"
-                    >
-                      <div className="min-w-0">
-                        {assignedUser && (
-                          <UserName user={assignedUser} size="sm" showBadge={false} />
-                        )}
-                        <h4 className="mt-1 truncate text-[13px] font-bold text-[var(--tm-ink)]">
-                          {t.title}
-                        </h4>
-                      </div>
-                      <StatusChip tone="ok" size="sm" dot>
-                        Running
-                      </StatusChip>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Leave and work-from-home requests waiting for this admin */}
+        <LeaveRequestsCard />
 
         <AdminWidgets />
 

@@ -2,7 +2,9 @@ import React from 'react';
 import {
   Briefcase,
   Calendar,
+  CalendarCheck,
   CalendarClock,
+  CalendarOff,
   CheckSquare,
   ClipboardCheck,
   ClipboardList,
@@ -21,6 +23,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useNotificationStore } from '../../store/useNotificationStore';
 import { useNavCounts } from '../../hooks/useNavCounts';
 import { usePendingApprovals } from '../../features/client/usePendingApprovals';
+import { useLeaveInbox } from '../../store/useLeaveInboxStore';
 
 export interface NavItem {
   label: string;
@@ -63,6 +66,8 @@ const TeamSource: React.FC<{ children: Render }> = ({ children }) => {
   const unreadNotifications = useNotificationStore((s) => s.unreadCount);
   const isAdmin = user?.role === 'admin';
   const prefix = isAdmin ? '/admin' : '/app';
+  // The number of leave requests waiting for this admin (kept live; nothing is loaded for anyone else).
+  const leaveInbox = useLeaveInbox(isAdmin);
 
   const main: NavItem[] = [
     { label: 'Home', icon: LayoutDashboard, path: `${prefix}/dashboard` },
@@ -75,6 +80,9 @@ const TeamSource: React.FC<{ children: Render }> = ({ children }) => {
   const more: NavItem[] = [
     { label: 'Activity', icon: Activity, path: `${prefix}/activity`, count: unreadNotifications },
     { label: 'Calendar', icon: Calendar, path: `${prefix}/calendar` },
+    isAdmin
+      ? { label: 'Leave requests', icon: CalendarCheck, path: `${prefix}/leave-requests`, count: leaveInbox.pending.length }
+      : { label: 'Leave', icon: CalendarOff, path: `${prefix}/leave-requests` },
     { label: 'Reviews', icon: ClipboardCheck, path: `${prefix}/reviews`, count: counts.pendingSubmissions },
     { label: 'Monthly Report', icon: FileText, path: `${prefix}/reports` },
     ...(isAdmin

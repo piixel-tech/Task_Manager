@@ -178,3 +178,39 @@ class TimerCurrent(BaseModel):
 class ReminderRun(BaseModel):
     day: str
     sent: int
+
+
+class ActiveTimerTask(BaseModel):
+    id: PydanticObjectId
+    title: str
+    description: str  # plain text, shortened for a list row
+    due_date: str | None
+    priority: Literal["low", "medium", "high", "urgent"]
+    status: str
+    total_seconds: int  # everything tracked on the task as of `server_now`, the running session included (what the task page shows)
+    project_id: PydanticObjectId
+    project_name: str
+    subfolder_id: PydanticObjectId
+    subfolder_name: str
+
+
+class ActiveTimer(BaseModel):
+    """One person with a timer running right now, with the task they are on."""
+
+    user: UserBrief
+    company_id: PydanticObjectId | None
+    started_at: datetime
+    task: ActiveTimerTask
+
+
+class ActiveCompany(BaseModel):
+    id: PydanticObjectId
+    name: str
+
+
+class ActiveTimers(BaseModel):
+    """Everyone working right now (admin dashboard). `companies` lists every company so an empty one can still say so."""
+
+    server_now: datetime
+    companies: list[ActiveCompany]
+    items: list[ActiveTimer]

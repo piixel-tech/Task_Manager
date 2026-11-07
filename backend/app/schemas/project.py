@@ -14,6 +14,12 @@ class UserBrief(BaseModel):
     focus_until: datetime | None = None  # set only while they are in Focus mode
 
 
+class ViewerCandidate(UserBrief):
+    """A person who could be picked to view a subfolder."""
+
+    email: str
+
+
 class SubfolderCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     head_ids: list[PydanticObjectId] = Field(min_length=1)
@@ -27,7 +33,8 @@ class SubfolderUpdate(BaseModel):
 
 
 class SubfolderVisibility(BaseModel):
-    visibility: Literal["private", "view_only", "open"]
+    visibility: Literal["hidden", "everyone", "selected"]
+    viewer_ids: list[PydanticObjectId] = Field(default_factory=list, max_length=200)  # who is picked, for "selected"
 
 
 class SubfolderOut(BaseModel):
@@ -41,9 +48,10 @@ class SubfolderOut(BaseModel):
     # What the signed-in user may do here (drives read-only vs editable UI).
     can_edit: bool
     viewer_is_head: bool
-    visibility: Literal["private", "view_only", "open"] = "private"
+    visibility: Literal["hidden", "everyone", "selected"] = "hidden"
+    viewers: list[UserBrief] = Field(default_factory=list)  # the picked people; only sent to whoever can change visibility
     can_set_visibility: bool = False  # admins and the heads of this subfolder
-    can_work: bool = False  # false for someone who can only read it (view-only)
+    can_work: bool = False  # false for someone who can only read it (not a member)
 
 
 class ProjectCreate(BaseModel):

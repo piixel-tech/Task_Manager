@@ -63,7 +63,38 @@ export interface PresenceEvent {
   user: UserBrief;
 }
 
+/** One person with a timer running right now (admin "Working now"). */
+export interface ActiveTimer {
+  user: UserBrief;
+  company_id: string | null;
+  started_at: string;
+  task: {
+    id: string;
+    title: string;
+    /** Plain text, already shortened. */
+    description: string;
+    due_date: string | null;
+    priority: 'low' | 'medium' | 'high' | 'urgent';
+    status: string;
+    /** Everything tracked on the task as of `server_now`, the running session included: the same total the task page shows. */
+    total_seconds: number;
+    project_id: string;
+    project_name: string;
+    subfolder_id: string;
+    subfolder_name: string;
+  };
+}
+
+export interface ActiveTimers {
+  server_now: string;
+  /** Every company, so an empty one can still show its empty state. */
+  companies: { id: string; name: string }[];
+  items: ActiveTimer[];
+}
+
 export const timerApi = {
+  /** Admin only: every timer running right now. */
+  active: () => call<ActiveTimers>(() => api.get('/timer/active'), 'Could not load who is working'),
   current: () => call<TimerCurrent>(() => api.get('/timer/current'), 'Could not load the timer'),
   start: (taskId: string) => call<TimerCurrent>(() => api.post('/timer/start', { task_id: taskId }), 'Could not start the timer'),
   pause: () => call<TimerCurrent>(() => api.post('/timer/pause'), 'Could not pause the timer'),

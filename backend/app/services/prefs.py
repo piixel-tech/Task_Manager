@@ -35,7 +35,7 @@ def clean_stored(settings):
 
 
 class UserSettings(BaseModel):
-    theme: Literal["light", "dark", "system"] = "system"  # light / dark mode
+    theme: Literal["light", "dark", "system"] = "light"  # light / dark mode (light unless the person picks otherwise)
     palette: str = "purple"  # colour theme: a built-in name, or "custom:<id>"
     density: Literal["comfortable", "compact"] = "comfortable"
     sound: bool = True

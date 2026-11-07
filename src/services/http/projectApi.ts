@@ -8,10 +8,13 @@ export interface UserBrief {
   company_id: string | null;
   /** Set while they are in Focus mode (ISO time they are quiet until). */
   focus_until?: string | null;
+  /** Only on the people a head can pick to view a subfolder. */
+  email?: string;
 }
 
 /** Who beyond its own members can see a subfolder: nobody, everyone in the project's company (read only), or everyone there (as members). */
-export type Visibility = 'private' | 'view_only' | 'open';
+/** hidden: members only. everyone: the whole company can view. selected: only the people picked can view. Non-members can never change anything. */
+export type Visibility = 'hidden' | 'everyone' | 'selected';
 
 export interface Subfolder {
   id: string;
@@ -26,9 +29,11 @@ export interface Subfolder {
   can_edit: boolean;
   viewer_is_head: boolean;
   visibility: Visibility;
+  /** The people picked for "selected"; only sent to whoever can change visibility. */
+  viewers: UserBrief[];
   /** Admins and the heads of this subfolder. */
   can_set_visibility: boolean;
-  /** False when the person can only read it (view only). */
+  /** False when the person can only read it (not a member). */
   can_work: boolean;
 }
 
@@ -94,8 +99,10 @@ export const projectApi = {
   updateSubfolder: (id: string, input: Partial<SubfolderInput>) =>
     call<Subfolder>(() => api.patch(`/subfolders/${id}`, input), 'Could not save the subfolder'),
 
-  setVisibility: (id: string, visibility: Visibility) =>
-    call<Subfolder>(() => api.patch(`/subfolders/${id}/visibility`, { visibility }), 'Could not change who can see the subfolder'),
+  setVisibility: (id: string, visibility: Visibility, viewerIds: string[] = []) =>
+    call<Subfolder>(() => api.patch(`/subfolders/${id}/visibility`, { visibility, viewer_ids: viewerIds }), 'Could not change who can see the subfolder'),
+  /** Company employees a head can pick for "selected" (members are left out). */
+  viewerCandidates: (id: string) => call<UserBrief[]>(() => api.get(`/subfolders/${id}/viewer-candidates`), 'Could not load the team'),
 
   deleteSubfolder: (id: string) => call<void>(() => api.delete(`/subfolders/${id}`), 'Could not delete the subfolder'),
 
