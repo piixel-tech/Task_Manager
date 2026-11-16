@@ -10,6 +10,8 @@ import { AllCaughtUp, matchesTab, NOTIFICATION_TABS, NotificationGroups, Notific
 import type { AppNotification } from '../../../types';
 
 const PAGE = 30;
+/** Mentions and Approvals are filters over the loaded list: keep loading pages until they have this many to show. */
+const ENOUGH = 15;
 
 /** Everything the bell has ever shown, with the unread ones first to hand. */
 export const ActivityPage: React.FC = () => {
@@ -58,6 +60,15 @@ export const ActivityPage: React.FC = () => {
     }
   };
 
+  // On the Mentions / Approvals tabs the first page may hold none of them: fetch on until there is something to show (or nothing is left).
+  const filteredTab = tab === 'mentions' || tab === 'approvals';
+  const matching = items ? items.filter((n) => matchesTab(n, tab === 'unread' ? 'all' : tab)).length : 0;
+  const fetching = filteredTab && !!items && items.length < total && matching < ENOUGH && !error;
+  useEffect(() => {
+    if (fetching && !loadingMore) void more();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetching, loadingMore, items?.length]);
+
   const open = (n: AppNotification) => {
     if (!n.read) {
       void useNotificationStore.getState().markAsRead(n.id);
@@ -97,7 +108,7 @@ export const ActivityPage: React.FC = () => {
 
       {error && <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>}
 
-      {items === null ? (
+      {items === null || (fetching && matching === 0) ? (
         error ? null : <NotificationSkeleton count={6} />
       ) : items.filter((n) => matchesTab(n, tab === 'unread' ? 'all' : tab)).length === 0 && items.length >= total ? (
         <div className="rounded-[var(--tm-radius-lg)] border border-[var(--tm-border)] bg-[var(--tm-card)]">

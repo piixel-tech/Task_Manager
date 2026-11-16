@@ -71,19 +71,19 @@ export const ChatWorkspace: React.FC<{ canCreate: boolean; heightClass?: string 
       <div
         className={`flex ${heightClass} min-h-[440px] gap-4`}
       >
-        <aside className={`${active ? 'hidden lg:block' : 'block'} w-full shrink-0 overflow-hidden rounded-[24px] bg-[var(--tm-card)] p-3 shadow-soft lg:w-[320px]`}>
+        <aside className={`${active ? 'hidden lg:block' : 'block'} w-full shrink-0 overflow-hidden rounded-[var(--tm-radius-xl)] border border-[var(--tm-border)] bg-[var(--tm-card)] p-3 lg:w-[320px]`}>
           <GroupList groups={groups} loaded={loaded} activeId={activeId} meId={me.id} onSelect={select} onNew={canCreate ? () => setCreating(true) : undefined}
             onSearch={() => setSearch('all')}
             onMentions={() => setSearch('mentions')}
           />
         </aside>
 
-        <section className={`${active ? 'block' : 'hidden lg:flex'} min-w-0 flex-1 overflow-hidden rounded-[24px] bg-[var(--tm-card)] shadow-soft lg:items-center lg:justify-center`}>
+        <section className={`${active ? 'block' : 'hidden lg:flex'} min-w-0 flex-1 overflow-hidden rounded-[var(--tm-radius-xl)] border border-[var(--tm-border)] bg-[var(--tm-card)] lg:items-center lg:justify-center`}>
           {active ? (
             <Conversation group={active} onBack={() => select(null)} onInfo={() => setShowInfo(true)} panelOpen={panelOpen} onTogglePanel={() => setPanelOpen((o) => !o)} />
           ) : (
             <EmptyState
-              icon={<MessageSquare className="h-6 w-6 text-[var(--tm-primary-dark)]" />}
+              icon={<MessageSquare className="h-6 w-6 text-[var(--tm-ink-soft)]" />}
               title="Pick a conversation"
               description={canCreate ? 'Choose a group on the left, or start a new one.' : 'Choose a conversation on the left.'}
               actionLabel={canCreate ? 'New group' : undefined}
@@ -93,7 +93,7 @@ export const ChatWorkspace: React.FC<{ canCreate: boolean; heightClass?: string 
         </section>
 
         {active && panelOpen && (
-          <aside className="hidden w-[320px] shrink-0 overflow-hidden rounded-[24px] bg-[var(--tm-card)] shadow-soft xl:block">
+          <aside className="hidden w-[320px] shrink-0 overflow-hidden rounded-[var(--tm-radius-xl)] border border-[var(--tm-border)] bg-[var(--tm-card)] xl:block">
             <ChatInfoPanel group={active} meId={me.id} onManage={() => setShowInfo(true)} />
           </aside>
         )}

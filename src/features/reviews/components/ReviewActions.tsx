@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, MessageSquareX } from 'lucide-react';
+import { ArrowUpRight, Check, MessageSquareX } from 'lucide-react';
 import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
 import { Textarea } from '../../../components/ui/Input';
@@ -10,10 +10,13 @@ interface Props {
   review: Pick<Review, 'id' | 'task_title' | 'submitted_by'>;
   onDone: () => void;
   size?: 'sm' | 'md';
+  /** `card`: Open, Send back and Approve in a row, as on the review cards. */
+  variant?: 'default' | 'card';
+  onOpen?: () => void;
 }
 
 /** Approve, or request changes with comments. Both go through the confirm dialog. */
-export const ReviewActions: React.FC<Props> = ({ review, onDone, size = 'sm' }) => {
+export const ReviewActions: React.FC<Props> = ({ review, onDone, size = 'sm', variant = 'default', onOpen }) => {
   const confirm = useConfirm();
   const [asking, setAsking] = useState(false);
   const [comments, setComments] = useState('');
@@ -57,22 +60,46 @@ export const ReviewActions: React.FC<Props> = ({ review, onDone, size = 'sm' }) 
 
   return (
     <>
-      <div className="flex flex-wrap gap-2">
-        <Button size={size} onClick={approve} leftIcon={<Check className="h-4 w-4" />}>
-          Approve
-        </Button>
-        <Button
-          size={size}
-          variant="outline"
-          onClick={() => {
-            setError(null);
-            setAsking(true);
-          }}
-          leftIcon={<MessageSquareX className="h-4 w-4" />}
-        >
-          Request changes
-        </Button>
-      </div>
+      {variant === 'card' ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {onOpen && (
+            <Button size={size} variant="ghost" onClick={onOpen} leftIcon={<ArrowUpRight className="h-4 w-4" />}>
+              Open
+            </Button>
+          )}
+          <Button
+            size={size}
+            variant="outline"
+            onClick={() => {
+              setError(null);
+              setAsking(true);
+            }}
+            leftIcon={<MessageSquareX className="h-4 w-4" />}
+          >
+            Send back
+          </Button>
+          <Button size={size} onClick={approve} leftIcon={<Check className="h-4 w-4" />}>
+            Approve
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <Button size={size} onClick={approve} leftIcon={<Check className="h-4 w-4" />}>
+            Approve
+          </Button>
+          <Button
+            size={size}
+            variant="outline"
+            onClick={() => {
+              setError(null);
+              setAsking(true);
+            }}
+            leftIcon={<MessageSquareX className="h-4 w-4" />}
+          >
+            Request changes
+          </Button>
+        </div>
+      )}
 
       <Modal isOpen={asking} onClose={() => setAsking(false)} title="Request changes" maxWidth="lg">
         <form onSubmit={requestChanges} className="space-y-4">

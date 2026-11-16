@@ -1,9 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { Bell, Calendar, Clock, Menu, Moon, Search, Shield, Sun } from 'lucide-react';
+import { Bell, Calendar, Clock, Menu, Search, Shield } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
-import { useSettingsStore } from '../../store/useSettingsStore';
 import { useAppStore } from '../../store/useAppStore';
 import { useNotificationStore } from '../../store/useNotificationStore';
 import { useDailyStatusStore } from '../../store/useDailyStatusStore';
@@ -67,10 +66,6 @@ export const Topbar: React.FC = () => {
   }, []);
 
   useShortcuts();
-  // Light / dark: the same setting as Settings > Appearance, so the two always agree. "System" counts as whatever the device shows.
-  const themeSetting = useSettingsStore((state) => state.settings.theme);
-  const updateSettings = useSettingsStore((state) => state.update);
-  const isDark = themeSetting === 'dark' || (themeSetting === 'system' && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches);
   const todayStatus = useDailyStatusStore((state) => state.today?.status);
   const openStatusEditor = useDailyStatusStore((state) => state.openEditor);
   const statusInfo = statusMeta(todayStatus);
@@ -170,16 +165,6 @@ export const Topbar: React.FC = () => {
             )}
             <div className="flex shrink-0 items-center justify-end gap-2">
             {user && !isClient && <FocusMenu />}
-
-            <button
-              type="button"
-              onClick={() => void updateSettings({ theme: isDark ? 'light' : 'dark' })}
-              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-              title={isDark ? 'Light mode' : 'Dark mode'}
-              className={ICON_BTN}
-            >
-              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </button>
 
             <button type="button" onClick={() => setPaletteOpen(true)} aria-label="Search" title="Search (Ctrl+K)" className={ICON_BTN}>
               <Search className="h-4 w-4" />

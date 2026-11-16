@@ -119,6 +119,24 @@ describe('My requests', () => {
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
   });
 
+  it('counts days from the first to the last day, both included (a Saturday is still 1 day), and always shows a status chip', () => {
+    render(
+      <MyLeaveRequests
+        loading={false}
+        onChanged={() => undefined}
+        requests={[
+          req({ id: 'sat', start_date: '2026-11-28', end_date: '2026-11-28', status: 'approved' }),
+          req({ id: 'rng', start_date: '2026-11-16', end_date: '2026-11-18', status: 'pending' }),
+          req({ id: 'half', start_date: '2026-11-20', end_date: '2026-11-20', duration: 'first_half', status: 'rejected', reject_reason: 'No' })
+        ]}
+      />
+    );
+    expect(screen.getByText(/· 1 day$/)).toBeTruthy();
+    expect(screen.getByText(/· 3 days$/)).toBeTruthy();
+    expect(screen.getByText(/· 0.5 days$/)).toBeTruthy();
+    for (const label of ['Approved', 'Pending', 'Rejected']) expect(screen.getAllByText(label)).toHaveLength(1);
+  });
+
   it('has an empty state', () => {
     render(<MyLeaveRequests loading={false} onChanged={() => undefined} requests={[]} />);
     expect(screen.getByText(/No requests yet/)).toBeTruthy();
@@ -142,16 +160,15 @@ describe('the request page', () => {
   };
   const free = (c: HTMLElement) => Array.from(c.querySelectorAll<HTMLButtonElement>('button[data-day]:not([disabled])'));
 
-  it('asks for dates first, then Continue opens the form and sending creates the request', async () => {
+  it('asks for dates first, then Request leave opens the form and sending creates the request', async () => {
     const create = vi.spyOn(leaveApi, 'create').mockResolvedValue(req());
     const { container } = await open();
-    expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Request leave' }));
     expect(screen.getByRole('alert').textContent).toContain('Pick your dates');
 
     const [first] = free(container);
     fireEvent.click(first); // one day
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Request leave' }));
 
     // one day: duration is offered; the only admin is preselected
     const dialog = await screen.findByRole('dialog');
@@ -170,12 +187,30 @@ describe('the request page', () => {
     );
   });
 
+  it('the summary card ticks the steps, counts working days and sends the request', async () => {
+    const create = vi.spyOn(leaveApi, 'create').mockResolvedValue(req());
+    const { container } = await open();
+    expect(screen.getByText(/First day · —/)).toBeTruthy();
+    const [first] = free(container);
+    fireEvent.click(first);
+    fireEvent.click(first); // same day twice = one day
+    expect(screen.getByText(/Last day · /).textContent).not.toContain('pick one');
+    const card = screen.getByLabelText('Your request');
+    await within(card).findByRole('option', { name: 'Ada Admin' });
+    fireEvent.change(within(card).getByLabelText('Reason'), { target: { value: 'Dentist' } });
+    await waitFor(() => expect((within(card).getByLabelText('Approver') as HTMLSelectElement).value).toBe('a1'));
+    fireEvent.click(within(card).getByRole('button', { name: 'Send request' }));
+    await waitFor(() =>
+      expect(create).toHaveBeenCalledWith({ type: 'leave', start_date: first.dataset.day, end_date: first.dataset.day, duration: 'full', reason: 'Dentist', admin_id: 'a1' })
+    );
+  });
+
   it('a range is always full days: no duration choice', async () => {
     const { container } = await open();
     const days = free(container);
     fireEvent.click(days[0]);
     fireEvent.click(days[1]);
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Request leave' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).queryByLabelText('Duration')).toBeNull();
     expect(within(dialog).getByLabelText('Type')).toBeTruthy();

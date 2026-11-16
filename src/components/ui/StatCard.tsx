@@ -32,6 +32,8 @@ export interface StatCardProps {
   /** Makes the whole card a button (in-page filter, drawer). `to` wins if both are set. */
   onClick?: () => void;
   className?: string;
+  /** Colours the figure (e.g. red for overdue). */
+  valueClassName?: string;
 }
 
 const trendColour = {
@@ -105,7 +107,8 @@ export const StatCard: React.FC<StatCardProps> = ({
   tone = 'primary',
   to,
   onClick,
-  className = ''
+  className = '',
+  valueClassName = 'text-[var(--tm-ink)]'
 }) => {
   const navigate = useNavigate();
   const act = to ? () => navigate(to) : onClick;
@@ -156,7 +159,7 @@ export const StatCard: React.FC<StatCardProps> = ({
 
       <div className="mt-2 flex items-end justify-between gap-3">
         <div className="flex items-end gap-2.5">
-          <span className="text-[28px] font-bold leading-none tracking-[-0.03em] text-[var(--tm-ink)] tabular-nums">
+          <span className={`text-[28px] font-bold leading-none tracking-[-0.03em] ${valueClassName} tabular-nums`}>
             {isNumeric ? (
               <CountUp value={value as number} decimals={decimals} prefix={prefix} suffix={suffix} />
             ) : (

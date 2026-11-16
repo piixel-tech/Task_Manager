@@ -40,6 +40,8 @@ interface Props {
   /** Tallest the writing area grows before it scrolls. */
   maxHeightClass?: string;
   label?: string;
+  /** `chat`: attach | grey rounded input with Aa (formatting) and emoji | voice / send, with the formatting bar tucked away until Aa is pressed. */
+  variant?: 'default' | 'chat';
 }
 
 const MAX_SUGGESTIONS = 6;
@@ -133,7 +135,7 @@ function mentionPopup() {
  * emoji and @mentions. It produces HTML; the server cleans it again before storing, and RichText shows it safely.
  */
 export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEditor(
-  { initialHtml = '', placeholder = 'Type a message', people, onChange, onSubmit, autoFocus, disabled, leading, trailing, maxHeightClass = 'max-h-40', label = 'Message' },
+  { initialHtml = '', placeholder = 'Type a message', people, onChange, onSubmit, autoFocus, disabled, leading, trailing, maxHeightClass = 'max-h-40', label = 'Message', variant = 'default' },
   ref
 ) {
   const peopleRef = useRef(people);
@@ -148,6 +150,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [formatOpen, setFormatOpen] = useState(false);
 
   const editor = useEditor({
     content: initialHtml,
@@ -277,6 +280,105 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
     { label: 'Inline code', icon: <Code className="h-4 w-4" />, on: active.code, run: () => editor.chain().focus().toggleCode().run() },
     { label: 'Code block', icon: <Braces className="h-4 w-4" />, on: active.codeBlock, run: () => editor.chain().focus().toggleCodeBlock().run() }
   ];
+
+  if (variant === 'chat') {
+    const small = 'grid h-8 w-8 shrink-0 place-items-center rounded-full text-[var(--tm-ink-soft)] transition-colors hover:bg-[var(--tm-bg-sunken)] hover:text-[var(--tm-ink)]';
+    return (
+      <div className="relative">
+        {formatOpen && (
+          <div role="toolbar" aria-label="Formatting" className="mb-2 flex items-center gap-0.5 overflow-x-auto rounded-full bg-[var(--tm-card-muted)] px-2 py-1">
+            {buttons.map((b) => (
+              <button
+                key={b.label}
+                type="button"
+                title={b.label}
+                aria-label={b.label}
+                aria-pressed={b.on}
+                disabled={disabled}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={b.run}
+                className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${b.on ? 'bg-[var(--tm-ink)] text-[var(--tm-card)]' : 'text-[var(--tm-ink-soft)] hover:bg-[var(--tm-bg-sunken)]'}`}
+              >
+                {b.icon}
+              </button>
+            ))}
+          </div>
+        )}
+        {linkOpen && (
+          <form
+            className="mb-2 flex items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              applyLink();
+            }}
+          >
+            <input
+              autoFocus
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              placeholder="Paste a web address"
+              aria-label="Link address"
+              className="min-w-0 flex-1 rounded-full bg-[var(--tm-card-muted)] px-4 py-1.5 text-[13px] outline-none"
+            />
+            <button type="submit" className="rounded-full bg-[var(--tm-ink)] px-3.5 py-1.5 text-[12.5px] font-semibold text-[var(--tm-card)]">
+              {linkUrl.trim() ? 'Apply' : 'Remove'}
+            </button>
+          </form>
+        )}
+        {emojiOpen && (
+          <div className="absolute bottom-full right-0 z-50 mb-2">
+            <Suspense fallback={<div className="rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)] bg-[var(--tm-card)] p-4 text-[12px]">Loading emoji…</div>}>
+              <EmojiPicker
+                width={320}
+                height={380}
+                lazyLoadEmojis
+                previewConfig={{ showPreview: false }}
+                onEmojiClick={(e) => {
+                  editor.chain().focus().insertContent(e.emoji).run();
+                }}
+              />
+            </Suspense>
+          </div>
+        )}
+        <div className="flex items-end gap-2">
+          <div className="flex shrink-0 items-center gap-0.5 pb-0.5">{leading}</div>
+          <div className="flex min-w-0 flex-1 items-end gap-1 rounded-[var(--tm-radius-xl)] bg-[var(--tc-other-bg)] py-1 pl-4 pr-1.5">
+            <div className={`${maxHeightClass} min-w-0 flex-1 cursor-text overflow-y-auto py-1.5`} onClick={() => editor.commands.focus()}>
+              <EditorContent editor={editor} />
+            </div>
+            <button
+              type="button"
+              title="Formatting"
+              aria-label="Formatting"
+              aria-expanded={formatOpen}
+              disabled={disabled}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setFormatOpen((o) => !o)}
+              className={`${small} text-[13px] font-bold ${formatOpen ? 'bg-[var(--tm-bg-sunken)] text-[var(--tm-ink)]' : ''}`}
+            >
+              Aa
+            </button>
+            <button
+              type="button"
+              title="Emoji"
+              aria-label="Emoji"
+              aria-expanded={emojiOpen}
+              disabled={disabled}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                setEmojiOpen((o) => !o);
+                setLinkOpen(false);
+              }}
+              className={small}
+            >
+              <Smile className="h-[18px] w-[18px]" />
+            </button>
+          </div>
+          <div className="flex shrink-0 items-center gap-1 pb-0.5">{trailing}</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative rounded-[var(--tm-radius-md)] border border-[var(--tm-border)] bg-[var(--tm-bg)] focus-within:border-[var(--tm-primary)]">

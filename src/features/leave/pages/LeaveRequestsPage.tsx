@@ -8,8 +8,9 @@ import { socket } from '../../../services/socket';
 import { leaveApi, type LeaveRequest } from '../../../services/http/leaveApi';
 import { LeaveCalendar } from '../components/LeaveCalendar';
 import { LeaveRequestModal } from '../components/LeaveRequestModal';
+import { LeaveSummary } from '../components/LeaveSummary';
 import { MyLeaveRequests } from '../components/MyLeaveRequests';
-import { datesText, daysIn, effectiveEnd, isTaken, marksByDay, type Selection } from '../leaveUtils';
+import { daysIn, effectiveEnd, isTaken, marksByDay, type Selection } from '../leaveUtils';
 
 /** Employee: pick days on the calendar, continue to the form, and follow the requests below. */
 export const LeaveRequestsPage: React.FC = () => {
@@ -39,6 +40,8 @@ export const LeaveRequestsPage: React.FC = () => {
   }, [load]);
 
   const end = effectiveEnd(selection);
+  const year = String(new Date().getFullYear());
+  const thisYear = requests.filter((r) => r.start_date.startsWith(year)).length;
   const picked = !!selection.start && !!end;
   const marks = marksByDay(requests);
   const conflict = picked && daysIn(selection).some((d) => isTaken(marks.get(d)));
@@ -61,11 +64,8 @@ export const LeaveRequestsPage: React.FC = () => {
         }
       />
 
-      <div className="mt-6 grid gap-6">
+      <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
         <Card>
-          <CardHeader>
-            <CardTitle>Pick your dates</CardTitle>
-          </CardHeader>
           <CardContent>
             <div ref={calendar}>
               <LeaveCalendar
@@ -77,42 +77,39 @@ export const LeaveRequestsPage: React.FC = () => {
                 }}
               />
             </div>
-
-            {picked ? (
-              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[var(--tm-radius-md)] bg-[var(--tm-card-muted)] px-4 py-3">
-                <div className="text-[13px]">
-                  <span className="font-bold text-[var(--tm-ink)]">{datesText({ start_date: selection.start!, end_date: end!, duration: 'full' })}</span>
-                  <span className="ml-2 text-[var(--tm-ink-muted)]">
-                    {conflict ? 'Some of these days already have a request.' : selection.end ? 'Click another day to start again.' : 'Click a later day to make it a range.'}
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setSelection({ start: null, end: null })}>
-                    Clear
-                  </Button>
-                  <Button size="sm" disabled={conflict} onClick={() => setFormOpen(true)}>
-                    Continue
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <p className={`mt-5 text-[12.5px] ${hint ? 'font-semibold text-[var(--tm-warning)]' : 'text-[var(--tm-ink-muted)]'}`} role={hint ? 'alert' : undefined}>
-                {hint ? 'Pick your dates on the calendar first.' : 'Click the first day, then the last day. For one day, click it once.'}
-              </p>
-            )}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>My requests</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {error && <div className="tm-error mb-3 px-4 py-3 text-xs font-semibold">{error}</div>}
-            <MyLeaveRequests requests={requests} loading={loading} onChanged={load} />
-          </CardContent>
-        </Card>
+        <LeaveSummary
+          selection={selection}
+          end={end}
+          picked={picked}
+          conflict={conflict}
+          hint={hint}
+          onClear={() => setSelection({ start: null, end: null })}
+          onSent={() => {
+            setSelection({ start: null, end: null });
+            load();
+          }}
+        />
       </div>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>
+            <span className="inline-flex flex-wrap items-center gap-3">
+              My requests
+              <span className="rounded-full bg-[var(--tm-primary-soft)] px-2.5 py-1 text-[11.5px] font-semibold text-[var(--tm-ink)]">
+                This year · {thisYear}
+              </span>
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {error && <div className="tm-error mb-3 px-4 py-3 text-xs font-semibold">{error}</div>}
+          <MyLeaveRequests requests={requests} loading={loading} onChanged={load} />
+        </CardContent>
+      </Card>
 
       {picked && (
         <LeaveRequestModal

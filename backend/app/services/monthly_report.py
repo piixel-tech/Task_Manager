@@ -32,7 +32,7 @@ from app.services import richtext
 
 MONTH = re.compile(r"^(20\d\d)-(0[1-9]|1[0-2])$")
 WORKING = ("present", "wfh", "half_day")
-DESCRIPTION_CHARS = 80
+DESCRIPTION_CHARS = 100
 
 
 def month_of(day: date) -> str:
@@ -309,6 +309,7 @@ async def build_report(user: User, month: str, now: datetime | None = None, comp
 async def get_report(user: User, month: str) -> ReportOut:
     report = await _get_report(user, month)
     report.summary = summarize(report)
+    report.person.title = user.title
     return report
 
 

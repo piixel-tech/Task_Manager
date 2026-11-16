@@ -10,6 +10,7 @@ class ReportPerson(BaseModel):
     name: str
     company: str = ""
     role: str = "employee"
+    title: str = ""  # the job title ("Jr developer"); filled in whenever the report is read, so old snapshots get it too
 
 
 class AttendanceDay(BaseModel):
@@ -87,7 +88,7 @@ class ReportFile(BaseModel):
 class TaskRow(BaseModel):
     task_id: PydanticObjectId
     title: str
-    description: str  # about 80 characters
+    description: str  # about 100 characters
     project: str
     subfolder: str
     start: str | None

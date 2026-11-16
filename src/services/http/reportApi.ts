@@ -30,7 +30,7 @@ export interface ReportTaskRow {
 }
 
 export interface MonthlyReport {
-  person: { id: string; name: string; company: string; role: string };
+  person: { id: string; name: string; company: string; role: string; /** Job title, e.g. "Jr developer" (empty if not set). */ title?: string };
   month: string;
   /** "in_progress": the current month, a live preview. "final": a finished month, frozen. */
   state: 'in_progress' | 'final';

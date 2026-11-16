@@ -1,14 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { endOfWeek, format, startOfWeek } from 'date-fns';
-import { AlertCircle, AlertTriangle, ArrowUpRight, CalendarClock, CheckSquare, Clock, ListChecks, Play, Plus, Send, Square } from 'lucide-react';
+import { AlertTriangle, CheckSquare, ChevronLeft, ChevronDown, ClipboardCheck, Clock, Inbox, LayoutList, ListChecks, Plus, Search, Send, User } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
-import { Avatar } from '../../../components/ui/Avatar';
-import { PersonLink } from '../../../components/ui/PersonLink';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { StatCard } from '../../../components/ui/StatCard';
-import { FilterBar, FilterPill, FilterSearch } from '../../../components/ui/FilterBar';
-import { DetailCard, MasterDetail, MasterRow, useMasterSelection } from '../../../components/ui/MasterDetail';
+import { useMasterSelection } from '../../../components/ui/MasterDetail';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { SkeletonGrid } from '../../../components/ui/Skeleton';
 import { useTimerStore } from '../../../store/useTimerStore';
@@ -18,13 +15,16 @@ import { socket } from '../../../services/socket';
 import { projectApi, type Project } from '../../../services/http/projectApi';
 import { reviewApi } from '../../../services/http/reviewApi';
 import { taskApi, type ApiPriority, type ApiTask, type ApiTaskStatus } from '../../../services/http/taskApi';
-import { formatDate, getTodayDateString } from '../../../utils/time';
-import { formatDuration } from '../../../utils/format';
+import { getTodayDateString } from '../../../utils/time';
 import { dailyCounts, weekTrend } from '../../../utils/trend';
-import { isOverdue, StatusDot } from '../components/TaskMeta';
-import { TaskLiveTime, TaskTimerButton, useReloadOnTimerChange } from '../components/TaskTimer';
+import { isOverdue } from '../components/TaskMeta';
+import { useReloadOnTimerChange } from '../components/TaskTimer';
 import { deadlineHeat } from '../../../utils/deadlineHeat';
 import { TaskFormModal } from '../components/TaskFormModal';
+import { ViewTiles, type ViewTileGroup } from '../components/ViewTiles';
+import { FilterChips, FiltersPopover } from '../components/TaskFilters';
+import { TaskListRow } from '../components/TaskListRow';
+import { TaskDetailPanel } from '../components/TaskDetailPanel';
 
 const STATUS_OPTIONS: { value: '' | ApiTaskStatus; label: string }[] = [
   { value: '', label: 'Any status' },
@@ -51,38 +51,6 @@ const DUE_OPTIONS = [
   { value: 'none', label: 'No date' }
 ];
 
-const CHIP = 'inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-semibold leading-none';
-const CHIP_SOFT = `${CHIP} bg-[var(--tp-chip)] text-[var(--tp-chip-ink)]`;
-const STATUS_LABEL: Record<ApiTaskStatus, string> = {
-  todo: 'Pending',
-  in_progress: 'In progress',
-  submitted: 'Submitted',
-  changes_requested: 'Changes requested',
-  approved: 'Approved'
-};
-
-const StatusPill: React.FC<{ status: ApiTaskStatus }> = ({ status }) => <span className={CHIP_SOFT}>{STATUS_LABEL[status]}</span>;
-const PriorityPill: React.FC<{ priority: ApiPriority }> = ({ priority }) => (
-  <span className={CHIP_SOFT}>{priority.charAt(0).toUpperCase() + priority.slice(1)}</span>
-);
-/** A small red dot + "Overdue" (not a pink pill). In the detail it sits in a chip of the same size as the others. */
-const OverdueMark: React.FC<{ chip?: boolean; onLight?: boolean }> = ({ chip, onLight }) => (
-  <span className={`${chip ? CHIP_SOFT : 'inline-flex items-center gap-1.5 text-[11px] font-semibold leading-none'} ${onLight && !chip ? 'text-[var(--tp-red-on-sel)]' : 'text-[var(--tp-red)]'}`}>
-    <span className={`h-1.5 w-1.5 rounded-full ${onLight && !chip ? 'bg-[var(--tp-red-on-sel)]' : 'bg-[var(--tp-red)]'}`} />
-    Overdue
-  </span>
-);
-
-/** A small info card of the detail panel. */
-const Mini: React.FC<{ title: string; span?: boolean; children: React.ReactNode }> = ({ title, span, children }) => (
-  <section className={`min-w-0 rounded-2xl border border-[var(--tp-card-border)] bg-[var(--tp-card)] p-3.5 text-[var(--tp-text)] ${span ? 'col-span-full' : ''}`}>
-    <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--tp-muted)]">{title}</h3>
-    {children}
-  </section>
-);
-
-const ACTION_BTN = 'inline-flex h-10 items-center gap-2 rounded-full px-4 text-[13px] font-semibold transition-colors disabled:opacity-60';
-
 type Scope = 'created' | 'assigned' | 'by_me' | 'review' | 'all';
 
 /** Which tab a task belongs to, for the signed-in person. */
@@ -104,6 +72,49 @@ const QUICK: Record<string, { label: string; test: (t: ApiTask, today: string) =
   in_review: { label: 'In review', test: (t) => t.status === 'submitted' || t.status === 'changes_requested' }
 };
 
+const VIEW_INFO: Record<Scope, { label: string; hint: string }> = {
+  created: { label: 'My tasks', hint: 'Created by me, for me' },
+  assigned: { label: 'Assigned to me', hint: 'Everything on my plate' },
+  by_me: { label: 'Assigned by me', hint: 'Handed to others' },
+  review: { label: 'Pending review', hint: 'Waiting or changes asked' },
+  all: { label: 'All tasks', hint: 'Everyone, every project' }
+};
+
+type GroupId = 'changes' | 'overdue' | 'week' | 'upcoming' | 'submitted' | 'done';
+const GROUPS: { id: GroupId; label: string }[] = [
+  { id: 'changes', label: 'Changes requested' },
+  { id: 'overdue', label: 'Overdue' },
+  { id: 'week', label: 'This week' },
+  { id: 'upcoming', label: 'Upcoming' },
+  { id: 'submitted', label: 'Submitted' },
+  { id: 'done', label: 'Done' }
+];
+
+type SortKey = 'due' | 'newest' | 'priority' | 'title';
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: 'due', label: 'Due date' },
+  { value: 'newest', label: 'Newest' },
+  { value: 'priority', label: 'Priority' },
+  { value: 'title', label: 'Title' }
+];
+const GROUP_DOT: Record<GroupId, string> = {
+  changes: 'var(--tm-danger)',
+  overdue: 'var(--tp-red)',
+  week: 'var(--tm-warning)',
+  upcoming: 'var(--tm-primary-dark)',
+  submitted: 'var(--tm-info)',
+  done: 'var(--tm-success)'
+};
+const PRIORITY_RANK: Record<ApiPriority, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+
+const byDue = (a: ApiTask, b: ApiTask) => (a.due_date ?? '9999-12-31').localeCompare(b.due_date ?? '9999-12-31') || b.created_at.localeCompare(a.created_at);
+const SORTERS: Record<SortKey, (a: ApiTask, b: ApiTask) => number> = {
+  due: byDue,
+  newest: (a, b) => b.created_at.localeCompare(a.created_at),
+  priority: (a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] || byDue(a, b),
+  title: (a, b) => a.title.localeCompare(b.title)
+};
+
 export const TasksPage: React.FC = () => {
   const navigate = useNavigate();
   const me = useAuthStore((s) => s.user);
@@ -111,13 +122,21 @@ export const TasksPage: React.FC = () => {
 
   const [tasks, setTasks] = useState<ApiTask[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [scope, setScope] = useState<Scope>(me?.role === 'admin' ? 'all' : 'assigned');
+  const [scope, setScope] = useState<Scope>('all');
   const [projectId, setProjectId] = useState('');
   const [status, setStatus] = useState<'' | ApiTaskStatus>('');
   const [subfolderId, setSubfolderId] = useState('');
   const [priority, setPriority] = useState<'' | ApiPriority>('');
   const [due, setDue] = useState('');
   const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<SortKey>('due');
+  const [collapsed, setCollapsed] = useState<Set<GroupId>>(new Set());
+  const toggleGroup = (id: GroupId) =>
+    setCollapsed((c) => {
+      const next = new Set(c);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -155,22 +174,16 @@ export const TasksPage: React.FC = () => {
   // A new assignment arrives live: refresh the list.
   useEffect(() => socket.on('notification', (n: { type?: string }) => n?.type?.startsWith('task_') && load()), [load]);
 
-  const sorted = useMemo(
-    () =>
-      [...tasks].sort((a, b) => {
-        const da = a.due_date ?? '9999-12-31';
-        const db = b.due_date ?? '9999-12-31';
-        return da.localeCompare(db) || b.created_at.localeCompare(a.created_at);
-      }),
-    [tasks]
-  );
+  const weekEnd = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
+  // Filtered, sorted, then split into the list's groups (the flat order is what the detail selection follows).
   const visible = useMemo(() => {
     const today = getTodayDateString();
     const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-    const weekEnd = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
     const q = search.trim().toLowerCase();
-    return sorted.filter((t) => {
+    const groupOf = (t: ApiTask): GroupId =>
+      t.status === 'changes_requested' ? 'changes' : t.status === 'approved' ? 'done' : t.status === 'submitted' ? 'submitted' : isOverdue(t) ? 'overdue' : t.due_date && t.due_date <= weekEnd ? 'week' : 'upcoming';
+    const kept = tasks.filter((t) => {
       if (!TAB_TEST[scope](t, me?.id ?? '')) return false;
       if (quick && !QUICK[quick].test(t, today)) return false;
       if (subfolderId && t.subfolder_id !== subfolderId) return false;
@@ -182,9 +195,13 @@ export const TasksPage: React.FC = () => {
       if (due === 'none') return !t.due_date;
       return true;
     });
-  }, [sorted, scope, me?.id, quick, subfolderId, priority, due, search]);
+    kept.sort(SORTERS[sort]);
+    const groups = GROUPS.map((g) => ({ ...g, tasks: kept.filter((t) => groupOf(t) === g.id) })).filter((g) => g.tasks.length > 0);
+    return { groups, flat: groups.flatMap((g) => g.tasks) };
+  }, [tasks, scope, me?.id, quick, subfolderId, priority, due, search, sort, weekEnd]);
 
   const tabCount = (s: Scope) => tasks.filter((t) => TAB_TEST[s](t, me?.id ?? '')).length;
+  const scoped = useMemo(() => tasks.filter((t) => TAB_TEST[scope](t, me?.id ?? '')), [tasks, scope, me?.id]);
 
   // Subfolders of the tasks loaded (narrowed to the chosen project).
   const subfolderOptions = useMemo(() => {
@@ -193,7 +210,7 @@ export const TasksPage: React.FC = () => {
     return [...seen].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
   }, [tasks]);
 
-  const { selected, open, select, back } = useMasterSelection(visible);
+  const { selected, open, select, back } = useMasterSelection(visible.flat);
 
   // Timer and submit, same rules as the task detail page (only the assignee, `can_work`).
   const busy = useTimerStore((s) => s.busy);
@@ -233,8 +250,57 @@ export const TasksPage: React.FC = () => {
       live = false;
     };
   }, [scope, selectedId, selectedStatus]);
-  const activeFilters =
-    (projectId ? 1 : 0) + (status ? 1 : 0) + (quick ? 1 : 0) + (subfolderId ? 1 : 0) + (priority ? 1 : 0) + (due ? 1 : 0) + (search.trim() ? 1 : 0);
+  // Sent-back tasks show who asked for changes and what they wrote (the newest "changes requested" round).
+  const [feedback, setFeedback] = useState<Record<string, { reviewer: string | null; comments: string | null }>>({});
+  const sentBackKey = tasks.filter((t) => t.status === 'changes_requested').map((t) => t.id + ':' + t.review_rounds).join(','); // a new round refetches
+  useEffect(() => {
+    let live = true;
+    sentBackKey.split(',').filter(Boolean).map((k) => k.split(':')[0]).forEach((id) =>
+      reviewApi
+        .rounds(id)
+        .then((rounds) => {
+          const last = [...rounds].reverse().find((r) => r.decision === 'changes_requested');
+          if (live) setFeedback((f) => ({ ...f, [id]: { reviewer: last?.decided_by?.name ?? null, comments: last?.comments ?? null } }));
+        })
+        .catch(() => live && setFeedback((f) => ({ ...f, [id]: { reviewer: null, comments: null } })))
+    );
+    return () => {
+      live = false;
+    };
+  }, [sentBackKey]);
+
+  const filterCount = (projectId ? 1 : 0) + (status ? 1 : 0) + (quick ? 1 : 0) + (subfolderId ? 1 : 0) + (priority ? 1 : 0) + (due ? 1 : 0);
+  const clearAll = () => {
+    setProjectId('');
+    setStatus('');
+    setQuick('');
+    setSubfolderId('');
+    setPriority('');
+    setDue('');
+    setSearch('');
+  };
+  const projectOptions = [{ value: '', label: 'All projects' }, ...projects.map((p) => ({ value: p.id, label: p.name }))];
+  const subfolderChoices = [{ value: '', label: 'All subfolders' }, ...subfolderOptions];
+  const labelOf = (opts: { value: string; label: string }[], v: string) => opts.find((o) => o.value === v)?.label ?? v;
+  const chips = [
+    quick && { key: 'quick', label: QUICK[quick].label, onRemove: () => setQuick('') },
+    projectId && { key: 'project', label: labelOf(projectOptions, projectId), onRemove: () => { setProjectId(''); setSubfolderId(''); } },
+    subfolderId && { key: 'subfolder', label: labelOf(subfolderChoices, subfolderId), onRemove: () => setSubfolderId('') },
+    status && { key: 'status', label: labelOf(STATUS_OPTIONS, status), onRemove: () => setStatus('') },
+    priority && { key: 'priority', label: labelOf(PRIORITY_OPTIONS, priority), onRemove: () => setPriority('') },
+    due && { key: 'due', label: labelOf(DUE_OPTIONS, due), onRemove: () => setDue('') }
+  ].filter(Boolean) as { key: string; label: string; onRemove: () => void }[];
+
+  const view = VIEW_INFO[scope];
+  const tileGroups: ViewTileGroup[] = [
+    { label: 'To do', tiles: [
+      { id: 'created', ...VIEW_INFO.created, icon: <User />, count: tabCount('created') },
+      { id: 'assigned', ...VIEW_INFO.assigned, icon: <Inbox />, count: tabCount('assigned') }
+    ] },
+    { label: 'Delegated', tiles: [{ id: 'by_me', ...VIEW_INFO.by_me, icon: <Send />, count: tabCount('by_me') }] },
+    { label: 'To approve', tiles: [{ id: 'review', ...VIEW_INFO.review, icon: <ClipboardCheck />, count: tabCount('review'), alert: true }] },
+    { label: 'Overview', tiles: [{ id: 'all', ...VIEW_INFO.all, icon: <LayoutList />, count: tabCount('all') }] }
+  ];
 
   return (
     <>
@@ -248,120 +314,152 @@ export const TasksPage: React.FC = () => {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Tasks"
-          value={tasks.length}
-          icon={<ListChecks className="h-5 w-5" />}
-          tone="primary"
-          hint="Created per day, last 7 days"
-          onClick={() => {
-            setStatus('');
-            setQuick('');
-          }}
-          {...weekTrend(dailyCounts(tasks, (t) => t.created_at, 14))}
-        />
-        <StatCard label="In progress" value={tasks.filter((t) => t.status === 'in_progress').length} icon={<Clock className="h-5 w-5" />} tone="warn" hint="Being worked on" onClick={() => { setQuick(''); setStatus('in_progress'); }} />
-        <StatCard label="Submitted" value={tasks.filter((t) => t.status === 'submitted').length} icon={<Send className="h-5 w-5" />} tone="neutral" hint="Waiting for review" onClick={() => { setQuick(''); setStatus('submitted'); }} />
-        <StatCard
-          label="Overdue"
-          value={tasks.filter(isOverdue).length}
-          icon={<AlertTriangle className="h-5 w-5" />}
-          tone="bad"
-          hint="Overdue by due date, last 7 days"
-          trend={dailyCounts(tasks.filter(isOverdue), (t) => t.due_date, 7)}
-          onClick={() => {
-            setStatus('');
-            setQuick('overdue');
-          }}
-        />
-      </div>
+      <ViewTiles groups={tileGroups} active={scope} onChange={(id) => setScope(id as Scope)} />
 
-      <FilterBar
-        activeCount={activeFilters}
-        chips={quick ? [{ key: 'quick', label: QUICK[quick].label, onRemove: () => setQuick('') }] : []}
-        onClear={() => {
-          setProjectId('');
-          setStatus('');
-          setQuick('');
-          setSubfolderId('');
-          setPriority('');
-          setDue('');
-          setSearch('');
-        }}
-      >
-        <FilterSearch value={search} onChange={setSearch} placeholder="Search tasks by title" />
-        <FilterPill
-          label="Project"
-          value={projectId}
-          onChange={(v) => {
-            setProjectId(v);
-            setSubfolderId('');
-          }}
-          options={[{ value: '', label: 'All projects' }, ...projects.map((p) => ({ value: p.id, label: p.name }))]}
-        />
-        <FilterPill
-          label="Status"
-          value={status}
-          onChange={(v) => setStatus(v as '' | ApiTaskStatus)}
-          options={STATUS_OPTIONS}
-        />
-        <FilterPill
-          label="Subfolder"
-          value={subfolderId}
-          onChange={setSubfolderId}
-          options={[{ value: '', label: 'All subfolders' }, ...subfolderOptions]}
-        />
-        <FilterPill label="Priority" value={priority} onChange={(v) => setPriority(v as '' | ApiPriority)} options={PRIORITY_OPTIONS} />
-        <FilterPill label="Due" value={due} onChange={setDue} options={DUE_OPTIONS} />
-      </FilterBar>
+      <section aria-label={`${view.label} at a glance`} className="space-y-3">
+        <div className="flex flex-wrap items-baseline gap-x-3">
+          <h2 className="text-[15px] font-semibold text-[var(--tm-ink)]">{view.label} at a glance</h2>
+          <p className="text-[12.5px] font-medium text-[var(--tm-ink-muted)]">Click a number to show only those tasks</p>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Tasks"
+            value={scoped.length}
+            icon={<ListChecks className="h-5 w-5" />}
+            tone="primary"
+            hint="Created per day, last 7 days"
+            onClick={() => {
+              setStatus('');
+              setQuick('');
+            }}
+            {...weekTrend(dailyCounts(scoped, (t) => t.created_at, 14))}
+          />
+          <StatCard label="In progress" value={scoped.filter((t) => t.status === 'in_progress').length} icon={<Clock className="h-5 w-5" />} tone="warn" hint="Being worked on" onClick={() => { setQuick(''); setStatus('in_progress'); }} />
+          <StatCard label="Submitted" value={scoped.filter((t) => t.status === 'submitted').length} icon={<Send className="h-5 w-5" />} tone="neutral" hint="Waiting for review" onClick={() => { setQuick(''); setStatus('submitted'); }} />
+          <StatCard
+            label="Overdue"
+            value={scoped.filter(isOverdue).length}
+            icon={<AlertTriangle className="h-5 w-5" />}
+            tone="bad"
+            className="bg-[var(--tm-danger-bg)]!"
+            valueClassName="text-[var(--tm-danger)]"
+            hint="Overdue by due date, last 7 days"
+            trend={dailyCounts(scoped.filter(isOverdue), (t) => t.due_date, 7)}
+            onClick={() => {
+              setStatus('');
+              setQuick('overdue');
+            }}
+          />
+        </div>
+      </section>
 
       {error && (
         <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>
       )}
 
-      <MasterDetail
-        variant="dark"
-        tabs={[
-          { id: 'created', label: 'My tasks', count: tabCount('created') },
-          { id: 'assigned', label: 'Assigned to me', count: tabCount('assigned') },
-          { id: 'by_me', label: 'Assigned by me', count: tabCount('by_me') },
-          { id: 'review', label: 'Pending review', count: tabCount('review') },
-          { id: 'all', label: 'All tasks', count: tabCount('all') }
-        ]}
-        activeTab={scope}
-        onTabChange={(t) => setScope(t as Scope)}
-        detailOpen={open}
-        onBack={back}
-        list={
-          loading ? (
-            <SkeletonGrid count={4} />
-          ) : (
-            visible.map((t) => (
-              <MasterRow
-                variant="dark"
-                key={t.id}
-                heat={deadlineHeat(t.due_date, OPEN_STATUSES.includes(t.status))}
-                active={t.timer_running}
-                action={t.can_work ? <TaskTimerButton task={t} size="sm" /> : undefined}
-                selected={t.id === selected?.id}
-                onSelect={() => select(t.id)}
-                avatar={t.assignee && <Avatar name={t.assignee.name} src={t.assignee.avatar_url ?? undefined} size="md" className="!h-9 !w-9" />}
-                title={t.title}
-                subtitle={`${t.project_name} › ${t.subfolder_name}`}
-                chip={
-                  <span className="flex items-center gap-1.5">
-                    <TaskLiveTime task={t} />
-                    {isOverdue(t) && <OverdueMark onLight={t.id === selected?.id} />}
-                    <StatusPill status={t.status} />
-                  </span>
-                }
+      <div className="grid gap-5 lg:grid-cols-[minmax(320px,460px)_minmax(0,1fr)]">
+        <section
+          aria-label={view.label}
+          className={`min-w-0 flex-col gap-3 rounded-[var(--tm-radius-card)] border border-[var(--tm-border)]/60 bg-[var(--tm-card)] p-4 shadow-soft-xs ${open ? 'hidden lg:flex' : 'flex'}`}
+        >
+          <label className="flex h-11 items-center gap-2 rounded-full border border-[var(--tm-border)] bg-[var(--tm-card)] px-4 text-[var(--tm-ink-muted)] transition-[border-color,box-shadow] focus-within:border-[var(--tm-primary-light)] focus-within:shadow-glow">
+            <Search className="h-4 w-4 shrink-0" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={`Search in ${view.label}`}
+              aria-label={`Search in ${view.label}`}
+              className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-[var(--tm-ink)] outline-none placeholder:text-[var(--tm-ink-muted)]"
+            />
+          </label>
+
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-[15px] font-semibold text-[var(--tm-ink)]">
+              {view.label} <span className="tabular-nums text-[var(--tm-ink-muted)]">· {visible.flat.length}</span>
+            </h3>
+            <div className="flex items-center gap-2">
+              <FiltersPopover
+                activeCount={filterCount}
+                resultCount={visible.flat.length}
+                onClearAll={clearAll}
+                fields={[
+                  { key: 'project', label: 'Project', value: projectId, options: projectOptions, onChange: (v) => { setProjectId(v); setSubfolderId(''); } },
+                  { key: 'subfolder', label: 'Subfolder', value: subfolderId, options: subfolderChoices, onChange: setSubfolderId },
+                  { key: 'status', label: 'Status', value: status, options: STATUS_OPTIONS, onChange: (v) => setStatus(v as '' | ApiTaskStatus) },
+                  { key: 'priority', label: 'Priority', value: priority, options: PRIORITY_OPTIONS, onChange: (v) => setPriority(v as '' | ApiPriority) },
+                  { key: 'due', label: 'Due', value: due, options: DUE_OPTIONS, onChange: setDue }
+                ]}
               />
-            ))
-          )
-        }
-        detail={
-          loading ? null : !selected ? (
+              <label className="inline-flex h-10 items-center gap-2 rounded-full border border-[var(--tm-border)] bg-[var(--tm-card)] pl-4 pr-2 text-[13px] font-semibold text-[var(--tm-ink-muted)]">
+                Sort
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as SortKey)}
+                  aria-label="Sort tasks"
+                  className="bg-transparent font-semibold text-[var(--tm-ink)] outline-none"
+                >
+                  {SORT_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <FilterChips chips={chips} />
+
+          <div className="max-h-[calc(100dvh-16rem)] min-h-[240px] space-y-4 overflow-y-auto pr-1">
+            {loading ? (
+              <SkeletonGrid count={4} />
+            ) : visible.groups.length === 0 ? (
+              <p className="py-10 text-center text-[13px] font-medium text-[var(--tm-ink-muted)]">No tasks here.</p>
+            ) : (
+              visible.groups.map((g) => (
+                <div key={g.id}>
+                  <button
+                    type="button"
+                    aria-expanded={!collapsed.has(g.id)}
+                    onClick={() => toggleGroup(g.id)}
+                    className="mb-1 flex w-full items-center gap-2 px-3 py-1 text-left"
+                  >
+                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: GROUP_DOT[g.id] }} />
+                    <span className={`text-[11px] font-semibold uppercase tracking-[0.1em] ${g.id === 'overdue' || g.id === 'changes' ? 'text-[var(--tp-red)]' : 'text-[var(--tm-ink-muted)]'}`}>
+                      {g.label} <span className="tabular-nums">· {g.tasks.length}</span>
+                    </span>
+                    <span className="h-px flex-1 bg-[var(--tm-border)]" />
+                    <ChevronDown className={`h-4 w-4 shrink-0 text-[var(--tm-ink-muted)] transition-transform ${collapsed.has(g.id) ? '-rotate-90' : ''}`} />
+                  </button>
+                  <div className={`space-y-1 ${collapsed.has(g.id) ? 'hidden' : ''}`}>
+                    {g.tasks.map((t) => (
+                      <TaskListRow
+                        key={t.id}
+                        task={t}
+                        selected={t.id === selected?.id}
+                        heat={deadlineHeat(t.due_date, OPEN_STATUSES.includes(t.status))}
+                        onSelect={() => select(t.id)}
+                        feedback={feedback[t.id]}
+                        onFix={() => navigate(`${prefix}/tasks/${t.id}`)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
+        <div className={`min-w-0 ${open ? 'block' : 'hidden lg:block'}`}>
+          <button
+            type="button"
+            onClick={back}
+            className="mb-3 inline-flex items-center gap-1 rounded-full px-3 py-2 text-[13px] font-bold text-[var(--tm-ink)] hover:bg-[var(--tm-bg-sunken)] lg:hidden"
+          >
+            <ChevronLeft className="h-4 w-4" /> All
+          </button>
+          {loading ? null : !selected ? (
             <EmptyState
               icon={<CheckSquare className="h-6 w-6 text-[var(--tm-primary-dark)]" />}
               title="No tasks here"
@@ -371,100 +469,26 @@ export const TasksPage: React.FC = () => {
             />
           ) : (
             <div key={selected.id} data-focus-keep className="animate-fade-in">
-              <DetailCard
-                variant="dark"
-                corner={
-                  <button
-                    type="button"
-                    onClick={() => navigate(`${prefix}/tasks/${selected.id}`)}
-                    className="inline-flex h-10 items-center gap-2 rounded-full border border-[var(--tm-primary-soft)] bg-[var(--tm-card)] px-4 text-[13px] font-semibold text-[#2A2933] shadow-sm transition-colors hover:border-[#C4B5E0] hover:bg-[#C4B5E0]"
-                  >
-                    Open task <ArrowUpRight className="h-4 w-4" />
-                  </button>
+              <TaskDetailPanel
+                task={selected}
+                meId={me?.id}
+                requestedChanges={
+                  scope === 'review' && selected.status === 'changes_requested'
+                    ? requested?.taskId === selected.id
+                      ? (requested.comments ?? 'No comments were left.')
+                      : 'Loading…'
+                    : null
                 }
-                title={selected.title}
-                subtitle={`${selected.project_name} › ${selected.subfolder_name}`}
-                badges={
-                  <>
-                    {selected.unresolved_changes > 0 && (
-                      <span title={`${selected.unresolved_changes} open mid-way ${selected.unresolved_changes === 1 ? 'change' : 'changes'}`} className={CHIP_SOFT}>
-                        <AlertCircle className="h-3.5 w-3.5" />
-                        {selected.unresolved_changes}
-                      </span>
-                    )}
-                    <PriorityPill priority={selected.priority} />
-                    <StatusPill status={selected.status} />
-                    {isOverdue(selected) && <OverdueMark chip />}
-                  </>
-                }
-                actions={
-                  <>
-                    {selected.can_work && (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={selected.timer_running ? stopTimer : startTimer}
-                        className={`${ACTION_BTN} bg-[var(--tm-accent)] text-[var(--tm-accent-ink)] hover:brightness-95`}
-                      >
-                        {selected.timer_running ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                        {selected.timer_running ? 'Stop timer' : 'Start timer'}
-                        <span className="tabular-nums">· {formatDuration(selected.total_seconds + (selected.timer_running ? tick : 0))}</span>
-                      </button>
-                    )}
-                    {selected.can_work && (
-                      <button
-                        type="button"
-                        onClick={() => setSubmitting(true)}
-                        className={`${ACTION_BTN} border border-[var(--tp-outline)] bg-transparent text-[var(--tp-text)] hover:bg-[var(--tp-outline-hover)]`}
-                      >
-                        <Send className="h-4 w-4" /> Submit for review
-                      </button>
-                    )}
-                  </>
-                }
-              >
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {scope === 'review' && selected.status === 'changes_requested' && (
-                    <Mini title="Requested changes" span>
-                      <p className="whitespace-pre-wrap text-[13px] font-medium">
-                        {requested?.taskId === selected.id ? (requested.comments ?? 'No comments were left.') : 'Loading…'}
-                      </p>
-                    </Mini>
-                  )}
-                  <Mini title="Progress">
-                    <div className="flex items-baseline justify-between">
-                      <span className="text-[13px] font-semibold">Done so far</span>
-                      <span className="text-[13px] font-semibold tabular-nums text-[var(--tp-text-soft)]">{selected.progress}%</span>
-                    </div>
-                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--tp-track)]">
-                      <div className="h-full rounded-full bg-[var(--tp-bar)] transition-[width]" style={{ width: `${selected.progress}%` }} />
-                    </div>
-                  </Mini>
-                  <Mini title="Assignee">
-                    <PersonLink userId={selected.assignee?.id} className="flex items-center gap-2 text-[13px] font-semibold text-[var(--tp-text)]">
-                      {selected.assignee && <Avatar name={selected.assignee.name} src={selected.assignee.avatar_url ?? undefined} size="sm" />}
-                      {selected.assignee?.name ?? 'Unassigned'}
-                    </PersonLink>
-                  </Mini>
-                  <Mini title="Due">
-                    <span className={`flex items-center gap-1.5 text-[13px] font-semibold ${isOverdue(selected) ? 'text-[var(--tp-red)]' : 'text-[var(--tp-text)]'}`}>
-                      <CalendarClock className="h-4 w-4" />
-                      {selected.due_date ? formatDate(selected.due_date, 'MMM d') : 'No due date'}
-                    </span>
-                  </Mini>
-                  <Mini title="Time tracked">
-                    <span className="flex items-center gap-1.5 text-[13px] font-semibold tabular-nums">
-                      <StatusDot running={selected.timer_running} />
-                      <Clock className="h-4 w-4" />
-                      {formatDuration(selected.total_seconds + (selected.timer_running ? tick : 0))}
-                    </span>
-                  </Mini>
-                </div>
-              </DetailCard>
+                busy={busy}
+                tick={tick}
+                onToggleTimer={selected.timer_running ? stopTimer : startTimer}
+                onSubmit={() => setSubmitting(true)}
+                onOpen={() => navigate(`${prefix}/tasks/${selected.id}`)}
+              />
             </div>
-          )
-        }
-      />
+          )}
+        </div>
+      </div>
 
       {selected && (
         <SubmitReviewModal isOpen={submitting} onClose={() => setSubmitting(false)} task={selected} onSubmitted={load} />

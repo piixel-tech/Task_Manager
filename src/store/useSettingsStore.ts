@@ -27,17 +27,14 @@ const remember = (key: string, value: string) => {
   }
 };
 
-const darkQuery = () => window.matchMedia?.('(prefers-color-scheme: dark)');
-
-/** Light or dark on the page, and compact or comfortable spacing. "System" follows the device. */
-export function applyAppearance(s: Pick<UserSettings, 'theme' | 'density'> & { palette?: UserSettings['palette'] }): void {
-  const dark = s.theme === 'dark' || (s.theme === 'system' && !!darkQuery()?.matches);
+/** The page is always light; this sets the colour theme and the compact or comfortable spacing. */
+export function applyAppearance(s: Pick<UserSettings, 'density'> & { palette?: UserSettings['palette'] }): void {
   const root = document.documentElement;
-  root.setAttribute('data-mode', dark ? 'dark' : 'light');
+  root.setAttribute('data-mode', 'light');
   // A live festival theme takes over unless this browser switched back to the person's own theme.
   root.setAttribute('data-theme', isFestivalApplied(useFestivalStore.getState()) ? 'festival' : themeAttr(isAvailablePalette(s.palette ?? 'purple') ? (s.palette ?? 'purple') : 'purple'));
   root.setAttribute('data-density', s.density);
-  remember(MODE_KEY, s.theme);
+  remember(MODE_KEY, 'light');
   remember(PALETTE_KEY, s.palette ?? 'purple');
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', getComputedStyle(root).getPropertyValue('--bg').trim() || '#f3f1f6');
   remember(DENSITY_KEY, s.density);
@@ -47,7 +44,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   settings: DEFAULT_SETTINGS,
 
   init: (saved) => {
-    const settings = saved ? { ...DEFAULT_SETTINGS, ...saved, palette: coercePalette(saved.palette), notif_prefs: { ...DEFAULT_SETTINGS.notif_prefs, ...saved.notif_prefs } } : DEFAULT_SETTINGS;
+    const settings = saved ? { ...DEFAULT_SETTINGS, ...saved, theme: 'light' as const, palette: coercePalette(saved.palette), notif_prefs: { ...DEFAULT_SETTINGS.notif_prefs, ...saved.notif_prefs } } : DEFAULT_SETTINGS;
     applyAppearance(settings);
     setSoundPreference(settings.sound); // the existing sound code reads this local copy
     set({ settings });
@@ -56,7 +53,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   update: async (patch) => {
     const before = get().settings;
     if (patch.palette && patch.palette !== before.palette) useFestivalStore.getState().useOwnTheme(); // picking a theme means "use mine"
-    const next: UserSettings = { ...before, ...patch, notif_prefs: { ...before.notif_prefs, ...patch.notif_prefs } };
+    const next: UserSettings = { ...before, ...patch, theme: 'light', notif_prefs: { ...before.notif_prefs, ...patch.notif_prefs } };
     applyAppearance(next);
     setSoundPreference(next.sound);
     set({ settings: next });
@@ -76,9 +73,6 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     set({ settings: DEFAULT_SETTINGS });
   }
 }));
-
-// "System" follows the device when it switches between light and dark.
-darkQuery()?.addEventListener?.('change', () => applyAppearance(useSettingsStore.getState().settings));
 
 /** Does this person want this kind of popup? (The server already skips notifications they switched off; this covers chat popups, which are not notifications.) */
 export const wantsPopup = (kind: keyof NotifPrefs) => useSettingsStore.getState().settings.notif_prefs[kind];

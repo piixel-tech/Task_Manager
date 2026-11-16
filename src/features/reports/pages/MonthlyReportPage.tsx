@@ -28,14 +28,21 @@ const shiftMonth = (month: string, by: number) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 };
 
-const MonthPicker: React.FC<{ month: string; onChange: (m: string) => void }> = ({ month, onChange }) => {
+const MonthPicker: React.FC<{ month: string; onChange: (m: string) => void; dark?: boolean }> = ({ month, onChange, dark }) => {
   const now = currentMonth();
+  const round = dark
+    ? 'grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[var(--tm-solid-ink)]/30 hover:bg-[var(--tm-solid-ink)]/10 disabled:opacity-30'
+    : 'grid h-9 w-9 place-items-center rounded-full border border-[var(--tm-border)] hover:bg-[var(--tm-bg-sunken)] disabled:opacity-30';
   return (
-    <div className="flex items-center gap-2">
-      <button type="button" aria-label="Previous month" onClick={() => onChange(shiftMonth(month, -1))} className="grid h-9 w-9 place-items-center rounded-full border border-[var(--tm-border)] hover:bg-[var(--tm-bg-sunken)]">
+    <div className={`flex items-center gap-2 ${dark ? '' : 'flex-wrap'}`}>
+      <button type="button" aria-label="Previous month" onClick={() => onChange(shiftMonth(month, -1))} className={round}>
         <ChevronLeft className="h-4 w-4" />
       </button>
-      <label className="relative flex h-9 items-center rounded-full border border-[var(--tm-border)] px-4 text-[13.5px] font-extrabold text-[var(--tm-ink)]">
+      <label
+        className={`relative flex h-9 items-center text-[13.5px] font-extrabold ${
+          dark ? 'flex-1 justify-center text-[var(--tm-solid-ink)]' : 'rounded-full border border-[var(--tm-border)] px-4 text-[var(--tm-ink)]'
+        }`}
+      >
         {monthLabel(month)}
         <input
           type="month"
@@ -47,12 +54,14 @@ const MonthPicker: React.FC<{ month: string; onChange: (m: string) => void }> = 
           className="absolute inset-0 cursor-pointer opacity-0"
         />
       </label>
-      <button type="button" aria-label="Next month" disabled={month >= now} onClick={() => onChange(shiftMonth(month, 1))} className="grid h-9 w-9 place-items-center rounded-full border border-[var(--tm-border)] hover:bg-[var(--tm-bg-sunken)] disabled:opacity-30">
+      <button type="button" aria-label="Next month" disabled={month >= now} onClick={() => onChange(shiftMonth(month, 1))} className={round}>
         <ChevronRight className="h-4 w-4" />
       </button>
-      <Button size="sm" variant="outline" disabled={month === now} onClick={() => onChange(now)}>
-        This month
-      </Button>
+      {!dark && (
+        <Button size="sm" variant="outline" disabled={month === now} onClick={() => onChange(now)}>
+          This month
+        </Button>
+      )}
     </div>
   );
 };
@@ -93,34 +102,54 @@ const pdf = async (userId: string, month: string) => {
   }
 };
 
-/** Top bar: month picker on the left; the In progress / Final badge and Download PDF on the right. */
-const TopBar: React.FC<{ month: string; onMonth: (m: string) => void; report: MonthlyReport | null; onPdf: () => void; lead?: React.ReactNode }> = ({ month, onMonth, report, onPdf, lead }) => (
-  <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-    <div className="flex flex-wrap items-center gap-3">
-      {lead}
-      <MonthPicker month={month} onChange={onMonth} />
-    </div>
-    <div className="flex items-center gap-2.5">
-      {report && (
-        <StatusChip tone={report.state === 'in_progress' ? 'warn' : 'ok'} size="sm" dot>
-          {report.state === 'in_progress' ? 'In progress' : 'Final'}
-        </StatusChip>
-      )}
-      <Button size="sm" disabled={!report} onClick={onPdf} leftIcon={<Download className="h-4 w-4" />}>
-        Download PDF
-      </Button>
-    </div>
-  </div>
-);
+/** Controls card (left column, charcoal): the status badge, the month picker, This month and Download PDF. */
+const TopBar: React.FC<{ month: string; onMonth: (m: string) => void; report: MonthlyReport | null; onPdf: () => void; lead?: React.ReactNode }> = ({ month, onMonth, report, onPdf, lead }) => {
+  const now = currentMonth();
+  return (
+    <section aria-label="Report controls" className="space-y-3 rounded-[var(--tm-radius-card)] bg-[var(--tm-solid)] p-4 text-[var(--tm-solid-ink)] shadow-soft-xs">
+      <div className="flex min-h-6 items-center justify-between gap-2">
+        {lead ?? <span className="text-[11px] font-semibold uppercase tracking-[0.12em] opacity-70">Monthly report</span>}
+        {report && (
+          <StatusChip tone={report.state === 'in_progress' ? 'warn' : 'ok'} size="sm" dot>
+            {report.state === 'in_progress' ? 'In progress' : 'Final'}
+          </StatusChip>
+        )}
+      </div>
+      <MonthPicker month={month} onChange={onMonth} dark />
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          disabled={month === now}
+          onClick={() => onMonth(now)}
+          className="h-10 rounded-full border border-[var(--tm-solid-ink)]/40 px-3 text-[13px] font-semibold transition-colors hover:bg-[var(--tm-solid-ink)]/10 disabled:opacity-40"
+        >
+          This month
+        </button>
+        <button
+          type="button"
+          disabled={!report}
+          onClick={onPdf}
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[var(--tm-accent)] px-3 text-[13px] font-semibold text-[var(--tm-accent-ink)] transition hover:brightness-95 disabled:opacity-50"
+        >
+          <Download className="h-4 w-4" /> Download PDF
+        </button>
+      </div>
+    </section>
+  );
+};
 
-const ReportBody: React.FC<{ report: MonthlyReport | null; error: string | null }> = ({ report, error }) => {
+const ReportBody: React.FC<{ report: MonthlyReport | null; error: string | null; controls: React.ReactNode }> = ({ report, error, controls }) => {
   const navigate = useNavigate();
   const role = useAuthStore.getState().user?.role;
   const base = basePath(role);
   return (
     <>
-      {error && <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>}
-      {report ? <ReportView report={report} admin={role === 'admin'} onOpenTask={(id) => navigate(`${base}/tasks/${id}`)} /> : !error && <ReportSkeleton />}
+      {error && <div className="tm-error mb-4 px-4 py-3 text-xs font-semibold">{error}</div>}
+      {report ? (
+        <ReportView report={report} admin={role === 'admin'} controls={controls} onOpenTask={(id) => navigate(`${base}/tasks/${id}`)} />
+      ) : (
+        !error && <ReportSkeleton controls={controls} />
+      )}
     </>
   );
 };
@@ -130,10 +159,7 @@ const EmployeeView: React.FC = () => {
   const [month, setMonth] = useState(currentMonth());
   const { report, error } = useReport(me?.id ?? null, month);
   return (
-    <>
-      <TopBar month={month} onMonth={setMonth} report={report} onPdf={() => me && void pdf(me.id, month)} />
-      <ReportBody report={report} error={error} />
-    </>
+    <ReportBody report={report} error={error} controls={<TopBar month={month} onMonth={setMonth} report={report} onPdf={() => me && void pdf(me.id, month)} />} />
   );
 };
 
@@ -186,20 +212,23 @@ const AdminView: React.FC = () => {
 
   if (viewing) {
     return (
-      <>
-        <TopBar
-          month={month}
-          onMonth={(m) => (setMonth(m), setParams({ user: viewing, month: m }, { replace: true }))}
-          report={report}
-          onPdf={() => void pdf(viewing, month)}
-          lead={
-            <Button size="sm" variant="outline" onClick={() => open(null)} leftIcon={<ArrowLeft className="h-4 w-4" />}>
-              {report?.person.name ?? 'All employees'}
-            </Button>
-          }
-        />
-        <ReportBody report={report} error={reportError} />
-      </>
+      <ReportBody
+        report={report}
+        error={reportError}
+        controls={
+          <TopBar
+            month={month}
+            onMonth={(m) => (setMonth(m), setParams({ user: viewing, month: m }, { replace: true }))}
+            report={report}
+            onPdf={() => void pdf(viewing, month)}
+            lead={
+              <Button size="sm" variant="outline" onClick={() => open(null)} leftIcon={<ArrowLeft className="h-4 w-4" />}>
+                {report?.person.name ?? 'All employees'}
+              </Button>
+            }
+          />
+        }
+      />
     );
   }
 

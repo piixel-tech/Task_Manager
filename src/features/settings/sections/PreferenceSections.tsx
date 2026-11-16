@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Check, Monitor, Moon, Play, Plus, Sun } from 'lucide-react';
+import { Check, Play, Plus } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Switch } from '../../../components/ui/Switch';
 import { Button } from '../../../components/ui/Button';
@@ -201,12 +201,6 @@ const AlertsCard: React.FC = () => {
     </Card>
   );
 };
-
-const THEMES: { id: UserSettings['theme']; label: string; icon: React.ReactNode }[] = [
-  { id: 'light', label: 'Light', icon: <Sun className="h-5 w-5" /> },
-  { id: 'dark', label: 'Dark', icon: <Moon className="h-5 w-5" /> },
-  { id: 'system', label: 'System', icon: <Monitor className="h-5 w-5" /> }
-];
 
 const DENSITIES: { id: UserSettings['density']; label: string; note: string }[] = [
   { id: 'comfortable', label: 'Comfortable', note: 'More breathing room' },
@@ -413,23 +407,6 @@ export const AppearanceSection: React.FC = () => {
           }}
         />
       )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Light or dark</CardTitle>
-          <CardDescription>Light, dark, or follow your device. Saved on your account, so it follows you to other devices.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-3">
-            {THEMES.map((t) => (
-              <Choice key={t.id} selected={settings.theme === t.id} onClick={() => void update({ theme: t.id })}>
-                {t.icon}
-                <span className="text-[13px] font-bold">{t.label}</span>
-              </Choice>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>

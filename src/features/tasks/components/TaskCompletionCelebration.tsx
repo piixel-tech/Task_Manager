@@ -388,7 +388,7 @@ export const TaskCompletionCelebration: React.FC = () => {
                 ? `All tasks in "${active.projectName}" are completed!`
                 : '100% of project tasks have been finished!'}
             </p>
-            <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[var(--tm-success-bg)] px-3.5 py-1 text-xs font-bold text-[var(--tm-success)] dark:text-[var(--tm-success-ring)]">
+            <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[var(--tm-success-bg)] px-3.5 py-1 text-xs font-bold text-[var(--tm-success)]">
               <Check className="h-3.5 w-3.5 stroke-[3]" />
               <span>100% Done</span>
             </div>

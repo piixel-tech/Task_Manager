@@ -1,4 +1,4 @@
-import { eachDayOfInterval, format, parseISO } from 'date-fns';
+import { differenceInCalendarDays, eachDayOfInterval, format, parseISO } from 'date-fns';
 import type { LeaveDuration, LeaveRequest, LeaveStatus, LeaveType } from '../../services/http/leaveApi';
 
 export const TYPE_LABEL: Record<LeaveType, string> = { leave: 'Leave', wfh: 'Work from home' };
@@ -52,6 +52,18 @@ export function nextSelection(sel: Selection, day: string): Selection {
   if (!sel.start || sel.end) return { start: day, end: null };
   if (day < sel.start) return { start: day, end: null };
   return { start: sel.start, end: day };
+}
+
+/** Calendar days from the first to the last day, both counted (28 Nov to 28 Nov = 1); a half day is 0.5. */
+export function calendarDays(start: string, end: string, duration: LeaveDuration = 'full'): number {
+  const n = differenceInCalendarDays(parseISO(end), parseISO(start)) + 1;
+  return start === end && duration !== 'full' ? 0.5 : n;
+}
+
+/** Mon–Fri days between two dates (a half day counts 0.5). */
+export function workingDays(start: string, end: string, duration: LeaveDuration = 'full'): number {
+  const n = eachDayOfInterval({ start: parseISO(start), end: parseISO(end) }).filter((d) => d.getDay() !== 0 && d.getDay() !== 6).length;
+  return start === end && duration !== 'full' && n > 0 ? 0.5 : n;
 }
 
 export const effectiveEnd = (sel: Selection): string | null => (sel.start ? (sel.end ?? sel.start) : null);

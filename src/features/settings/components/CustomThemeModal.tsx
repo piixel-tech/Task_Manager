@@ -3,7 +3,6 @@ import { AlertTriangle } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Modal } from '../../../components/ui/Modal';
-import { PillTabs } from '../../../components/ui/PillTabs';
 import { Switch } from '../../../components/ui/Switch';
 import { useConfirm } from '../../../hooks/useConfirm';
 import type { PaletteColors } from '../../../services/http/festivalApi';
@@ -35,7 +34,6 @@ export const CustomThemeModal: React.FC<Props> = ({ editing, onClose, onSaved })
   const [shared, setShared] = useState(editing?.shared ?? false);
   const [palette, setPalette] = useState<{ light: PaletteColors; dark: PaletteColors } | null>(editing ? { light: editing.light, dark: editing.dark } : null);
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [mode, setMode] = useState<'light' | 'dark'>('light');
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -129,21 +127,13 @@ export const CustomThemeModal: React.FC<Props> = ({ editing, onClose, onSaved })
         </div>
 
         <div className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <PillTabs
-              tabs={[
-                { id: 'light', label: 'Light' },
-                { id: 'dark', label: 'Dark' }
-              ]}
-              activeTab={mode}
-              onChange={(m) => setMode(m as 'light' | 'dark')}
-            />
+          <div className="flex items-center justify-end gap-3">
             <span className="text-[12px] font-medium text-[var(--tm-ink-muted)]" aria-live="polite">
               {checking ? 'Updating…' : ''}
             </span>
           </div>
           {palette ? (
-            <PalettePreview colors={mode === 'dark' ? palette.dark : palette.light} dark={mode === 'dark'} />
+            <PalettePreview colors={palette.light} dark={false} />
           ) : (
             <div className="grid h-48 place-items-center rounded-[var(--tm-radius-lg)] bg-[var(--tm-card-muted)] text-[13px] text-[var(--tm-ink-muted)]">Preparing preview…</div>
           )}

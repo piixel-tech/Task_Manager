@@ -76,23 +76,23 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
       <div className={`relative flex max-w-[82%] flex-col sm:max-w-[70%] ${mine ? 'items-end' : 'items-start'}`}>
         <div
           data-own={mine ? 'true' : undefined}
-          className={`tm-msg-in relative rounded-[18px] px-3.5 py-2 shadow-soft-xs transition-shadow ${
-            flash ? 'ring-2 ring-[var(--tm-primary)]' : mentionsMe ? 'ring-1 ring-[var(--tm-warning)]' : ''
+          className={`tm-msg-in relative rounded-[18px] px-3.5 py-2 transition-shadow ${
+            flash ? 'ring-2 ring-[var(--tm-ink)]' : mentionsMe ? 'ring-1 ring-[var(--tm-ink-muted)]' : ''
           } ${
             m.deleted
               ? 'border border-dashed border-[var(--tm-border-strong)] bg-transparent'
               : mine
-                ? 'rounded-br-[6px] bg-[var(--tc-mine-bg)] text-[var(--tc-mine-ink)] [--tm-ink:var(--tc-mine-ink)] [--tm-ink-soft:color-mix(in_srgb,var(--tc-mine-ink)_90%,var(--tc-mine-bg))] [--tm-ink-muted:color-mix(in_srgb,var(--tc-mine-ink)_65%,var(--tc-mine-bg))] [--tm-primary-dark:var(--tm-accent-fixed)] [--tm-card-muted:color-mix(in_srgb,var(--tc-mine-ink)_12%,transparent)] [--tm-bg-sunken:color-mix(in_srgb,var(--tc-mine-ink)_14%,transparent)]'
-                : 'rounded-bl-[6px] border border-[var(--tc-other-border)] bg-[var(--tc-other-bg)] text-[var(--tm-ink)]'
+                ? 'rounded-br-[6px] bg-[var(--tc-mine-bg)] text-[var(--tc-mine-ink)] [--tm-ink:var(--tc-mine-ink)] [--tm-ink-soft:color-mix(in_srgb,var(--tc-mine-ink)_90%,var(--tc-mine-bg))] [--tm-ink-muted:color-mix(in_srgb,var(--tc-mine-ink)_65%,var(--tc-mine-bg))] [--tm-primary-dark:var(--tc-mine-ink)] [--tm-card-muted:color-mix(in_srgb,var(--tc-mine-ink)_12%,transparent)] [--tm-bg-sunken:color-mix(in_srgb,var(--tc-mine-ink)_14%,transparent)]'
+                : 'rounded-bl-[6px] bg-[var(--tc-other-bg)] text-[var(--tm-ink)]'
           }`}
         >
           {showSender && !mine && !m.deleted && (
-            <p className="mb-0.5 text-[12px] font-extrabold text-[var(--tm-primary-dark)]">
+            <p className="mb-0.5 text-[12px] font-semibold text-[var(--tm-ink-soft)]">
               {m.sender?.name ?? 'Former member'}
               {senderFocus && <span className="ml-2 text-[11px] font-semibold text-[var(--tm-ink-muted)]">🌙 In focus until {focusEndLabel(senderFocus)}</span>}
             </p>
           )}
-          {mentionsMe && <p className="mb-0.5 text-[11px] font-bold text-[var(--tm-warning)]">@ You were mentioned</p>}
+          {mentionsMe && <p className="mb-0.5 text-[11px] font-semibold text-[var(--tm-ink-muted)]">@ You were mentioned</p>}
 
           {m.deleted ? (
             <p className="text-[13px] italic text-[var(--tm-ink-muted)]">🚫 This message was deleted</p>
@@ -107,9 +107,9 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
               {m.reply && (
                 <a
                   href={`#msg-${m.reply.id}`}
-                  className="mb-1.5 block rounded-[var(--tm-radius-sm)] border-l-4 border-[var(--tm-primary)] bg-[var(--tm-card-muted)] px-3 py-2 text-[12px]"
+                  className="mb-1.5 block rounded-[var(--tm-radius-sm)] border-l-[3px] border-current bg-[var(--tm-card-muted)] px-3 py-1.5 text-[12px]"
                 >
-                  <span className="block font-bold text-[var(--tm-primary-dark)]">{m.reply.sender?.id === meId ? 'You' : (m.reply.sender?.name ?? 'Former member')}</span>
+                  <span className="block font-semibold text-[var(--tm-ink)]">{m.reply.sender?.id === meId ? 'You' : (m.reply.sender?.name ?? 'Former member')}</span>
                   <span className={`line-clamp-2 ${m.reply.deleted ? 'italic' : ''} text-[var(--tm-ink-soft)]`}>{m.reply.preview}</span>
                 </a>
               )}
@@ -128,8 +128,8 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
               {m.type === 'file' && m.file && (
                 <div className="mb-1 flex w-full max-w-xs items-stretch gap-1.5">
                   {!m.file.drive ? (
-                    <div className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[var(--tm-radius-sm)] bg-[var(--tm-card-muted)] p-3">
-                      <FileText className="h-6 w-6 shrink-0 text-[var(--tm-primary-dark)]" />
+                    <div className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[var(--tm-radius-sm)] py-1">
+                      <FileText className="h-5 w-5 shrink-0 text-[var(--tm-ink-soft)]" />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[13px] font-bold">{m.file.name}</span>
                         <span className="text-[11px] text-[var(--tm-ink-muted)]">
@@ -142,12 +142,12 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
                   <button
                     type="button"
                     onClick={open}
-                    className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[var(--tm-radius-sm)] bg-[var(--tm-card-muted)] p-3 text-left hover:bg-[var(--tm-bg-sunken)]"
+                    className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[var(--tm-radius-sm)] py-1 text-left hover:opacity-80"
                   >
                     {m.file.drive ? (
-                      <DriveKindIcon kind={m.file.drive.kind} className="h-6 w-6 shrink-0 text-[var(--tm-primary-dark)]" />
+                      <DriveKindIcon kind={m.file.drive.kind} className="h-5 w-5 shrink-0 text-[var(--tm-ink-soft)]" />
                     ) : (
-                      <FileText className="h-6 w-6 shrink-0 text-[var(--tm-primary-dark)]" />
+                      <FileText className="h-5 w-5 shrink-0 text-[var(--tm-ink-soft)]" />
                     )}
                     <span className="min-w-0">
                       <span className="block truncate text-[13px] font-bold">{m.file.name}</span>
@@ -165,7 +165,7 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
                       aria-label={`Preview ${m.file.name}`}
                       title="Preview here"
                       onClick={() => setPreviewDrive(true)}
-                      className="grid w-10 shrink-0 place-items-center rounded-[var(--tm-radius-sm)] bg-[var(--tm-card-muted)] text-[var(--tm-primary-dark)] hover:bg-[var(--tm-bg-sunken)]"
+                      className="grid w-10 shrink-0 place-items-center rounded-[var(--tm-radius-sm)] text-[var(--tm-ink-soft)] hover:bg-[var(--tm-bg-sunken)]"
                     >
                       <Eye className="h-4 w-4" />
                     </button>
@@ -184,14 +184,14 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
               type="button"
               onClick={() => navigate(`${area}/tasks/${m.task!.id}`)}
               title={m.task.title}
-              className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-full bg-[var(--tm-success-bg)] px-2.5 py-0.5 text-[11.5px] font-bold text-[var(--tm-success)] hover:underline"
+              className="mt-1.5 inline-flex max-w-full items-center gap-1 text-[11.5px] font-medium text-[var(--tm-ink-muted)] hover:underline"
             >
               <CheckSquare className="h-3 w-3 shrink-0" />
               <span className="truncate">Task created</span>
             </button>
           )}
 
-          <div className="mt-1 flex items-center justify-end gap-1 text-[10.5px] text-[var(--tm-ink-muted)]">
+          <div className="mt-0.5 flex items-center justify-end gap-1 text-[10.5px] text-[var(--tm-ink-muted)]">
             {pinned && <Pin className="h-3 w-3" aria-label="Pinned" />}
             {clock(m.created_at)}
             {mine && !m.deleted && (
@@ -225,8 +225,8 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
                 onClick={() => onReact(m, r.emoji)}
                 title={r.user_ids.map(nameOf).join(', ')}
                 aria-pressed={r.user_ids.includes(meId)}
-                className={`inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[12px] shadow-soft-xs ${
-                  r.user_ids.includes(meId) ? 'border-[var(--tm-primary)] bg-[var(--tm-primary-soft)]' : 'border-[var(--tm-border)] bg-[var(--tm-card)]'
+                className={`inline-flex h-5 items-center gap-1 rounded-full border px-1.5 text-[11.5px] ${
+                  r.user_ids.includes(meId) ? 'border-[var(--tm-ink)] bg-[var(--tc-other-bg)]' : 'border-[var(--tm-border)] bg-[var(--tm-card)]'
                 }`}
               >
                 {r.emoji}

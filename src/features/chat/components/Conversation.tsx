@@ -190,21 +190,19 @@ export const Conversation: React.FC<{ group: ChatGroup; onBack: () => void; onIn
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex items-center gap-3 border-b border-[var(--tm-border)] bg-[var(--tm-card)] px-4 py-3">
+      <header className="flex items-center gap-2 border-b border-[var(--tm-border)] bg-[var(--tm-card)] px-4 py-3">
         <Button variant="ghost" size="sm" className="lg:hidden" aria-label="Back to chats" onClick={onBack}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <button type="button" onClick={onInfo} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-label="Group info">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)]">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--tc-other-bg)] text-[var(--tm-ink-soft)]">
             <Users className="h-5 w-5" />
           </span>
           <span className="min-w-0">
-            <span className="block truncate text-[15px] font-extrabold text-[var(--tm-ink)]">{group.name}</span>
+            <span className="block truncate text-[15px] font-bold text-[var(--tm-ink)]">{group.name}</span>
             <span className="block truncate text-[12px] text-[var(--tm-ink-muted)]" aria-live="polite">
               {typers.length > 0 ? (
-                <span className="font-semibold text-[var(--tm-primary-dark)]">
-                  {typers.length === 1 ? `${typers[0]} is typing…` : typers.length === 2 ? `${typers.join(' and ')} are typing…` : `${typers.length} people are typing…`}
-                </span>
+                <span>{typers.length === 1 ? `${typers[0]} is typing…` : typers.length === 2 ? `${typers.join(' and ')} are typing…` : `${typers.length} people are typing…`}</span>
               ) : (
                 group.members.map((u, i) => (
                   <React.Fragment key={u.id}>
@@ -218,7 +216,7 @@ export const Conversation: React.FC<{ group: ChatGroup; onBack: () => void; onIn
         </button>
         {group.subfolder && !isClient && (
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             className="hidden sm:inline-flex"
             onClick={() => navigate(`${prefix}/projects/${group.subfolder!.project_id}/subfolders/${group.subfolder!.id}`)}
@@ -230,13 +228,13 @@ export const Conversation: React.FC<{ group: ChatGroup; onBack: () => void; onIn
         <Button variant="ghost" size="sm" aria-label="Search this chat" title="Search this chat" onClick={() => setSearching(true)}>
           <Search className="h-5 w-5" />
         </Button>
-        <MuteMenu mutedKey={`chat:${group.id}`} />
         {!isClient && <StartMeetButton groupId={group.id} />}
+        <MuteMenu mutedKey={`chat:${group.id}`} />
         {!isClient && (
           <Button variant="ghost" size="sm" aria-label="Scheduled messages" title="Scheduled messages" onClick={() => setScheduledOpen(true)} className="relative">
             <CalendarClock className="h-5 w-5" />
             {scheduledCount > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-[var(--tm-primary)] px-1 text-[10px] font-extrabold text-[var(--tm-on-primary)]">{scheduledCount}</span>
+              <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-[var(--tm-ink)] px-1 text-[10px] font-bold text-[var(--tm-card)]">{scheduledCount}</span>
             )}
           </Button>
         )}
@@ -273,8 +271,8 @@ export const Conversation: React.FC<{ group: ChatGroup; onBack: () => void; onIn
           return (
             <React.Fragment key={m.id}>
               {newDay && (
-                <div className="flex justify-center pb-1 pt-3">
-                  <span className="rounded-full border border-[var(--tc-other-border)] bg-[var(--tm-card)] px-3 py-0.5 text-[11px] font-semibold text-[var(--tm-ink-muted)]">{dayLabel(m.created_at)}</span>
+                <div className="flex justify-center pb-1 pt-4">
+                  <span className="text-[11px] font-medium text-[var(--tm-ink-muted)]">{dayLabel(m.created_at)}</span>
                 </div>
               )}
               <div className={showSender ? 'pt-3' : 'pt-1'}>
@@ -299,7 +297,7 @@ export const Conversation: React.FC<{ group: ChatGroup; onBack: () => void; onIn
         {typers.length > 0 && (
           <div className="flex items-end gap-2 pt-3" role="status" aria-label="Someone is typing">
             <div className="w-8 shrink-0" />
-            <div className="tm-msg-in flex items-center gap-1 rounded-[18px] rounded-bl-[6px] border border-[var(--tc-other-border)] bg-[var(--tc-other-bg)] px-4 py-3">
+            <div className="tm-msg-in flex items-center gap-1 rounded-[18px] rounded-bl-[6px] bg-[var(--tc-other-bg)] px-4 py-3">
               {[0, 1, 2].map((i) => (
                 <span key={i} className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--tm-ink-muted)]" style={{ animationDelay: `${i * 150}ms` }} />
               ))}
@@ -317,7 +315,7 @@ export const Conversation: React.FC<{ group: ChatGroup; onBack: () => void; onIn
               pinned.current = true;
               void showLatest(group.id);
             }}
-            className="absolute -top-12 right-4 z-10 flex items-center gap-1.5 rounded-full bg-[var(--tm-primary)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--tm-on-primary)] shadow-soft-md"
+            className="absolute -top-12 right-4 z-10 flex items-center gap-1.5 rounded-full bg-[var(--tm-ink)] px-3.5 py-2 text-[12.5px] font-semibold text-[var(--tm-card)] shadow-soft-md"
           >
             <ArrowDown className="h-4 w-4" /> Jump to latest
           </button>

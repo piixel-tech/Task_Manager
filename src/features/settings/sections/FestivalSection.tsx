@@ -3,7 +3,6 @@ import { PartyPopper } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Input } from '../../../components/ui/Input';
-import { PillTabs } from '../../../components/ui/PillTabs';
 import { SkeletonRows } from '../../../components/ui/Skeleton';
 import { useConfirm } from '../../../hooks/useConfirm';
 import {
@@ -46,8 +45,6 @@ export const FestivalSection: React.FC = () => {
   const [start, setStart] = useState(plusDays(0));
   const [end, setEnd] = useState(plusDays(2));
   const [light, setLight] = useState<PaletteColors>(BLANK);
-  const [dark, setDark] = useState<PaletteColors | null>(null);
-  const [mode, setMode] = useState<'light' | 'dark'>('light');
   const [checking, setChecking] = useState(false);
   const [adjusted, setAdjusted] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -68,7 +65,7 @@ export const FestivalSection: React.FC = () => {
     };
   }, []);
 
-  /** Ask the server for the readable version of my colours and the dark set derived from them. */
+  /** Ask the server for the readable version of my colours . */
   const check = useCallback((colors: PaletteColors) => {
     clearTimeout(timer.current);
     setChecking(true);
@@ -76,7 +73,6 @@ export const FestivalSection: React.FC = () => {
       try {
         const r = await festivalApi.preview(colors);
         setLight(r.light);
-        setDark(r.dark);
         setAdjusted(PALETTE_KEYS.some((k) => r.light[k] !== colors[k]));
         setFormError(null);
       } catch (e) {
@@ -104,7 +100,6 @@ export const FestivalSection: React.FC = () => {
     setEmoji(p.emoji);
     setGreeting(p.greeting);
     setLight(p.light);
-    setDark(p.dark);
   };
 
   const setColor = (k: keyof PaletteColors, value: string) => {
@@ -237,7 +232,7 @@ export const FestivalSection: React.FC = () => {
         <CardHeader>
           <CardTitle>Colours and preview</CardTitle>
           <CardDescription>
-            Tweak any colour. Text colours are adjusted automatically when they would be hard to read, and dark mode is made from your light colours.
+            Tweak any colour. Text colours are adjusted automatically when they would be hard to read.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -260,20 +255,12 @@ export const FestivalSection: React.FC = () => {
               ))}
             </div>
             <div className="space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <PillTabs
-                  tabs={[
-                    { id: 'light', label: 'Light' },
-                    { id: 'dark', label: 'Dark' }
-                  ]}
-                  activeTab={mode}
-                  onChange={(m) => setMode(m as 'light' | 'dark')}
-                />
+              <div className="flex items-center justify-end gap-3">
                 <span className="text-[12px] font-medium text-[var(--tm-ink-muted)]" aria-live="polite">
                   {checking ? 'Checking readability…' : adjusted ? 'Adjusted for readability' : ''}
                 </span>
               </div>
-              <PalettePreview colors={mode === 'dark' && dark ? dark : light} dark={mode === 'dark'} banner={{ emoji, text: greeting }} />
+              <PalettePreview colors={light} dark={false} banner={{ emoji, text: greeting }} />
             </div>
           </div>
 

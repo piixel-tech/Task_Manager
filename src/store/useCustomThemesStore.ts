@@ -12,7 +12,7 @@ export const themeAttr = (palette: string): string => (palette.startsWith('custo
 
 /** The two palette blocks for each theme, in the same shape as src/styles/palettes.css. */
 export const customThemesCss = (themes: Pick<CustomTheme, 'id' | 'light' | 'dark'>[]): string =>
-  themes.map((t) => block(`[data-theme='custom-${t.id}']`, t.light) + block(`[data-theme='custom-${t.id}'][data-mode='dark']`, t.dark)).join('');
+  themes.map((t) => block(`[data-theme='custom-${t.id}']`, t.light)).join('');
 
 function inject(css: string) {
   let el = document.getElementById(STYLE_ID);

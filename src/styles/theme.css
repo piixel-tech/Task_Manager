@@ -108,45 +108,7 @@
   --shadow-glow: var(--tm-glow);
 
   --ease-soft: var(--tm-ease);
-}
-
-/* ==========================================================================
-   Dark mode, set on <html data-mode="dark"> (from the person's Appearance setting;
-   "system" follows the device). Each palette's own dark colours are in palettes.css.
-   ========================================================================== */
-:root[data-mode='dark'] {
-  color-scheme: dark;
-
-  --tm-success: #7fd1a6;
-  --tm-success-bg: #1b3027;
-  --tm-success-ring: #2b4a3c;
-  --tm-warning: #e3c27f;
-  --tm-warning-bg: #332a18;
-  --tm-warning-ring: #4f4125;
-  --tm-danger: #ee9aa5;
-  --tm-danger-bg: #3a1e26;
-  --tm-danger-ring: #57303a;
-  --tm-info: #94b0e8;
-  --tm-info-bg: #1d2a45;
-  --tm-info-ring: #2f4166;
-  --tm-neutral: #b9b4d0;
-  --tm-neutral-bg: #2b2045;
-  --tm-neutral-ring: #3d3158;
-}
-
-/* Parts of the app that use fixed light colours rather than the tokens. */
-:root[data-mode='dark'] .bg-white { background-color: var(--tm-card); }
-:root[data-mode='dark'] .bg-red-50 { background-color: var(--tm-danger-bg); }
-:root[data-mode='dark'] .border-red-200 { border-color: var(--tm-danger-ring); }
-:root[data-mode='dark'] .text-red-700, :root[data-mode='dark'] .text-red-600 { color: var(--tm-danger); }
-:root[data-mode='dark'] .bg-red-100 { background-color: var(--tm-danger-bg); }
-
-/* Fills that turn light in dark mode (primary, danger) keep readable text: a hard-coded
-   `text-white` on them would be white-on-light. Unlayered, so it beats utilities. */
-:root[data-mode='dark'] [class*='bg-[var(--tm-primary)]'],
-:root[data-mode='dark'] [class*='bg-[var(--tm-danger)]'] {
-  color: var(--tm-on-primary);
-}
+}/* Parts of the app that use fixed light colours rather than the tokens. */
 
 /* ==========================================================================
    Dark panels: the header nav pill, the projects panel and the phone tab bar are dark in
@@ -210,32 +172,12 @@
   --tp-outline: var(--tm-ink);
   --tp-outline-hover: color-mix(in srgb, var(--tm-ink) 6%, transparent);
 
-  --tc-area: var(--tm-card-muted);
+  --tc-area: var(--tm-card);
   --tc-mine-bg: var(--tm-ink);
   --tc-mine-ink: var(--tm-card);
-  --tc-other-bg: var(--tm-card);
-  --tc-other-border: var(--tm-primary-soft);
-  --tc-row-sel: var(--tm-accent);
+  --tc-other-bg: color-mix(in srgb, var(--tm-ink) 6%, var(--tm-card));
+  --tc-other-border: transparent;
+  --tc-row-sel: color-mix(in srgb, var(--tm-ink) 9%, var(--tm-card));
 }
-:root[data-mode='dark'] {
-  --tp-panel: var(--tm-card-muted);
-  --tp-row-hover: color-mix(in srgb, var(--tm-card) 88%, var(--tm-ink));
-  --tp-detail: var(--tm-card);
-  --tp-glow: color-mix(in srgb, var(--tm-accent) 22%, transparent);
-  --tp-text-soft: color-mix(in srgb, var(--tm-ink) 80%, transparent);
-  --tp-card: var(--tm-card-muted);
-  --tp-card-border: transparent;
-  --tp-chip: color-mix(in srgb, var(--tm-card) 88%, var(--tm-ink));
-  --tp-track: color-mix(in srgb, var(--tm-ink) 10%, transparent);
-  --tp-red: #f2a0a0;
-  --tp-outline: color-mix(in srgb, var(--tm-ink) 70%, transparent);
-  --tp-outline-hover: color-mix(in srgb, var(--tm-ink) 10%, transparent);
-
-  --tc-area: var(--tm-bg-sunken);
-  --tc-mine-bg: color-mix(in srgb, var(--tm-card) 85%, var(--tm-ink));
-  --tc-mine-ink: var(--tm-ink);
-  --tc-other-border: var(--tm-border);
-}
-
 /* Compact spacing: everything sized in rem shrinks a little. */
 :root[data-density='compact'] { font-size: 14.5px; }

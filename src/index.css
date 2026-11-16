@@ -341,7 +341,3 @@ input[type='checkbox']:not(.tm-native):disabled {
   color: var(--h-fg);
   border-color: transparent;
 }
-:root[data-mode='dark'] .tm-accent-card {
-  --h-fg: var(--text);
-  background: color-mix(in srgb, var(--primary) 40%, var(--bg));
-}

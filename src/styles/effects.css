@@ -117,11 +117,7 @@ html[data-tab-hidden] .tm-living-bg > i {
   background: var(--tab-fill);
   border-radius: var(--tab-r) 0 0 var(--tab-r);
   box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 15%, transparent);
-}
-:root[data-mode='dark'] .tm-nav-tab {
-  --tab-fill: var(--primary-soft);
-}
-.tm-nav-tab-curve {
+}.tm-nav-tab-curve {
   position: absolute;
   right: 0;
   width: var(--tab-r);
@@ -159,15 +155,6 @@ html[data-tab-hidden] .tm-living-bg > i {
   --st-holiday: #6a3bcc;
   --st-weekend: #5b626c;
 }
-:root[data-mode='dark'] {
-  --st-present: #5fd49a;
-  --st-wfh: #86b6ff;
-  --st-half_day: #f2bf5a;
-  --st-leave: #ff909a;
-  --st-holiday: #bda0ff;
-  --st-weekend: #a9b0ba;
-}
-
 /* ==========================================================================
    Hold to Delete, Focus mode toggle, Download button (visual extras)
    ========================================================================== */

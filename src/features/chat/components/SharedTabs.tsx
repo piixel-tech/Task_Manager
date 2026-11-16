@@ -3,7 +3,6 @@ import { ExternalLink, FileText, Film } from 'lucide-react';
 import { AuthImage } from '../../../components/ui/AuthImage';
 import { Button } from '../../../components/ui/Button';
 import { SkeletonRows } from '../../../components/ui/Skeleton';
-import { PillTabs } from '../../../components/ui/PillTabs';
 import { assetApi } from '../../../services/http/taskApi';
 import { toast } from '../../../store/useToastStore';
 import { chatApi, type ChatMessage, type LinkItem } from '../../../services/http/chatApi';
@@ -76,16 +75,26 @@ export const SharedTabs: React.FC<Props> = ({ groupId, onOpenMessage }) => {
 
   return (
     <div className="space-y-4">
-      <PillTabs
-        size="sm"
-        activeTab={kind}
-        onChange={(id) => setKind(id as Kind)}
-        tabs={[
-          { id: 'media', label: 'Media' },
-          { id: 'docs', label: 'Docs' },
-          { id: 'links', label: 'Links' }
-        ]}
-      />
+      <div role="tablist" aria-label="Shared in this chat" className="flex gap-4 border-b border-[var(--tm-border)]">
+        {(
+          [
+            ['media', 'Media'],
+            ['docs', 'Docs'],
+            ['links', 'Links']
+          ] as [Kind, string][]
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={kind === id}
+            onClick={() => setKind(id)}
+            className={`-mb-px border-b-2 pb-1.5 text-[12.5px] font-semibold transition-colors ${kind === id ? 'border-[var(--tm-ink)] text-[var(--tm-ink)]' : 'border-transparent text-[var(--tm-ink-muted)] hover:text-[var(--tm-ink)]'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       {error && <p className="tm-error px-4 py-3 text-xs font-semibold">{error}</p>}
       {loading && files.length + links.length === 0 && <SkeletonRows count={4} />}
@@ -122,9 +131,9 @@ export const SharedTabs: React.FC<Props> = ({ groupId, onOpenMessage }) => {
         <ul className="divide-y divide-[var(--tm-border)] rounded-[var(--tm-radius-md)] border border-[var(--tm-border)]">
           {files.map((m) => (
             <li key={m.id} className="flex items-center gap-3 px-3 py-2.5">
-              <FileText className="h-6 w-6 shrink-0 text-[var(--tm-primary-dark)]" />
+              <FileText className="h-6 w-6 shrink-0 text-[var(--tm-ink-soft)]" />
               <button type="button" onClick={() => open(m)} className="min-w-0 flex-1 text-left">
-                <span className="block truncate text-[13.5px] font-bold text-[var(--tm-ink)]">{m.file?.name}</span>
+                <span className="block truncate text-[13.5px] font-semibold text-[var(--tm-ink)]">{m.file?.name}</span>
                 <span className="text-[11.5px] text-[var(--tm-ink-muted)]">
                   {m.file ? kb(m.file.size) : ''} · {m.sender?.name ?? 'Former member'} · {when(m.created_at)}
                 </span>
@@ -141,10 +150,10 @@ export const SharedTabs: React.FC<Props> = ({ groupId, onOpenMessage }) => {
         <ul className="divide-y divide-[var(--tm-border)] rounded-[var(--tm-radius-md)] border border-[var(--tm-border)]">
           {links.map((l) => (
             <li key={`${l.message_id}-${l.url}`} className="flex items-center gap-3 px-3 py-2.5">
-              <ExternalLink className="h-5 w-5 shrink-0 text-[var(--tm-primary-dark)]" />
+              <ExternalLink className="h-5 w-5 shrink-0 text-[var(--tm-ink-soft)]" />
               <a href={l.url} target="_blank" rel="noopener noreferrer nofollow" className="min-w-0 flex-1">
-                <span className="block truncate text-[13.5px] font-bold text-[var(--tm-ink)]">{l.title || host(l.url)}</span>
-                <span className="block truncate text-[11.5px] text-[var(--tm-primary-dark)]">{l.url}</span>
+                <span className="block truncate text-[13.5px] font-semibold text-[var(--tm-ink)]">{l.title || host(l.url)}</span>
+                <span className="block truncate text-[11.5px] text-[var(--tm-ink-soft)]">{l.url}</span>
                 <span className="text-[11.5px] text-[var(--tm-ink-muted)]">
                   {l.sender?.name ?? 'Former member'} · {when(l.created_at)}
                 </span>

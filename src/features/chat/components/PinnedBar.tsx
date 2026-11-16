@@ -41,13 +41,14 @@ export const PinnedBar: React.FC<Props> = ({ group, onJump, onToggle }) => {
   const newest = pins[0];
 
   return (
-    <div className="border-b border-[var(--tm-border)] bg-[var(--tm-card)]">
-      <div className="flex items-center gap-2 px-3 py-1.5">
-        <Pin className="h-4 w-4 shrink-0 text-[var(--tm-primary-dark)]" aria-hidden />
+    <div className="border-b border-[var(--tm-border)] bg-[var(--tc-other-bg)]">
+      <div className="flex items-center gap-2 px-4 py-1">
+        <Pin className="h-3.5 w-3.5 shrink-0 text-[var(--tm-ink-muted)]" aria-hidden />
         <motion.div key={newest.message.id} className="min-w-0 flex-1" variants={fadeIn} initial={reduced ? false : 'hidden'} animate="show">
           <button type="button" onClick={() => onJump(newest.message.id)} className="block w-full text-left" aria-label="Go to the pinned message">
-            <span className="block text-[11px] font-bold text-[var(--tm-primary-dark)]">{newest.message.sender?.name ?? 'Former member'}</span>
-            <span className="block truncate text-[12.5px] text-[var(--tm-ink-soft)]">{previewOf(newest.message)}</span>
+            <span className="block truncate text-[12.5px] text-[var(--tm-ink-soft)]">
+              <span className="font-semibold text-[var(--tm-ink)]">{newest.message.sender?.name ?? 'Former member'}</span> · {previewOf(newest.message)}
+            </span>
           </button>
         </motion.div>
         {pins.length > 1 && (
@@ -55,7 +56,7 @@ export const PinnedBar: React.FC<Props> = ({ group, onJump, onToggle }) => {
             type="button"
             aria-expanded={open}
             onClick={() => setOpen((o) => !o)}
-            className="flex shrink-0 items-center gap-1 rounded-full bg-[var(--tm-primary-soft)] px-2.5 py-1 text-[11.5px] font-bold text-[var(--tm-primary-dark)]"
+            className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11.5px] font-semibold text-[var(--tm-ink-soft)] hover:bg-[var(--tm-bg-sunken)]"
           >
             {pins.length} pinned <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
           </button>

@@ -25,7 +25,7 @@ const block = (selector: string, colors: PaletteColors) => `${selector}{${PALETT
 
 /** The two palette blocks for a festival, in the same shape as src/styles/palettes.css. */
 export const festivalCss = (f: Pick<Festival, 'light' | 'dark'>): string =>
-  block("[data-theme='festival']", f.light) + block("[data-theme='festival'][data-mode='dark']", f.dark);
+  block("[data-theme='festival']", f.light);
 
 function injectCss(css: string | null) {
   document.getElementById(STYLE_ID)?.remove();

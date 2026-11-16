@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { SendFlight } from '../../../components/ui/SendButton';
-import { CalendarClock, ChevronDown, Mic, Send, ShieldQuestion, Square, Trash2, X } from 'lucide-react';
+import { CalendarClock, Mic, Send, ShieldQuestion, Square, Trash2, X } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Modal } from '../../../components/ui/Modal';
@@ -226,13 +226,15 @@ export const Composer: React.FC<Props> = ({ group, meId, replyTo, onCancelReply,
   }, [recording]);
 
   const presets = menu ? scheduleOptions() : [];
+  const longPressed = useRef(false);
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   return (
-    <div className="bg-[var(--tm-card)] px-4 pb-4 pt-3">
+    <div className="border-t border-[var(--tm-border)] bg-[var(--tm-card)] px-4 pb-4 pt-3">
       {replyTo && (
-        <div className="mb-2 flex items-start gap-2 rounded-[var(--tm-radius-sm)] border-l-4 border-[var(--tm-primary)] bg-[var(--tm-card-muted)] px-3.5 py-2.5">
+        <div className="mb-2 flex items-start gap-2 rounded-[var(--tm-radius-sm)] border-l-[3px] border-[var(--tm-ink)] bg-[var(--tc-other-bg)] px-3.5 py-2">
           <div className="min-w-0 flex-1 text-[12.5px]">
-            <p className="font-bold text-[var(--tm-primary-dark)]">Replying to {replyTo.sender?.id === meId ? 'yourself' : (replyTo.sender?.name ?? 'a former member')}</p>
+            <p className="font-semibold text-[var(--tm-ink)]">Replying to {replyTo.sender?.id === meId ? 'yourself' : (replyTo.sender?.name ?? 'a former member')}</p>
             <p className="line-clamp-1 text-[var(--tm-ink-soft)]">{previewOf(replyTo)}</p>
           </div>
           <button type="button" aria-label="Cancel reply" onClick={onCancelReply} className="text-[var(--tm-ink-muted)] hover:text-[var(--tm-ink)]">
@@ -244,7 +246,7 @@ export const Composer: React.FC<Props> = ({ group, meId, replyTo, onCancelReply,
       {attachments.length > 0 && (
         <ul className="mb-2 flex flex-wrap gap-2" aria-label="Attachments">
           {attachments.map((a) => (
-            <li key={a.id} className="flex max-w-[14rem] items-center gap-2 rounded-full bg-[var(--tm-primary-soft)] py-1 pl-3 pr-1.5 text-[12.5px] font-semibold text-[var(--tm-primary-dark)]">
+            <li key={a.id} className="flex max-w-[14rem] items-center gap-2 rounded-full bg-[var(--tc-other-bg)] py-1 pl-3 pr-1.5 text-[12.5px] font-semibold text-[var(--tm-ink)]">
               <span className="truncate">{a.name}</span>
               <button type="button" aria-label={`Remove ${a.name}`} onClick={() => dropAttachment(a)} className="grid h-5 w-5 shrink-0 place-items-center rounded-full hover:bg-[var(--tm-bg-sunken)]">
                 <X className="h-3 w-3" />
@@ -269,6 +271,7 @@ export const Composer: React.FC<Props> = ({ group, meId, replyTo, onCancelReply,
         <>
           <RichEditor
             ref={editor}
+            variant="chat"
             people={people}
             onSubmit={send}
             onChange={({ empty: e }) => {
@@ -296,21 +299,38 @@ export const Composer: React.FC<Props> = ({ group, meId, replyTo, onCancelReply,
                 <div className="relative flex items-center">
                   <span className="relative">
                     <SendFlight fire={flights} />
-                    <Button type="button" size="sm" aria-label="Send" isLoading={busy} onClick={send} className="!rounded-full !bg-[#C4B5E0] !text-[#2A2933] hover:!bg-[#D2C6E9]">
+                    <button
+                      type="button"
+                      aria-label="Send"
+                      title="Send (right-click or press and hold to send later)"
+                      aria-haspopup="menu"
+                      aria-expanded={menu}
+                      disabled={busy}
+                      onClick={() => {
+                        if (longPressed.current) {
+                          longPressed.current = false;
+                          return;
+                        }
+                        void send();
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        if (!busy) setMenu(true);
+                      }}
+                      onPointerDown={() => {
+                        longPressed.current = false;
+                        pressTimer.current = setTimeout(() => {
+                          longPressed.current = true;
+                          if (!busy) setMenu(true);
+                        }, 550);
+                      }}
+                      onPointerUp={() => clearTimeout(pressTimer.current)}
+                      onPointerLeave={() => clearTimeout(pressTimer.current)}
+                      className="grid h-10 w-10 place-items-center rounded-full bg-[var(--tm-ink)] text-[var(--tm-card)] transition hover:brightness-110 disabled:opacity-60"
+                    >
                       <Send className="h-4 w-4" />
-                    </Button>
+                    </button>
                   </span>
-                  <Button
-                    type="button"
-                    size="sm"
-                    aria-label="Send later"
-                    aria-expanded={menu}
-                    disabled={busy}
-                    onClick={() => setMenu((m) => !m)}
-                    className="ml-1 !rounded-full !bg-[var(--tm-accent)] !text-[var(--tm-accent-ink)] px-2 hover:!brightness-95"
-                  >
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
                   {menu && (
                     <>
                       <button type="button" aria-label="Close menu" className="fixed inset-0 z-30 cursor-default" onClick={() => setMenu(false)} />
@@ -348,9 +368,15 @@ export const Composer: React.FC<Props> = ({ group, meId, replyTo, onCancelReply,
                   )}
                 </div>
               ) : (
-                <Button type="button" variant="secondary" size="sm" aria-label="Record a voice note" disabled={busy} onClick={startRecording}>
-                  <Mic className="h-4 w-4" />
-                </Button>
+                <button
+                  type="button"
+                  aria-label="Record a voice note"
+                  disabled={busy}
+                  onClick={startRecording}
+                  className="grid h-10 w-10 place-items-center rounded-full text-[var(--tm-ink-soft)] transition-colors hover:bg-[var(--tm-bg-sunken)] hover:text-[var(--tm-ink)] disabled:opacity-60"
+                >
+                  <Mic className="h-5 w-5" />
+                </button>
               )
             }
           />

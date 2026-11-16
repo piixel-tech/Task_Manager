@@ -27,7 +27,7 @@ export const ALERT_SOUNDS = ['chime', 'ding', 'pop', 'bell', 'drop', 'soft'] as 
 export type AlertSound = (typeof ALERT_SOUNDS)[number];
 
 export interface UserSettings {
-  /** Light or dark mode ("system" follows the device). */
+  /** Always "light": the app has no dark mode (older accounts may still hold another value; it is ignored). */
   theme: 'light' | 'dark' | 'system';
   /** Colour theme, set on <html data-theme>. */
   palette: Palette;
