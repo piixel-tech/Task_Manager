@@ -4,6 +4,8 @@ import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
 import { Input, Textarea } from '../../../components/ui/Input';
 import { useConfirm } from '../../../hooks/useConfirm';
+import { useFieldErrors } from '../../../hooks/useFieldErrors';
+import { FieldError, FieldGroup } from '../../../components/ui/FieldError';
 import { userService } from '../../../services';
 import { fetchCompanies, type ApiCompany } from '../../../services/http/mappers';
 import { projectApi, type ProjectDetail, type UserBrief } from '../../../services/http/projectApi';
@@ -20,6 +22,7 @@ interface Props {
 /** Admin-only: create a project (with its first subfolder and head) or edit its details. */
 export const ProjectFormModal: React.FC<Props> = ({ isOpen, onClose, project, onSaved }) => {
   const confirm = useConfirm();
+  const f = useFieldErrors<'name' | 'company' | 'subName' | 'heads'>();
   const [companies, setCompanies] = useState<ApiCompany[]>([]);
   const [team, setTeam] = useState<UserBrief[]>([]);
   const [clientUsers, setClientUsers] = useState<UserBrief[]>([]);
@@ -60,10 +63,13 @@ export const ProjectFormModal: React.FC<Props> = ({ isOpen, onClose, project, on
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return setError('Give the project a name.');
-    if (companyIds.length === 0) return setError('Pick at least one company.');
-    if (!project && !subName.trim()) return setError('Name the first subfolder.');
-    if (!project && heads.length === 0) return setError('Appoint at least one head for the first subfolder.');
+    const problems: Parameters<typeof f.fail>[0] = {};
+    if (!name.trim()) problems.name = 'Enter a project name';
+    if (companyIds.length === 0) problems.company = 'Pick at least one company';
+    if (!project && !subName.trim()) problems.subName = 'Enter a name for the first subfolder';
+    if (!project && heads.length === 0) problems.heads = 'Appoint at least one head for the first subfolder';
+    if (Object.keys(problems).length > 0) return f.fail(problems);
+    f.reset();
     setError(null);
 
     let saved: ProjectDetail | undefined;
@@ -107,16 +113,28 @@ export const ProjectFormModal: React.FC<Props> = ({ isOpen, onClose, project, on
       description={project ? undefined : 'Every project starts with one subfolder and at least one head.'}
       maxWidth="lg"
     >
-      <form onSubmit={submit} className="space-y-4">
+      <form noValidate onSubmit={submit} className="space-y-4">
         {error && (
           <div className="tm-error px-4 py-3 text-xs font-semibold">
             {error}
           </div>
         )}
-        <Input label="Project name" placeholder="e.g. Acme website" value={name} onChange={(e) => setName(e.target.value)} required />
+        <Input
+          label="Project name"
+          placeholder="e.g. Acme website"
+          value={name}
+          data-field="name"
+          data-label="project name"
+          error={f.errors.name}
+          onChange={(e) => {
+            setName(e.target.value);
+            f.clear('name');
+          }}
+          required
+        />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input label="Start date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-          <fieldset>
+          <fieldset data-field="company">
             <legend className="mb-1.5 text-[13px] font-semibold text-[var(--tm-ink-soft)]">Company</legend>
             <div className="flex flex-wrap gap-2">
               {companies.map((c) => {
@@ -126,7 +144,10 @@ export const ProjectFormModal: React.FC<Props> = ({ isOpen, onClose, project, on
                     key={c.id}
                     type="button"
                     aria-pressed={on}
-                    onClick={() => setCompanyIds((ids) => (on ? ids.filter((i) => i !== c.id) : [...ids, c.id]))}
+                    onClick={() => {
+                      setCompanyIds((ids) => (on ? ids.filter((i) => i !== c.id) : [...ids, c.id]));
+                      f.clear('company');
+                    }}
                     className={`inline-flex h-11 items-center gap-1.5 rounded-full border px-4 text-[13px] font-bold transition-colors ${on
                         ? 'border-[var(--tm-primary-light)] bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)]'
                         : 'border-[var(--tm-border)] bg-[var(--tm-card)] text-[var(--tm-ink-soft)] hover:border-[var(--tm-border-strong)]'
@@ -138,7 +159,7 @@ export const ProjectFormModal: React.FC<Props> = ({ isOpen, onClose, project, on
                 );
               })}
             </div>
-            <p className="mt-1.5 text-[12px] text-[var(--tm-ink-muted)]">Pick one, or both for a shared project.</p>
+            {f.errors.company ? <FieldError message={f.errors.company} /> : <p className="mt-1.5 text-[12px] text-[var(--tm-ink-muted)]">Pick one, or both for a shared project.</p>}
           </fieldset>
         </div>
         <Textarea
@@ -160,17 +181,31 @@ export const ProjectFormModal: React.FC<Props> = ({ isOpen, onClose, project, on
               <h4 className="text-[14px] font-bold text-[var(--tm-ink)]">First subfolder</h4>
               <p className="mt-0.5 text-[12px] text-[var(--tm-ink-muted)]">Where the work starts, and who leads it.</p>
             </div>
-            <Input label="Name" placeholder="e.g. Design" value={subName} onChange={(e) => setSubName(e.target.value)} />
-            <PeoplePicker
-              label="Heads"
-              hint="At least one. A head is also a member."
-              people={team}
-              value={heads}
-              onChange={(ids) => {
-                setHeads(ids);
-                setMembers((m) => m.filter((id) => !ids.includes(id)));
+            <Input
+              label="Name"
+              placeholder="e.g. Design"
+              value={subName}
+              data-field="subName"
+              data-label="name for the first subfolder"
+              error={f.errors.subName}
+              onChange={(e) => {
+                setSubName(e.target.value);
+                f.clear('subName');
               }}
             />
+            <FieldGroup name="heads" error={f.errors.heads}>
+              <PeoplePicker
+                label="Heads"
+                hint="At least one. A head is also a member."
+                people={team}
+                value={heads}
+                onChange={(ids) => {
+                  setHeads(ids);
+                  setMembers((m) => m.filter((id) => !ids.includes(id)));
+                  f.clear('heads');
+                }}
+              />
+            </FieldGroup>
             <PeoplePicker label="Members" people={team} value={members} onChange={setMembers} lockedIds={heads} />
           </div>
         )}

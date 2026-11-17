@@ -43,6 +43,7 @@ async def checklist_outs(items: list[ChecklistItem], sub: Subfolder, viewer: Use
                 created_by=brief(people[i.created_by]) if i.created_by in people else None,
                 created_at=i.created_at,
                 updated_at=i.updated_at,
+                pinned=i.pinned,
                 attachments=attachments,
                 can_edit=i.created_by == viewer.id and can(viewer, "checklist.write", sub),
                 can_delete=manage or i.created_by == viewer.id,

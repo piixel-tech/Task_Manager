@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CalendarDays } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { CountUp } from '../../../components/ui/CountUp';
 import { Avatar } from '../../../components/ui/Avatar';
 import { Badge } from '../../../components/ui/Badge';
@@ -11,6 +11,8 @@ import { useAuthStore } from '../../../store/authStore';
 import { useAppStore } from '../../../store/useAppStore';
 import { useDailyStatusStore } from '../../../store/useDailyStatusStore';
 import { DAY_STATUSES, statusMeta } from '../statusMeta';
+import { InfoTip } from '../../../components/ui/InfoTip';
+import { EmptyState } from '../../../components/ui/EmptyState';
 
 /** Everyone's status for today. Click a person to open their calendar. */
 export const TodayOverview: React.FC = () => {
@@ -41,10 +43,14 @@ export const TodayOverview: React.FC = () => {
   return (
     <Card lift>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base font-extrabold">
+        <div className="min-w-0">
+<CardTitle className="flex items-center gap-2 text-base font-extrabold">
           <CalendarDays className="h-4 w-4 text-[var(--tm-primary-dark)]" />
           Today overview
+          <InfoTip topic="status-who">Everyone on the team sees the status you pick for today.</InfoTip>
         </CardTitle>
+<CardDescription>How everyone is working today.</CardDescription>
+</div>
         <div className="mt-2 flex flex-wrap gap-2">
           {counts.map((c) => (
             <StatusChip key={c.value} tone={c.tone} size="sm" dot>
@@ -61,7 +67,7 @@ export const TodayOverview: React.FC = () => {
         {!overviewLoaded ? (
           <SkeletonRows count={4} />
         ) : rows.length === 0 ? (
-          <p className="py-6 text-center text-xs text-[var(--tm-ink-muted)]">No team members yet.</p>
+          <EmptyState size="compact" title="No team members yet" description="Everyone’s status for today shows up here." />
         ) : (
           <ul className="animate-fade-in grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
             {rows.map((r) => {

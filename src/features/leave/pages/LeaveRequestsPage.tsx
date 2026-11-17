@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { CalendarOff } from 'lucide-react';
+import { TreePalm } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { FadeIn } from '../../../components/ui/FadeIn';
 import { socket } from '../../../services/socket';
@@ -56,9 +56,9 @@ export const LeaveRequestsPage: React.FC = () => {
     <FadeIn>
       <PageHeader
         title="Leave"
-        description="Ask for leave or to work from home. The admin you choose approves it."
+        description="Ask for leave or work from home."
         actions={
-          <Button onClick={requestLeave} leftIcon={<CalendarOff className="h-4 w-4" />}>
+          <Button onClick={requestLeave} leftIcon={<TreePalm className="h-4 w-4" />}>
             Request leave
           </Button>
         }
@@ -66,7 +66,7 @@ export const LeaveRequestsPage: React.FC = () => {
 
       <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
         <Card>
-          <CardContent>
+          <CardContent className="pt-5">
             <div ref={calendar}>
               <LeaveCalendar
                 requests={requests}
@@ -96,7 +96,8 @@ export const LeaveRequestsPage: React.FC = () => {
 
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle>
+          <div className="min-w-0">
+<CardTitle>
             <span className="inline-flex flex-wrap items-center gap-3">
               My requests
               <span className="rounded-full bg-[var(--tm-primary-soft)] px-2.5 py-1 text-[11.5px] font-semibold text-[var(--tm-ink)]">
@@ -104,6 +105,8 @@ export const LeaveRequestsPage: React.FC = () => {
               </span>
             </span>
           </CardTitle>
+<CardDescription>Everything you have asked for, newest first.</CardDescription>
+</div>
         </CardHeader>
         <CardContent>
           {error && <div className="tm-error mb-3 px-4 py-3 text-xs font-semibold">{error}</div>}

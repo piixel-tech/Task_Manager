@@ -25,7 +25,7 @@ const when = (iso: string) => formatDate(iso, 'MMM d, h:mm a');
 /** Files and links attached to a submission. */
 export const SubmissionFiles: React.FC<{ files: Asset[] }> = ({ files }) => {
   if (files.length === 0) return null;
-  const open = (a: Asset) => assetApi.open(a).catch((err) => toast.error('Could not open the file', err.message));
+  const open = (a: Asset) => assetApi.open(a, files).catch((err) => toast.error('Could not open the file', err.message));
   return (
     <ul className="flex flex-wrap gap-2">
       {files.map((a) => (

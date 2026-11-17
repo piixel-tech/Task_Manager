@@ -150,7 +150,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
   const [emojiOpen, setEmojiOpen] = useState(false);
-  const [formatOpen, setFormatOpen] = useState(false);
+  const [formatOpen, setFormatOpen] = useState(true);
 
   const editor = useEditor({
     content: initialHtml,
@@ -192,6 +192,13 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
     editorProps: {
       attributes: { class: 'rich-content tiptap min-h-[24px] outline-none text-[14px] leading-snug text-[var(--tm-ink)]', role: 'textbox', 'aria-multiline': 'true', 'aria-label': label },
       handleKeyDown: (_view, e) => {
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
+          e.preventDefault();
+          setLinkUrl(editorRef.current?.getAttributes('link').href ?? '');
+          setLinkOpen(true);
+          setEmojiOpen(false);
+          return true;
+        }
         if (e.key !== 'Enter' || e.isComposing || !submitRef.current) return false;
         const ed = editorRef.current;
         const inBlock = !!ed && (ed.isActive('bulletList') || ed.isActive('orderedList') || ed.isActive('codeBlock'));
@@ -260,10 +267,10 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
   };
 
   const buttons: { label: string; icon: React.ReactNode; on: boolean; run: () => void }[] = [
-    { label: 'Bold', icon: <Bold className="h-4 w-4" />, on: active.bold, run: () => editor.chain().focus().toggleBold().run() },
-    { label: 'Italic', icon: <Italic className="h-4 w-4" />, on: active.italic, run: () => editor.chain().focus().toggleItalic().run() },
-    { label: 'Underline', icon: <UnderlineIcon className="h-4 w-4" />, on: active.underline, run: () => editor.chain().focus().toggleUnderline().run() },
-    { label: 'Strikethrough', icon: <Strikethrough className="h-4 w-4" />, on: active.strike, run: () => editor.chain().focus().toggleStrike().run() },
+    { label: 'Bold', icon: <Bold className="h-4 w-4" strokeWidth={1.75} />, on: active.bold, run: () => editor.chain().focus().toggleBold().run() },
+    { label: 'Italic', icon: <Italic className="h-4 w-4" strokeWidth={1.75} />, on: active.italic, run: () => editor.chain().focus().toggleItalic().run() },
+    { label: 'Underline', icon: <UnderlineIcon className="h-4 w-4" strokeWidth={1.75} />, on: active.underline, run: () => editor.chain().focus().toggleUnderline().run() },
+    { label: 'Strikethrough', icon: <Strikethrough className="h-4 w-4" strokeWidth={1.75} />, on: active.strike, run: () => editor.chain().focus().toggleStrike().run() },
     {
       label: 'Link',
       icon: <Link2 className="h-4 w-4" />,
@@ -274,11 +281,11 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
         setEmojiOpen(false);
       }
     },
-    { label: 'Bulleted list', icon: <List className="h-4 w-4" />, on: active.bullet, run: () => editor.chain().focus().toggleBulletList().run() },
-    { label: 'Numbered list', icon: <ListOrdered className="h-4 w-4" />, on: active.ordered, run: () => editor.chain().focus().toggleOrderedList().run() },
-    { label: 'Quote', icon: <Quote className="h-4 w-4" />, on: active.quote, run: () => editor.chain().focus().toggleBlockquote().run() },
-    { label: 'Inline code', icon: <Code className="h-4 w-4" />, on: active.code, run: () => editor.chain().focus().toggleCode().run() },
-    { label: 'Code block', icon: <Braces className="h-4 w-4" />, on: active.codeBlock, run: () => editor.chain().focus().toggleCodeBlock().run() }
+    { label: 'Bulleted list', icon: <List className="h-4 w-4" strokeWidth={1.75} />, on: active.bullet, run: () => editor.chain().focus().toggleBulletList().run() },
+    { label: 'Numbered list', icon: <ListOrdered className="h-4 w-4" strokeWidth={1.75} />, on: active.ordered, run: () => editor.chain().focus().toggleOrderedList().run() },
+    { label: 'Quote', icon: <Quote className="h-4 w-4" strokeWidth={1.75} />, on: active.quote, run: () => editor.chain().focus().toggleBlockquote().run() },
+    { label: 'Inline code', icon: <Code className="h-4 w-4" strokeWidth={1.75} />, on: active.code, run: () => editor.chain().focus().toggleCode().run() },
+    { label: 'Code block', icon: <Braces className="h-4 w-4" strokeWidth={1.75} />, on: active.codeBlock, run: () => editor.chain().focus().toggleCodeBlock().run() }
   ];
 
   if (variant === 'chat') {
@@ -286,7 +293,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
     return (
       <div className="relative">
         {formatOpen && (
-          <div role="toolbar" aria-label="Formatting" className="mb-2 flex items-center gap-0.5 overflow-x-auto rounded-full bg-[var(--tm-card-muted)] px-2 py-1">
+          <div role="toolbar" aria-label="Formatting" className="mb-2 flex items-center gap-0.5 overflow-x-auto border-b border-[var(--tm-border)] pb-2">
             {buttons.map((b) => (
               <button
                 key={b.label}
@@ -297,15 +304,32 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
                 disabled={disabled}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={b.run}
-                className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${b.on ? 'bg-[var(--tm-ink)] text-[var(--tm-card)]' : 'text-[var(--tm-ink-soft)] hover:bg-[var(--tm-bg-sunken)]'}`}
+                className={`grid h-7 w-7 shrink-0 place-items-center rounded-[var(--tm-radius-sm)] transition-colors ${
+                  b.on ? 'bg-[var(--tm-bg-sunken)] text-[var(--tm-ink)]' : 'text-[var(--tm-ink-soft)] hover:bg-[var(--tm-bg-sunken)] hover:text-[var(--tm-ink)]'
+                }`}
               >
                 {b.icon}
               </button>
             ))}
+            <button
+              type="button"
+              title="Emoji"
+              aria-label="Emoji"
+              aria-expanded={emojiOpen}
+              disabled={disabled}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                setEmojiOpen((o) => !o);
+                setLinkOpen(false);
+              }}
+              className="grid h-7 w-7 shrink-0 place-items-center rounded-[var(--tm-radius-sm)] text-[var(--tm-ink-soft)] transition-colors hover:bg-[var(--tm-bg-sunken)] hover:text-[var(--tm-ink)]"
+            >
+              <Smile className="h-4 w-4" />
+            </button>
           </div>
         )}
         {linkOpen && (
-          <form
+          <form noValidate
             className="mb-2 flex items-center gap-2"
             onSubmit={(e) => {
               e.preventDefault();
@@ -418,7 +442,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
       </div>
 
       {linkOpen && (
-        <form
+        <form noValidate
           className="flex items-center gap-2 border-b border-[var(--tm-border)] px-3 py-2"
           onSubmit={(e) => {
             e.preventDefault();

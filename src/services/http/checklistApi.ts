@@ -15,6 +15,8 @@ export interface ChecklistItem {
   created_at: string;
   /** Set once the text has been edited. */
   updated_at: string | null;
+  /** Shown in Quick access. */
+  pinned: boolean;
   attachments: ChecklistFile[];
   /** Only the person who added it. */
   can_edit: boolean;
@@ -42,6 +44,7 @@ export const checklistApi = {
     call<ChecklistItem>(() => api.post(`/subfolders/${subfolderId}/checklist`, { text, attachment_ids }), 'Could not add the item'),
   edit: (id: string, text: string) =>
     call<ChecklistItem>(() => api.patch(`/checklist/${id}`, { text }), 'Could not update the item'),
+  pin: (id: string) => call<ChecklistItem>(() => api.post(`/checklist/${id}/pin`), 'Could not pin the item'),
   attach: (id: string, file_ids: string[]) =>
     call<ChecklistItem>(() => api.post(`/checklist/${id}/attachments`, { file_ids }), 'Could not attach the files'),
   detach: (id: string, fileId: string) =>

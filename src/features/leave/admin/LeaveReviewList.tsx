@@ -9,7 +9,7 @@ import { leaveApi, type LeaveRequest, type LeaveStatus } from '../../../services
 import { datesText, STATUS_LABEL, TYPE_LABEL } from '../leaveUtils';
 import { RejectLeaveModal } from './RejectLeaveModal';
 
-const TONE: Record<LeaveStatus, ChipTone> = { pending: 'warn', approved: 'ok', rejected: 'bad' };
+const TONE: Record<LeaveStatus, ChipTone> = { pending: 'warn', approved: 'ok', rejected: 'bad', cancelled: 'neutral' };
 
 /**
  * Requests as rows: who, what, when, why, sent when. Pending ones carry Approve / Reject; decided ones say who decided and, for a

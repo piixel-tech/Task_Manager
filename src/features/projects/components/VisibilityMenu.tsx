@@ -29,7 +29,7 @@ const ViewerPickerModal: React.FC<{ subfolder: Subfolder; onClose: () => void; o
       isOpen
       onClose={onClose}
       title={`Who can view ${subfolder.name}?`}
-      description="They can read it but not make changes. Members already have access."
+      description="People you tick can read it but not make changes."
       footer={
         <div className="flex justify-end gap-3">
           <Button variant="outline" type="button" onClick={onClose}>
@@ -43,19 +43,20 @@ const ViewerPickerModal: React.FC<{ subfolder: Subfolder; onClose: () => void; o
     >
       {error && <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>}
       {!people && !error && <p className="text-[13px] text-[var(--tm-ink-muted)]">Loading…</p>}
-      {people && people.length === 0 && (
-        <p className="rounded-[var(--tm-radius-md)] bg-[var(--tm-card-muted)] p-4 text-[13px] font-semibold text-[var(--tm-ink-muted)]">
-          Everyone in the company is already a member of this subfolder.
-        </p>
-      )}
-      {people && people.length > 0 && (
+      {people && people.length === 0 && <p className="text-[13px] text-[var(--tm-ink-muted)]">No one to show yet. Add members to this subfolder first.</p>}
+      {people && (
         <PeoplePicker
           label="Company employees"
+          hint="Members already have access. Tick anyone else to let them view it."
           people={people}
           value={picked}
           onChange={setPicked}
+          lockedIds={people.filter((p) => p.member).map((p) => p.id)}
+          lockedTag="Member"
           searchText={(p) => `${p.name} ${p.email ?? ''}`}
           emptyText={(q) => `No employees match "${q}".`}
+          chips
+          listClassName="max-h-64"
         />
       )}
     </Modal>

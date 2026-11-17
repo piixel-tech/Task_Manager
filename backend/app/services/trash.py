@@ -16,6 +16,7 @@ from app.models import (
     ChatMessage,
     ChecklistItem,
     DeliverablePlan,
+    OfficePost,
     Project,
     Requirement,
     Subfolder,
@@ -40,6 +41,7 @@ _ORDER: list[tuple[str, Any]] = [
     ("time_logs", TimeLog),
     ("task_reviews", TaskReview),
     ("task_activity", TaskActivity),
+    ("office_posts", OfficePost),
 ]
 _MODELS = dict(_ORDER)
 
@@ -68,6 +70,9 @@ def _files_of(payload: dict) -> list[PydanticObjectId]:
             ids += d.get("file_ids", [])
     for d in payload.get("checklist_items", []):
         ids += d.get("attachment_ids", [])
+    for d in payload.get("office_posts", []):
+        if d.get("photo_id"):
+            ids.append(d["photo_id"])
     for d in payload.get("requirements", []):
         ids += d.get("attachment_ids", [])
         for v in d.get("history", []):
@@ -131,6 +136,21 @@ async def _names(project_id: PydanticObjectId, subfolder_id: PydanticObjectId | 
     project = await Project.get(project_id)
     sub = await Subfolder.get(subfolder_id) if subfolder_id else None
     return " › ".join(n for n in (project.name if project else "", sub.name if sub else "") if n)
+
+
+async def delete_summary(sub_ids: list[PydanticObjectId], project_id: PydanticObjectId | None = None) -> dict[str, int]:
+    """What a delete would take with it, for the confirmation: subfolders, tasks, files, checklist items and requirements."""
+    payload = await _subfolder_bundle(sub_ids)
+    requirements = await _raw(Requirement, {"project_id": project_id}) if project_id else []
+    payload["requirements"] = requirements
+    return {
+        "subfolders": len(sub_ids),
+        "tasks": len(payload.get("tasks", [])),
+        "files": len(_files_of(payload)),
+        "checklist_items": len(payload.get("checklist_items", [])),
+        "requirements": len(requirements),
+        "chats": len(payload.get("group_links", [])),
+    }
 
 
 # --- Moving things to the trash ------------------------------------------------------------------------------------------
@@ -197,6 +217,54 @@ async def trash_message(msg: ChatMessage, actor: User, context: str = "") -> Tra
     ).insert()
 
 
+async def trash_requirement(req: Requirement, actor: User) -> TrashItem:
+    """One requirement (with its history and files) waits in the Trash; its files stay on disk."""
+    payload = {"requirements": await _raw(Requirement, {"_id": req.id})}
+    item = await TrashItem(
+        kind="requirement",
+        title=req.title,
+        context=await _names(req.project_id, req.subfolder_id),
+        original_id=req.id,
+        deleted_by=actor.id,
+        payload=payload,
+        file_ids=_files_of(payload),
+    ).insert()
+    await _drop(Requirement, {"_id": req.id})
+    return item
+
+
+async def trash_activity(entry: TaskActivity, actor: User) -> TrashItem:
+    """A mid-way change or comment, with its replies and files."""
+    payload = {"task_activity": await _raw(TaskActivity, {"$or": [{"_id": entry.id}, {"parent_id": entry.id}]})}
+    item = await TrashItem(
+        kind="activity",
+        title=((entry.text or entry.body or "Mid-way change")[:120]),
+        context=await _names(entry.project_id, entry.subfolder_id),
+        original_id=entry.id,
+        deleted_by=actor.id,
+        payload=payload,
+        file_ids=_files_of(payload),
+    ).insert()
+    await _drop(TaskActivity, {"$or": [{"_id": entry.id}, {"parent_id": entry.id}]})
+    return item
+
+
+async def trash_office_post(post: OfficePost, actor: User) -> TrashItem:
+    """An office board post, with its photo kept until it is purged."""
+    payload = {"office_posts": await _raw(OfficePost, {"_id": post.id})}
+    item = await TrashItem(
+        kind="office_post",
+        title=post.text[:120],
+        context="Office board",
+        original_id=post.id,
+        deleted_by=actor.id,
+        payload=payload,
+        file_ids=_files_of(payload),
+    ).insert()
+    await _drop(OfficePost, {"_id": post.id})
+    return item
+
+
 # --- Bringing things back ---------------------------------------------------------------------------------------------------
 async def _put_back(payload: dict) -> int:
     """Insert the saved documents (skipping any that already exist). Returns how many went back."""
@@ -257,13 +325,32 @@ async def restore(item: TrashItem) -> str:
             raise HTTPException(status.HTTP_409_CONFLICT, "Restore its subfolder (or project) first: the task has nowhere to go")
         if await Task.get(task["_id"]):
             raise HTTPException(status.HTTP_409_CONFLICT, "This task is already back")
+    elif item.kind == "requirement":
+        req = p["requirements"][0]
+        if await Project.get(req["project_id"]) is None:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Restore its project first: the requirement has nowhere to go")
+        if await Requirement.get(req["_id"]):
+            raise HTTPException(status.HTTP_409_CONFLICT, "This requirement is already back")
+        if req.get("subfolder_id") and await Subfolder.get(req["subfolder_id"]) is None:
+            req["subfolder_id"] = None  # its subfolder is gone: it comes back for the whole project
+    elif item.kind == "activity":
+        entry = next(d for d in p["task_activity"] if d["_id"] == item.original_id)
+        if await Subfolder.get(entry["subfolder_id"]) is None:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Restore its subfolder (or project) first: it has nowhere to go")
+        if entry.get("task_id") and await Task.get(entry["task_id"]) is None:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Restore its task first: it has nowhere to go")
+        if await TaskActivity.get(entry["_id"]):
+            raise HTTPException(status.HTTP_409_CONFLICT, "This is already back")
+    elif item.kind == "office_post":
+        if await OfficePost.get(p["office_posts"][0]["_id"]):
+            raise HTTPException(status.HTTP_409_CONFLICT, "This post is already back")
     elif item.kind == "subfolder":
         sub = p["subfolders"][0]
         if await Project.get(sub["project_id"]) is None:
             raise HTTPException(status.HTTP_409_CONFLICT, "Restore its project first: the subfolder has nowhere to go")
         if await Subfolder.get(sub["_id"]):
             raise HTTPException(status.HTTP_409_CONFLICT, "This subfolder is already back")
-    elif await Project.get(p["projects"][0]["_id"]):
+    elif item.kind == "project" and await Project.get(p["projects"][0]["_id"]):
         raise HTTPException(status.HTTP_409_CONFLICT, "This project is already back")
 
     await _put_back(p)

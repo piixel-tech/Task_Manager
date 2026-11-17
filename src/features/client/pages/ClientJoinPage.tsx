@@ -144,7 +144,7 @@ export const ClientJoinPage: React.FC = () => {
               ))}
             </div>
 
-            <form onSubmit={mode === 'signup' ? signup : logIn} className="space-y-4">
+            <form noValidate onSubmit={mode === 'signup' ? signup : logIn} className="space-y-4">
               {mode === 'signup' && <Input label="Your name" autoComplete="name" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} required />}
               <Input label="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
               <Input

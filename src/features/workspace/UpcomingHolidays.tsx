@@ -24,6 +24,7 @@ export const UpcomingHolidays: React.FC<{ className?: string; limit?: number }> 
           </span>
           Upcoming holidays
         </h2>
+        <p data-hint className="-mt-1 text-[13px] text-[var(--tm-ink-muted)]">Days the office is closed.</p>
         {rows.length === 0 ? (
           <p className="py-2 text-[13px] text-[var(--tm-ink-muted)]">No holidays coming up.</p>
         ) : (

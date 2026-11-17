@@ -74,7 +74,7 @@ export const securityApi = {
 };
 
 // --- Trash --------------------------------------------------------------------------------------------------
-export type TrashKind = 'task' | 'subfolder' | 'project' | 'message';
+export type TrashKind = 'task' | 'subfolder' | 'project' | 'message' | 'requirement' | 'activity' | 'office_post';
 
 export interface TrashRow {
   id: string;

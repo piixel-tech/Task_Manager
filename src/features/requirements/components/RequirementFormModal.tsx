@@ -4,6 +4,8 @@ import { Input } from '../../../components/ui/Input';
 import { Modal } from '../../../components/ui/Modal';
 import { Select } from '../../../components/ui/Select';
 import { useConfirm } from '../../../hooks/useConfirm';
+import { useFieldErrors } from '../../../hooks/useFieldErrors';
+import { FieldGroup } from '../../../components/ui/FieldError';
 import { assetApi, type Asset } from '../../../services/http/taskApi';
 import { requirementApi, type Requirement } from '../../../services/http/requirementApi';
 import { AssetPicker } from '../../tasks/components/AssetPicker';
@@ -21,6 +23,7 @@ interface Props {
 /** Add a requirement, or edit your own. Edits keep the earlier version in the history. */
 export const RequirementFormModal: React.FC<Props> = ({ isOpen, onClose, projectId, subfolders, requirement, onSaved }) => {
   const confirm = useConfirm();
+  const f = useFieldErrors<'title' | 'details'>();
   const [title, setTitle] = useState('');
   const [details, setDetails] = useState('');
   const [files, setFiles] = useState<Asset[]>([]);
@@ -36,6 +39,7 @@ export const RequirementFormModal: React.FC<Props> = ({ isOpen, onClose, project
     setFiles(requirement?.attachments ?? []);
     setSubfolderId(requirement?.subfolder?.id ?? '');
     setError(null);
+    f.reset();
     uploaded.current = new Set();
     saved.current = false;
   }, [isOpen, requirement]);
@@ -53,8 +57,11 @@ export const RequirementFormModal: React.FC<Props> = ({ isOpen, onClose, project
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return setError('Give the requirement a title.');
-    if (!details.trim() && files.length === 0) return setError('Write some details or attach a file or link.');
+    const problems: Parameters<typeof f.fail>[0] = {};
+    if (!title.trim()) problems.title = 'Enter a title for the requirement';
+    if (!details.trim() && files.length === 0) problems.details = 'Write some details, or attach a file or link';
+    if (Object.keys(problems).length > 0) return f.fail(problems);
+    f.reset();
     setError(null);
     const input = { title: title.trim(), details: details.trim(), attachment_ids: files.map((f) => f.id), subfolder_id: subfolderId || null };
     const editing = !!requirement;
@@ -79,10 +86,23 @@ export const RequirementFormModal: React.FC<Props> = ({ isOpen, onClose, project
 
   return (
     <Modal isOpen={isOpen} onClose={close} title={requirement ? 'Edit requirement' : 'New requirement'} maxWidth="lg">
-      <form onSubmit={submit} className="space-y-4">
+      <form noValidate onSubmit={submit} className="space-y-4">
         {error && <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>}
-        <Input label="Title" value={title} maxLength={200} placeholder="e.g. Logo must work on dark backgrounds" onChange={(e) => setTitle(e.target.value)} autoFocus />
-        <div>
+        <Input
+          label="Title"
+          value={title}
+          maxLength={200}
+          placeholder="e.g. Logo must work on dark backgrounds"
+          data-field="title"
+          error={f.errors.title}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            f.clear('title');
+          }}
+          autoFocus
+        />
+        <FieldGroup name="details" error={f.errors.details} className="space-y-4">
+          <div>
           <label htmlFor="req-details" className="mb-1.5 block text-[12.5px] font-bold text-[var(--tm-ink-soft)]">
             Details
           </label>
@@ -92,11 +112,22 @@ export const RequirementFormModal: React.FC<Props> = ({ isOpen, onClose, project
             rows={6}
             maxLength={10000}
             placeholder="Describe what is needed. You can also just attach a document."
-            onChange={(e) => setDetails(e.target.value)}
+            onChange={(e) => {
+              setDetails(e.target.value);
+              f.clear('details');
+            }}
             className="w-full resize-y rounded-[var(--tm-radius-md)] border border-[var(--tm-border)] bg-[var(--tm-card)] p-3 text-[14px] text-[var(--tm-ink)] outline-none focus:border-[var(--tm-primary)]"
           />
-        </div>
-        <AssetPicker value={files} onChange={changeFiles} onUploaded={(ids) => ids.forEach((id) => uploaded.current.add(id))} />
+          </div>
+          <AssetPicker
+            value={files}
+            onChange={(next) => {
+              changeFiles(next);
+              f.clear('details');
+            }}
+            onUploaded={(ids) => ids.forEach((id) => uploaded.current.add(id))}
+          />
+        </FieldGroup>
         <Select
           label="Subfolder (optional)"
           value={subfolderId}
@@ -107,7 +138,7 @@ export const RequirementFormModal: React.FC<Props> = ({ isOpen, onClose, project
           <Button type="button" variant="outline" onClick={close}>
             Cancel
           </Button>
-          <Button type="submit" disabled={!title.trim()}>
+          <Button type="submit">
             {requirement ? 'Save changes' : 'Add requirement'}
           </Button>
         </div>

@@ -145,6 +145,7 @@ export const Topbar: React.FC = () => {
               <button
                 type="button"
                 onClick={openStatusEditor}
+                data-tour="status"
                 title="Change today's status"
                 className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-[var(--tm-card)] p-1 pr-1.5 text-[12px] font-semibold
                   text-[var(--tm-ink)] shadow-soft-xs transition-all hover:-translate-y-px"

@@ -41,3 +41,12 @@ async def test_leaves_out_clients_and_deactivated_people_and_is_closed_to_client
     cleo = await make_user("client", "Other Client")
     assert (await client.get("/users/team", headers=cleo.headers)).status_code == 403
     assert (await client.get("/users/team")).status_code == 401
+
+
+async def test_can_include_the_active_clients_for_pickers_that_invite_anyone(client, make_user):
+    me = await make_user("admin", "Ada Admin")
+    await make_user("client", "Cleo Client")
+    await make_user("client", "Gone Client", is_active=False)
+    await make_user("employee", "Eve Employee")
+    rows = (await client.get("/users/team", params={"include_clients": "true"}, headers=me.headers)).json()
+    assert [(r["name"], r["role"]) for r in rows] == [("Cleo Client", "client"), ("Eve Employee", "employee")]

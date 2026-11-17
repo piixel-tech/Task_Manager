@@ -133,8 +133,8 @@ async def _attendees(body: BookingCreate, host: User, user: User) -> list[Attend
     for a in body.attendees:
         if a.user_id:
             person = team.get(a.user_id)
-            if person is None or not person.is_active or person.role == "client":
-                raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Guests must be active team members or an email address")
+            if person is None or not person.is_active:
+                raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Guests must be active people on Task Manager or an email address")
         else:
             person = known.get(a.email)
             if person is not None and (not person.is_active or person.role == "client"):
@@ -208,7 +208,9 @@ async def create_booking(body: BookingCreate, user: User = Depends(get_current_u
         await booking.insert()
 
     schedule_push([host.id, user.id])
-    teammates = [g.user_id for g in guests if g.user_id]
+    # Clients invited by id get the invite email only: the in-app link goes to a staff calendar they cannot open.
+    ids = [g.user_id for g in guests if g.user_id]
+    teammates = [u.id for u in await User.find({"_id": {"$in": ids}, "role": {"$ne": "client"}}).to_list()] if ids else []
     if teammates:
         await notify(
             teammates,

@@ -535,7 +535,8 @@ async def test_guest_input_is_checked(client, alice, bob, client_user, wg):
     await connect_user(alice)
     for bad in ([{"email": "not-an-email"}], [{"email": "a@b.co", "user_id": alice.id}], [{}], [{"email": "a b@c.com"}]):
         assert (await book_with(client, alice, bob, bad)).status_code == 422, bad
-    assert (await book_with(client, alice, bob, [{"user_id": client_user.id}])).status_code == 422
+    ok = await book_with(client, alice, bob, [{"user_id": client_user.id}])  # an active client can be invited by their account
+    assert ok.status_code == 201 and [a["user_id"] for a in ok.json()["attendees"]] == [client_user.id]
     assert (await book_with(client, alice, bob, [{"email": f"p{i}@example.org"} for i in range(21)])).status_code == 422
 
 

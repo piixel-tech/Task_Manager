@@ -55,7 +55,7 @@ const teamPages = (prefix: string, isAdmin: boolean): Result[] =>
     { id: 'tasks', label: isAdmin ? 'Task Hub' : 'My Tasks', path: `${prefix}/tasks`, words: 'task tasks todo to do assigned overdue deadline' },
     { id: 'chats', label: 'Chats', path: `${prefix}/chat`, words: 'chat message messages groups direct' },
     { id: 'office', label: 'Office board', path: `${prefix}/office`, words: 'office board notice issue pantry pin post' },
-    { id: 'activity', label: 'Activity', path: `${prefix}/activity`, words: 'notifications mentions approvals alerts' },
+    { id: 'activity', label: 'Inbox', path: `${prefix}/activity`, words: 'notifications mentions approvals alerts' },
     { id: 'calendar', label: 'Calendar', path: `${prefix}/calendar`, words: 'meeting meetings schedule events holidays' },
     { id: 'leave', label: isAdmin ? 'Leave requests' : 'Leave', path: `${prefix}/leave-requests`, words: 'leave holiday vacation wfh work from home time off' },
     { id: 'reviews', label: 'Reviews', path: `${prefix}/reviews`, words: 'review approve approval submissions to review' },

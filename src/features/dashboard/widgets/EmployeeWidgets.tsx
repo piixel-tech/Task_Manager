@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, CalendarClock, CheckCircle2, ClipboardCheck, Clock, ListChecks, MessageSquare, Send, Sparkles } from 'lucide-react';
+import { InfoTip } from '../../../components/ui/InfoTip';
+import { AlertTriangle, ArrowRight, CalendarClock, CalendarDays, CheckCircle2, ClipboardCheck, Clock, ListChecks, MessageSquare, Send } from 'lucide-react';
 import { CountUp } from '../../../components/ui/CountUp';
 import { StatusChip } from '../../../components/ui/StatusChip';
 import { Button } from '../../../components/ui/Button';
@@ -91,7 +92,7 @@ export const EmployeeWidgets: React.FC = () => {
           animate={false}
           eyebrow={
             <>
-              <Sparkles className="h-3.5 w-3.5" />
+              <CalendarDays className="h-3.5 w-3.5" />
               My day
             </>
           }
@@ -127,11 +128,11 @@ export const EmployeeWidgets: React.FC = () => {
       </StaggerItem>
 
       <StaggerItem className="lg:col-span-7">
-        <DashboardCard animate={false} icon={<ListChecks className="h-5 w-5" />} title="My tasks" badge={overdue.length} to="/app/tasks" cta="Open my tasks" className="h-full">
+        <DashboardCard animate={false} icon={<ListChecks className="h-5 w-5" />} title="My tasks" description="What is on your plate right now." badge={overdue.length} to="/app/tasks" cta="Open my tasks" className="h-full">
           {loadingTasks ? (
             <WidgetSkeleton />
           ) : open.length === 0 ? (
-            <WidgetEmpty>You have no open tasks. Nice and clear.</WidgetEmpty>
+            <WidgetEmpty title="No open tasks" actionLabel="Open my tasks" to="/app/tasks">Tasks assigned to you show up here.</WidgetEmpty>
           ) : (
             <div className="space-y-3">
               <div className="grid grid-cols-3 gap-3 text-center">
@@ -165,11 +166,11 @@ export const EmployeeWidgets: React.FC = () => {
       </StaggerItem>
 
       <StaggerItem className="lg:col-span-5">
-        <DashboardCard animate={false} icon={<Send className="h-5 w-5" />} title="My submissions" badge={submissions.length} to="/app/tasks" cta="Open my tasks" className="h-full">
+        <DashboardCard animate={false} icon={<Send className="h-5 w-5" />} title="My submissions" description="Work you handed in for review." badge={submissions.length} to="/app/tasks" cta="Open my tasks" className="h-full">
           {loadingTasks ? (
             <WidgetSkeleton />
           ) : submissions.length === 0 ? (
-            <WidgetEmpty>Nothing is waiting on a review from you.</WidgetEmpty>
+            <WidgetEmpty title="Nothing to review" actionLabel="Open reviews" to="/app/reviews">Work sent to you for approval shows up here.</WidgetEmpty>
           ) : (
             <ul>
               {submissions.slice(0, 5).map((t) => (
@@ -189,7 +190,7 @@ export const EmployeeWidgets: React.FC = () => {
 
       {reviews > 0 && (
         <StaggerItem className="lg:col-span-4">
-          <DashboardCard animate={false} icon={<ClipboardCheck className="h-5 w-5" />} title="Review queue" badge={reviews} to="/app/reviews" cta="Open reviews" highlight className="h-full">
+          <DashboardCard animate={false} icon={<ClipboardCheck className="h-5 w-5" />} title="Review queue" description="Work waiting for your approval." info={<InfoTip topic="reviews-approve">Work colleagues sent to you to approve. Approve it, or ask for changes.</InfoTip>} badge={reviews} to="/app/reviews" cta="Open reviews" highlight className="h-full">
             <p className="text-[13.5px] text-[var(--tm-ink-soft)]">
               <span className="mr-2 text-[40px] font-extrabold leading-none tracking-[-0.04em] text-[var(--tm-ink)]">
                 <CountUp value={reviews} />
@@ -201,11 +202,11 @@ export const EmployeeWidgets: React.FC = () => {
       )}
 
       <StaggerItem className={reviews > 0 ? 'lg:col-span-4' : 'lg:col-span-6'}>
-        <DashboardCard animate={false} icon={<CalendarClock className="h-5 w-5" />} title="Today's schedule" badge={todayMeetings.length} to="/app/calendar" cta="Open calendar" className="h-full">
+        <DashboardCard animate={false} icon={<CalendarClock className="h-5 w-5" />} title="Today's schedule" description="Your meetings for today." badge={todayMeetings.length} to="/app/calendar" cta="Open calendar" className="h-full">
           {meetings === null ? (
             <WidgetSkeleton rows={2} />
           ) : todayMeetings.length === 0 ? (
-            <WidgetEmpty>No meetings today.</WidgetEmpty>
+            <WidgetEmpty title="No meetings today" actionLabel="Open calendar" to="/app/calendar">Your bookings for today show up here.</WidgetEmpty>
           ) : (
             <ul>
               {todayMeetings.map((m) => (
@@ -222,7 +223,7 @@ export const EmployeeWidgets: React.FC = () => {
       </StaggerItem>
 
       <StaggerItem className={reviews > 0 ? 'lg:col-span-4' : 'lg:col-span-6'}>
-        <DashboardCard animate={false} icon={<MessageSquare className="h-5 w-5" />} title="Unread" badge={unreadChats + unreadInbox} to="/app/chat" cta="Open chats" className="h-full">
+        <DashboardCard animate={false} icon={<MessageSquare className="h-5 w-5" />} title="Unread" description="Chats and notices you have not read." badge={unreadChats + unreadInbox} to="/app/chat" cta="Open chats" className="h-full">
           <ul>
             <li>
               <RowLink to="/app/chat">
@@ -233,7 +234,7 @@ export const EmployeeWidgets: React.FC = () => {
             <li>
               <RowLink to="/app/activity">
                 <span className="flex items-center gap-2 text-[13.5px] font-semibold text-[var(--tm-ink)]">
-                  Activity notifications
+                  Inbox notifications
                   {unreadInbox === 0 && <CheckCircle2 className="h-4 w-4 text-[var(--tm-success)]" />}
                 </span>
                 <span className="text-[16px] font-extrabold tabular-nums text-[var(--tm-ink)]"><CountUp value={unreadInbox} /></span>
@@ -261,7 +262,7 @@ export const EmployeeWidgets: React.FC = () => {
               .map((g) => ({ id: g.id, label: g.name, sub: g.last_message?.preview, trailing: String(g.unread_count), to: '/app/chat' }))
           },
           {
-            title: 'Activity',
+            title: 'Inbox',
             items: notifications.filter((n) => !n.read).map((n) => ({ id: n.id, label: n.title, sub: n.message, to: n.link || '/app/activity' }))
           }
         ]}

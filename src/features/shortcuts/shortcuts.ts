@@ -12,7 +12,7 @@ export const SHORTCUTS: Shortcut[] = [
   { keys: ['Ctrl', 'K'], label: 'Search and jump to anything' },
   { keys: ['?'], label: 'Show these shortcuts' },
   { keys: ['g', 'h'], label: 'Go to Home' },
-  { keys: ['g', 'i'], label: 'Go to Activity' },
+  { keys: ['g', 'i'], label: 'Go to Inbox' },
   { keys: ['g', 'c'], label: 'Go to Chats' },
   { keys: ['g', 't'], label: 'Go to Tasks' },
   { keys: ['g', 'p'], label: 'Go to Projects' },

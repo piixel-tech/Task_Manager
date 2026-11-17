@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import { FileText, Link2, X } from 'lucide-react';
-import { Button } from '../../../components/ui/Button';
-import { Input } from '../../../components/ui/Input';
 import { assetApi, type Asset } from '../../../services/http/taskApi';
 import { isJobCancelled } from '../../../services/jobs';
 import { DriveKindIcon } from '../../google/DriveKindIcon';
@@ -18,8 +16,6 @@ interface Props {
 export const AssetPicker: React.FC<Props> = ({ value, onChange, onUploaded }) => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [linkTitle, setLinkTitle] = useState('');
-  const [linkUrl, setLinkUrl] = useState('');
 
   const run = async (work: () => Promise<Asset[]>) => {
     setBusy(true);
@@ -33,17 +29,6 @@ export const AssetPicker: React.FC<Props> = ({ value, onChange, onUploaded }) =>
     } finally {
       setBusy(false);
     }
-  };
-
-  const addLink = () => {
-    if (!linkUrl.trim()) return;
-    run(async () => {
-      const url = /^https?:\/\//i.test(linkUrl.trim()) ? linkUrl.trim() : `https://${linkUrl.trim()}`;
-      const asset = await assetApi.addLink(linkTitle.trim() || url, url);
-      setLinkTitle('');
-      setLinkUrl('');
-      return [asset];
-    });
   };
 
   return (
@@ -89,15 +74,7 @@ export const AssetPicker: React.FC<Props> = ({ value, onChange, onUploaded }) =>
             onUploaded?.(files.map((f) => f.id));
           }}
         />
-        <span className="text-[11.5px] text-[var(--tm-ink-muted)]">Up to 25 MB each. Executables are blocked.</span>
-      </div>
-
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1.4fr_auto]">
-        <Input placeholder="Link title (optional)" value={linkTitle} onChange={(e) => setLinkTitle(e.target.value)} />
-        <Input placeholder="https://…" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} />
-        <Button type="button" variant="outline" size="sm" disabled={!linkUrl.trim() || busy} onClick={addLink}>
-          Add link
-        </Button>
+        <span className="text-[11.5px] text-[var(--tm-ink-muted)]"></span>
       </div>
 
       {error && <p className="text-[12px] font-medium text-[var(--tm-danger)]">{error}</p>}

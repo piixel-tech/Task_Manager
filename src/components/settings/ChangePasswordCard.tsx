@@ -6,6 +6,7 @@ import { accountApi } from '../../services/http/accountApi';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
+import { goToField } from '../../utils/formValidation';
 
 export const ChangePasswordCard: React.FC = () => {
   const { user } = useAuthStore();
@@ -35,47 +36,29 @@ export const ChangePasswordCard: React.FC = () => {
     setSuccess('');
 
     if (!user) {
-      setError('You must be logged in to change your password.');
+      setError('Sign in again to change your password.');
       return;
     }
 
-    if (!currentPassword) {
-      setFieldErrors((prev) => ({ ...prev, current: 'Current password is required.' }));
-      setError('Please fill in all password fields.');
-      return;
-    }
-
-    if (!newPassword) {
-      setFieldErrors((prev) => ({ ...prev, new: 'New password is required.' }));
-      setError('Please fill in all password fields.');
-      return;
-    }
-
-    if (!confirmPassword) {
-      setFieldErrors((prev) => ({ ...prev, confirm: 'Please confirm your new password.' }));
-      setError('Please fill in all password fields.');
+    const problems: { current?: string; new?: string; confirm?: string } = {};
+    if (!currentPassword) problems.current = 'Enter your current password';
+    if (!newPassword) problems.new = 'Enter a new password';
+    else if (newPassword.length < 8) problems.new = 'Use at least 8 characters';
+    if (!confirmPassword) problems.confirm = 'Type the new password again';
+    else if (newPassword && newPassword !== confirmPassword) problems.confirm = 'The two passwords don’t match';
+    if (Object.keys(problems).length > 0) {
+      setFieldErrors(problems);
+      const first = problems.current ? 'current-password' : problems.new ? 'new-password' : 'confirm-new-password';
+      requestAnimationFrame(() => {
+        const el = document.getElementById(first);
+        if (el) goToField(el);
+      });
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // 1. The new password must be long enough (the server checks the current one)
-      if (newPassword.length < 8) {
-        setFieldErrors({ new: 'New password must be at least 8 characters.' });
-        setError('New password must be at least 8 characters.');
-        setIsSubmitting(false);
-        return;
-      }
-
-      // 2. Validate new and confirm match
-      if (newPassword !== confirmPassword) {
-        setFieldErrors({ confirm: 'New password and confirm new password do not match.' });
-        setError('New password and confirm new password do not match.');
-        setIsSubmitting(false);
-        return;
-      }
-
-      // 3. Save it: every other device is signed out, this one stays
+      // Save it: every other device is signed out, this one stays
       await accountApi.changePassword(currentPassword, newPassword);
 
       setCurrentPassword('');
@@ -102,14 +85,14 @@ export const ChangePasswordCard: React.FC = () => {
           <div>
             <CardTitle>Change Password</CardTitle>
             <CardDescription>
-              Update your account password (at least 8 characters). Your other devices are signed out.
+              Use 8 or more characters. Other devices are signed out.
             </CardDescription>
           </div>
         </div>
       </CardHeader>
 
       <CardContent className="p-6">
-        <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
+        <form noValidate onSubmit={handleSubmit} className="space-y-4 max-w-md">
           {error && (
             <div className="flex items-center gap-2 p-3 rounded-[var(--tm-radius-sm)] bg-[var(--tm-danger-bg)] border border-[var(--tm-danger-ring)] text-[var(--tm-danger)] text-xs font-medium">
               <AlertCircle className="w-4 h-4 shrink-0" />

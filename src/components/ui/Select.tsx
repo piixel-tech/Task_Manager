@@ -51,7 +51,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--tm-ink-muted)]" />
         </div>
         {error ? (
-          <p className="text-[12px] font-medium text-[var(--tm-danger)]">{error}</p>
+          <p role="alert" className="text-[12px] font-medium text-[var(--tm-danger)]">{error}</p>
         ) : helperText ? (
           <p className="text-[12px] text-[var(--tm-ink-muted)]">{helperText}</p>
         ) : null}

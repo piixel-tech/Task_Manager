@@ -105,19 +105,19 @@ describe('the dashboard card', () => {
     useLeaveInboxStore.setState({ pending: [], loaded: false });
     vi.spyOn(leaveApi, 'inbox').mockResolvedValue([]);
     card();
-    expect(await screen.findByText(/No leave or work-from-home requests are waiting/)).toBeTruthy();
+    expect(await screen.findByText('No requests waiting')).toBeTruthy();
   });
 
   it('updates live: a new request appears, and one that was dealt with disappears', async () => {
     const inbox = vi.spyOn(leaveApi, 'inbox').mockResolvedValue([]);
     card();
-    await screen.findByText(/No leave or work-from-home requests/);
+    await screen.findByText('No requests waiting');
     inbox.mockResolvedValue([req({ id: 'n1' })]);
     await act(async () => handlers['leave_requests']?.({ id: 'n1', state: 'created' }));
     expect(await screen.findByText('Eva Employee')).toBeTruthy();
     inbox.mockResolvedValue([]);
     await act(async () => handlers['leave_requests']?.({ id: 'n1', state: 'cancelled' }));
-    expect(await screen.findByText(/No leave or work-from-home requests/)).toBeTruthy();
+    expect(await screen.findByText('No requests waiting')).toBeTruthy();
   });
 });
 

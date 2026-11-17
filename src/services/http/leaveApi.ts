@@ -3,7 +3,7 @@ import type { UserBrief } from './projectApi';
 
 export type LeaveType = 'leave' | 'wfh';
 export type LeaveDuration = 'full' | 'first_half' | 'second_half';
-export type LeaveStatus = 'pending' | 'approved' | 'rejected';
+export type LeaveStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
 
 export interface LeaveRequest {
   id: string;
@@ -61,7 +61,12 @@ export const leaveApi = {
   /** Admin: the reason is required and goes to the employee. */
   reject: (id: string, reason: string) => call<LeaveRequest>(() => api.post(`/leave-requests/${id}/reject`, { reason }), 'Could not reject the request'),
   /** Only while it is pending. */
+  /** Remove my own request from my list (pending, rejected or cancelled). An approved one has to be cancelled first. */
+  remove: async (id: string): Promise<void> => {
+    await call(() => api.delete(`/leave-requests/${id}`), 'Could not delete the request');
+  },
+  /** Pending, or approved but not started yet. It stays on record as "cancelled". */
   cancel: async (id: string): Promise<void> => {
-    await call(() => api.delete(`/leave-requests/${id}`), 'Could not cancel the request');
+    await call(() => api.post(`/leave-requests/${id}/cancel`), 'Could not cancel the request');
   }
 };

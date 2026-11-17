@@ -80,14 +80,16 @@ const VIEW_INFO: Record<Scope, { label: string; hint: string }> = {
   all: { label: 'All tasks', hint: 'Everyone, every project' }
 };
 
-type GroupId = 'changes' | 'overdue' | 'week' | 'upcoming' | 'submitted' | 'done';
+type GroupId = 'changes' | 'overdue' | 'in_progress' | 'upcoming' | 'submitted' | 'done';
+/** Always listed (even when empty) in the views that hold open work, so these sections never seem to have gone missing. */
+const CORE_GROUPS: GroupId[] = ['overdue', 'in_progress', 'upcoming', 'done'];
 const GROUPS: { id: GroupId; label: string }[] = [
   { id: 'changes', label: 'Changes requested' },
   { id: 'overdue', label: 'Overdue' },
-  { id: 'week', label: 'This week' },
+  { id: 'in_progress', label: 'In progress' },
   { id: 'upcoming', label: 'Upcoming' },
   { id: 'submitted', label: 'Submitted' },
-  { id: 'done', label: 'Done' }
+  { id: 'done', label: 'Completed' }
 ];
 
 type SortKey = 'due' | 'newest' | 'priority' | 'title';
@@ -100,10 +102,17 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 const GROUP_DOT: Record<GroupId, string> = {
   changes: 'var(--tm-danger)',
   overdue: 'var(--tp-red)',
-  week: 'var(--tm-warning)',
+  in_progress: 'var(--tm-accent)',
   upcoming: 'var(--tm-primary-dark)',
   submitted: 'var(--tm-info)',
   done: 'var(--tm-success)'
+};
+/** What an empty section says, so Overdue, In progress, Upcoming and Completed are never just blank. */
+const GROUP_EMPTY: Partial<Record<GroupId, { title: string; description: string; action?: string }>> = {
+  overdue: { title: 'Nothing overdue', description: 'Tasks past their due date show up here.' },
+  in_progress: { title: 'Nothing in progress', description: 'Start a task’s timer and it moves here.' },
+  upcoming: { title: 'Nothing coming up', description: 'Tasks you have not started show up here.', action: 'New task' },
+  done: { title: 'Nothing completed yet', description: 'Approved tasks are kept here.' }
 };
 const PRIORITY_RANK: Record<ApiPriority, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
 
@@ -130,7 +139,7 @@ export const TasksPage: React.FC = () => {
   const [due, setDue] = useState('');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortKey>('due');
-  const [collapsed, setCollapsed] = useState<Set<GroupId>>(new Set());
+  const [collapsed, setCollapsed] = useState<Set<GroupId>>(new Set(['done'])); // Completed starts closed
   const toggleGroup = (id: GroupId) =>
     setCollapsed((c) => {
       const next = new Set(c);
@@ -182,7 +191,7 @@ export const TasksPage: React.FC = () => {
     const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
     const q = search.trim().toLowerCase();
     const groupOf = (t: ApiTask): GroupId =>
-      t.status === 'changes_requested' ? 'changes' : t.status === 'approved' ? 'done' : t.status === 'submitted' ? 'submitted' : isOverdue(t) ? 'overdue' : t.due_date && t.due_date <= weekEnd ? 'week' : 'upcoming';
+      t.status === 'changes_requested' ? 'changes' : t.status === 'approved' ? 'done' : t.status === 'submitted' ? 'submitted' : isOverdue(t) ? 'overdue' : t.status === 'in_progress' ? 'in_progress' : 'upcoming';
     const kept = tasks.filter((t) => {
       if (!TAB_TEST[scope](t, me?.id ?? '')) return false;
       if (quick && !QUICK[quick].test(t, today)) return false;
@@ -196,9 +205,10 @@ export const TasksPage: React.FC = () => {
       return true;
     });
     kept.sort(SORTERS[sort]);
-    const groups = GROUPS.map((g) => ({ ...g, tasks: kept.filter((t) => groupOf(t) === g.id) })).filter((g) => g.tasks.length > 0);
+    const showCore = kept.length > 0 && ['created', 'assigned', 'all'].includes(scope) && !quick && !status && !search.trim();
+    const groups = GROUPS.map((g) => ({ ...g, tasks: kept.filter((t) => groupOf(t) === g.id) })).filter((g) => g.tasks.length > 0 || (showCore && CORE_GROUPS.includes(g.id)));
     return { groups, flat: groups.flatMap((g) => g.tasks) };
-  }, [tasks, scope, me?.id, quick, subfolderId, priority, due, search, sort, weekEnd]);
+  }, [tasks, scope, me?.id, quick, status, subfolderId, priority, due, search, sort, weekEnd]);
 
   const tabCount = (s: Scope) => tasks.filter((t) => TAB_TEST[s](t, me?.id ?? '')).length;
   const scoped = useMemo(() => tasks.filter((t) => TAB_TEST[scope](t, me?.id ?? '')), [tasks, scope, me?.id]);
@@ -306,7 +316,7 @@ export const TasksPage: React.FC = () => {
     <>
       <PageHeader
         title={scope === 'all' ? 'Tasks' : 'My tasks'}
-        description="Tasks live inside a project's subfolders. Open one to see its assets, progress and timer."
+        description="Open a task for its files, progress and timer."
         actions={
           <Button size="sm" onClick={() => setCreating(true)} leftIcon={<Plus className="h-4 w-4" />}>
             New task
@@ -415,7 +425,11 @@ export const TasksPage: React.FC = () => {
             {loading ? (
               <SkeletonGrid count={4} />
             ) : visible.groups.length === 0 ? (
-              <p className="py-10 text-center text-[13px] font-medium text-[var(--tm-ink-muted)]">No tasks here.</p>
+              filterCount > 0 || search.trim() ? (
+                <EmptyState size="compact" title="No tasks match" description="Try another search, or clear the filters." actionLabel="Clear filters" onAction={clearAll} />
+              ) : (
+                <EmptyState size="compact" title="No tasks yet" description="Tasks you create or are given show up here." actionLabel="New task" onAction={() => setCreating(true)} />
+              )
             ) : (
               visible.groups.map((g) => (
                 <div key={g.id}>
@@ -427,7 +441,13 @@ export const TasksPage: React.FC = () => {
                   >
                     <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: GROUP_DOT[g.id] }} />
                     <span className={`text-[11px] font-semibold uppercase tracking-[0.1em] ${g.id === 'overdue' || g.id === 'changes' ? 'text-[var(--tp-red)]' : 'text-[var(--tm-ink-muted)]'}`}>
-                      {g.label} <span className="tabular-nums">· {g.tasks.length}</span>
+                      {g.id === 'done' ? (
+                        `Completed (${g.tasks.length})`
+                      ) : (
+                        <>
+                          {g.label} <span className="tabular-nums">· {g.tasks.length}</span>
+                        </>
+                      )}
                     </span>
                     <span className="h-px flex-1 bg-[var(--tm-border)]" />
                     <ChevronDown className={`h-4 w-4 shrink-0 text-[var(--tm-ink-muted)] transition-transform ${collapsed.has(g.id) ? '-rotate-90' : ''}`} />
@@ -444,6 +464,16 @@ export const TasksPage: React.FC = () => {
                         onFix={() => navigate(`${prefix}/tasks/${t.id}`)}
                       />
                     ))}
+                    {g.tasks.length === 0 && (
+                      <EmptyState
+                        size="compact"
+                        className="py-4"
+                        title={GROUP_EMPTY[g.id]?.title ?? 'Nothing here'}
+                        description={GROUP_EMPTY[g.id]?.description ?? 'Matching tasks show up here.'}
+                        actionLabel={GROUP_EMPTY[g.id]?.action}
+                        onAction={GROUP_EMPTY[g.id]?.action ? () => setCreating(true) : undefined}
+                      />
+                    )}
                   </div>
                 </div>
               ))

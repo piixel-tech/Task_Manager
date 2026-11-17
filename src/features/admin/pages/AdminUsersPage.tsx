@@ -360,7 +360,7 @@ export const AdminUsersPage: React.FC = () => {
   if (attendance) {
     return (
       <>
-        <PageHeader title="Team" description="Who is in, working from home, on leave or on a half day. Read-only, from the daily status everyone sets." />
+        <PageHeader title="Team" description="Who is in, remote, on leave or on a half day." />
         {viewTabs}
         <TeamAttendance />
       </>
@@ -371,7 +371,7 @@ export const AdminUsersPage: React.FC = () => {
     <>
       <PageHeader
         title="Employees"
-        description="Everyone on the team. Click a column heading to sort, or search by name, email, role or company."
+        description="Everyone on the team. Sort by column or search."
         actions={
           <Button size="sm" onClick={openAdd} leftIcon={<Plus className="h-4 w-4" />}>
             Invite person
@@ -603,7 +603,7 @@ export const AdminUsersPage: React.FC = () => {
         description={editingUser ? 'Update member details.' : 'They sign in with their email and password.'}
         maxWidth="lg"
       >
-        <form
+        <form noValidate
           onSubmit={(e) => {
             e.preventDefault();
             setConfirm(editingUser ? { kind: 'edit', user: editingUser } : { kind: 'create' });
@@ -687,7 +687,7 @@ export const AdminUsersPage: React.FC = () => {
         description="Set a new password for this member."
       >
         {resettingUser && (
-          <form
+          <form noValidate
             onSubmit={(e) => {
               e.preventDefault();
               setConfirm({ kind: 'reset', user: resettingUser });

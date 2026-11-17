@@ -39,6 +39,7 @@ export const AccountMenu: React.FC = () => {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
+        data-tour="account"
         aria-label="Account menu"
         className="flex items-center gap-2.5 rounded-full border border-[var(--tm-border)]
           bg-[var(--tm-card)] p-1.5 2xl:pr-3 transition-[border-color,box-shadow]

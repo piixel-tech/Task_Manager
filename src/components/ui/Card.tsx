@@ -71,7 +71,7 @@ export const CardDescription: React.FC<React.HTMLAttributes<HTMLParagraphElement
   children,
   ...props
 }) => (
-  <p className={`text-[13px] text-[var(--tm-ink-muted)] mt-0.5 leading-snug line-clamp-2 ${className}`} {...props}>
+  <p data-hint className={`text-[13px] text-[var(--tm-ink-muted)] mt-0.5 leading-snug line-clamp-2 ${className}`} {...props}>
     {children}
   </p>
 );

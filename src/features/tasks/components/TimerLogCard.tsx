@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Timer } from 'lucide-react';
 import { Avatar } from '../../../components/ui/Avatar';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { timerApi, type TimerLog, type TimerLogEntry } from '../../../services/http/timerApi';
 import { useTimerStore } from '../../../store/useTimerStore';
 import { formatDuration } from '../../../utils/format';
+import { EmptyState } from '../../../components/ui/EmptyState';
 
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 
@@ -88,9 +89,12 @@ export const TimerLogCard: React.FC<{ taskId: string }> = ({ taskId }) => {
   return (
     <Card>
       <CardHeader className="flex items-center justify-between">
-        <CardTitle className="flex items-center gap-2 text-base font-extrabold">
+        <div className="min-w-0">
+<CardTitle className="flex items-center gap-2 text-base font-extrabold">
           <Timer className="h-4 w-4 text-[var(--tm-primary-dark)]" /> Timer log
         </CardTitle>
+<CardDescription>Every timer session on this task.</CardDescription>
+</div>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="grid grid-cols-3 gap-3">
@@ -100,7 +104,7 @@ export const TimerLogCard: React.FC<{ taskId: string }> = ({ taskId }) => {
         </div>
 
         {log.entries.length === 0 ? (
-          <p className="text-[13px] text-[var(--tm-ink-muted)]">No time tracked yet. Sessions appear here when the timer is played.</p>
+          <EmptyState size="compact" title="No time tracked yet" description="Each timer session on this task is listed here." />
         ) : (
           view.days.map(([day, group]) => (
             <section key={day} aria-label={dayLabel(day)}>

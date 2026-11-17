@@ -490,3 +490,16 @@ async def test_a_stage_change_notifies_the_team_and_a_move_to_an_unknown_stage_i
     await set_counts(client, team.hana, team.design, {"Reels": 1})
     item = (await client.get(f"/subfolders/{team.design.id}/deliverables", params={"month": MONTH}, headers=team.hana.headers)).json()["items"][0]
     assert (await client.patch(f"{dl(team.design)}/items/{item['id']}", json={"stage": "shoot"}, headers=team.mia.headers)).status_code == 422  # deleted stage
+
+
+async def test_members_pin_and_unpin_items_for_the_whole_team(client, team):
+    item = (await add(client, team.mia, team.design, "Brand kit")).json()
+    assert item["pinned"] is False
+    r = await client.post(f"/checklist/{item['id']}/pin", headers=team.max.headers)  # any member, not just the author
+    assert r.status_code == 200 and r.json()["pinned"] is True
+    got = (await client.get(cl(team.design), headers=team.mia.headers)).json()
+    assert got["items"][0]["pinned"] is True
+    r = await client.post(f"/checklist/{item['id']}/pin", headers=team.hana.headers)
+    assert r.json()["pinned"] is False
+    assert (await client.post(f"/checklist/{item['id']}/pin", headers=team.vic.headers)).status_code == 403
+    assert (await client.post(f"/checklist/{item['id']}/pin")).status_code == 401

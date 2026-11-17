@@ -60,14 +60,14 @@ export const Entry: React.FC<Props> = ({ entry: e, replies, meId, people, highli
   const remove = () =>
     confirm({
       title: `Delete this ${noun(e)}?`,
-      message: 'Its replies and files are deleted too. This cannot be undone.',
+      message: 'Its replies and files are deleted too, and the team is notified. An admin can restore it from the Trash for 30 days.',
       confirmLabel: 'Delete',
       danger: true,
       action: () => activityApi.remove(e.id),
       successTitle: 'Deleted'
     }).then((ok) => ok && onReload());
 
-  const open = (f: ActivityEntry['files'][number]) => assetApi.open(f).catch((err) => toast.error('Could not open the file', err.message));
+  const open = (f: ActivityEntry['files'][number]) => assetApi.open(f, e.files).catch((err) => toast.error('Could not open the file', err.message));
 
   return (
     <article id={`entry-${e.id}`} className={`rounded-[var(--tm-radius-md)] border p-3.5 transition-shadow ${highlight ? 'border-[var(--tm-primary)] shadow-soft-md' : 'border-[var(--tm-border)]'} ${e.resolved ? 'bg-[var(--tm-card-muted)]' : 'bg-[var(--tm-card)]'} ${icon ? 'flex gap-3.5 p-4' : ''}`}>

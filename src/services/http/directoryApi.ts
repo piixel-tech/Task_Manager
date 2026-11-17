@@ -13,10 +13,10 @@ export interface TeamMember {
 }
 
 export const directoryApi = {
-  /** Every active admin and employee of every company except you (no paging), ordered by company then name. */
-  team: async (): Promise<TeamMember[]> => {
+  /** Every active admin and employee of every company except you (no paging), ordered by company then name. `includeClients` adds the active clients. */
+  team: async (opts: { includeClients?: boolean } = {}): Promise<TeamMember[]> => {
     try {
-      return (await api.get<TeamMember[]>('/users/team')).data;
+      return (await api.get<TeamMember[]>('/users/team', { params: { include_clients: opts.includeClients || undefined } })).data;
     } catch (err) {
       throw new Error(getErrorMessage(err, 'Could not load the team'));
     }

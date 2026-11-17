@@ -1,5 +1,6 @@
 import { api, getErrorMessage } from '../api';
 import { runJob } from '../jobs';
+import { usePreviewStore } from '../../store/usePreviewStore';
 import type { UserBrief } from './projectApi';
 import type { DriveMeta } from './googleApi';
 
@@ -70,6 +71,8 @@ export interface TaskInput {
   asset_ids: string[];
   /** Turn this chat message into the task (its file is attached as a copy). */
   from_message_id?: string;
+  /** Turn this project requirement into the task (its files are attached as copies). */
+  from_requirement_id?: string;
 }
 
 export interface TaskFilters {
@@ -157,8 +160,23 @@ export const assetApi = {
     call<Asset>(() => api.post('/files/link', { title, url }), 'Could not add the link'),
   remove: (id: string) => call<void>(() => api.delete(`/files/${id}`), 'Could not remove the attachment'),
 
-  /** Open an attachment: links in a new tab, uploads fetched with the login token and then opened/saved. */
-  open: async (asset: Asset, onProgress?: (percent: number | null) => void): Promise<void> => {
+  /**
+   * Open an attachment. A link opens in a new tab; an upload opens in the shared preview (nothing is downloaded). With `siblings`
+   * (the other files shown next to it) the preview can step to the next and previous one.
+   */
+  open: async (asset: Asset, siblings?: Asset[]): Promise<void> => {
+    if (asset.kind === 'link') {
+      window.open(asset.url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    const files = (siblings ?? [asset]).filter((a) => a.kind !== 'link');
+    const at = files.findIndex((a) => a.id === asset.id);
+    if (at < 0) usePreviewStore.getState().show([asset], 0);
+    else usePreviewStore.getState().show(files, at);
+  },
+
+  /** Save an upload to the computer. Only the Download buttons call this. A link opens in a new tab. */
+  download: async (asset: Pick<Asset, 'url' | 'name'> & { kind?: Asset['kind'] }, onProgress?: (percent: number | null) => void): Promise<void> => {
     if (asset.kind === 'link') {
       window.open(asset.url, '_blank', 'noopener,noreferrer');
       return;

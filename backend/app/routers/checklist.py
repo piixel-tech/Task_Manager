@@ -76,6 +76,17 @@ async def edit_item(item_id: PydanticObjectId, body: ChecklistItemUpdate, user: 
     return await _one(item.id, sub, user)
 
 
+@router.post("/checklist/{item_id}/pin", response_model=ChecklistItemOut)
+async def toggle_pin(item_id: PydanticObjectId, user: User = Depends(get_current_user)) -> ChecklistItemOut:
+    """Pin an item to Quick access, or unpin it. Any member can; it is shared by the whole team."""
+    item, sub = await _item_and_sub(item_id)
+    require(user, "checklist.write", sub)
+    pinned = not item.pinned
+    await ChecklistItem.find({"_id": item.id}).update({"$set": {"pinned": pinned}})
+    await _ping(sub, user, f"{user.name} {'pinned' if pinned else 'unpinned'} “{item.text}”.")
+    return await _one(item.id, sub, user)
+
+
 @router.post("/checklist/{item_id}/attachments", response_model=ChecklistItemOut)
 async def attach(item_id: PydanticObjectId, body: AttachBody, user: User = Depends(get_current_user)) -> ChecklistItemOut:
     """Attach files or links you uploaded through the file service."""

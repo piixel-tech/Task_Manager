@@ -60,7 +60,7 @@ export const ApprovalCard: React.FC<Props> = ({ reminder, approval: a, canAnswer
     }
   };
 
-  const open = (f: Approval['files'][number]) => assetApi.open(f).catch((err) => toast.error('Could not open the file', err.message));
+  const open = (f: Approval['files'][number]) => assetApi.open(f, a.files).catch((err) => toast.error('Could not open the file', err.message));
 
   return (
     <div className="w-[min(22rem,100%)] space-y-3">
@@ -120,7 +120,7 @@ export const ApprovalCard: React.FC<Props> = ({ reminder, approval: a, canAnswer
       )}
 
       <Modal isOpen={rejecting} onClose={() => setRejecting(false)} title={a.reject_label} description="Tell the team what needs to change." maxWidth="md">
-        <form onSubmit={submitRejection} className="space-y-4">
+        <form noValidate onSubmit={submitRejection} className="space-y-4">
           <p className="rounded-[var(--tm-radius-sm)] bg-[var(--tm-card-muted)] p-3.5 text-[13px] text-[var(--tm-ink-soft)]">{a.question}</p>
           <div>
             <label htmlFor={`reason-${a.id}`} className="mb-1.5 block text-[12.5px] font-bold text-[var(--tm-ink-soft)]">

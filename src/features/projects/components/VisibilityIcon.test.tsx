@@ -124,8 +124,18 @@ describe('the people picker for "Visible to selected people"', () => {
     expect(screen.getByText('No employees match "zzz".')).toBeTruthy();
   });
 
-  it('explains when everyone in the company is already a member', async () => {
+  it('never shows an empty picker, and shows members ticked and locked with a Member tag', async () => {
     await open([]);
-    expect(await screen.findByText('Everyone in the company is already a member of this subfolder.')).toBeTruthy();
+    expect(await screen.findByText('No one to show yet. Add members to this subfolder first.')).toBeTruthy();
+  });
+
+  it('lists the own members of the subfolder as locked "Member" rows next to the people you can pick', async () => {
+    await open([{ ...withEmail('m1', 'Mia Member', 'mia@piixelco.com'), member: true }, withEmail('u1', 'Sankalp Rao', 'sankalp@piixelco.com')]);
+    await screen.findByText('Sankalp Rao');
+    expect(screen.getByText('Member')).toBeTruthy();
+    const mia = screen.getByRole('checkbox', { name: /Mia Member/ }) as HTMLInputElement;
+    expect(mia.checked).toBe(true);
+    expect(mia.disabled).toBe(true);
+    expect((screen.getByRole('checkbox', { name: /Sankalp Rao/ }) as HTMLInputElement).disabled).toBe(false);
   });
 });

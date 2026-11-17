@@ -5,6 +5,8 @@ import { Input } from '../../../components/ui/Input';
 import { RichEditor, type RichEditorHandle } from '../../../components/editor/RichEditor';
 import { Select } from '../../../components/ui/Select';
 import { useConfirm } from '../../../hooks/useConfirm';
+import { useFieldErrors } from '../../../hooks/useFieldErrors';
+import { FieldGroup } from '../../../components/ui/FieldError';
 import { useAuthStore } from '../../../store/authStore';
 import {
   projectApi,
@@ -24,8 +26,12 @@ export interface TaskPrefill {
   subfolderId?: string;
   projectId?: string;
   /** The chat message it comes from; its file is attached as a copy. */
-  messageId: string;
+  messageId?: string;
   fileName?: string;
+  /** The project requirement it comes from; its files are attached as copies. */
+  requirementId?: string;
+  /** What to tell the person about the copied files. */
+  filesNote?: string;
 }
 
 const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -57,6 +63,7 @@ const PRIORITIES: { value: ApiPriority; label: string }[] = [
 /** Create or edit a task: project → subfolder, title, description (required), assignee, due date, priority, assets. */
 export const TaskFormModal: React.FC<Props> = ({ isOpen, onClose, task, defaultProjectId, defaultSubfolderId, prefill, onSaved }) => {
   const confirm = useConfirm();
+  const f = useFieldErrors<'title' | 'description' | 'subfolder' | 'assignee'>();
   const me = useAuthStore((s) => s.user);
   const isAdmin = me?.role === 'admin';
 
@@ -86,6 +93,7 @@ export const TaskFormModal: React.FC<Props> = ({ isOpen, onClose, task, defaultP
     saved.current = false;
     uploaded.current = new Set();
     setError(null);
+    f.reset();
     setTitle(task?.title ?? prefill?.title ?? '');
     setDescEmpty(!task && !prefill?.description);
     setAssigneeId(task?.assignee?.id ?? me?.id ?? '');
@@ -157,15 +165,19 @@ export const TaskFormModal: React.FC<Props> = ({ isOpen, onClose, task, defaultP
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return setError('Give the task a title.');
-    if (!descEditor.current || descEditor.current.isEmpty()) return setError('Add a description: it is required.');
-    if (!subfolderId) return setError('Pick a project and subfolder.');
-    if (!assigneeId) return setError('Pick who it is assigned to.');
+    const problems: Parameters<typeof f.fail>[0] = {};
+    const editor = descEditor.current;
+    if (!title.trim()) problems.title = 'Enter a task name';
+    if (!editor || editor.isEmpty()) problems.description = 'Add a description so the assignee knows what to do';
+    if (!subfolderId) problems.subfolder = 'Pick a project and a subfolder';
+    if (!assigneeId) problems.assignee = 'Pick who this task is for';
+    if (!editor || Object.keys(problems).length > 0) return f.fail(problems);
+    f.reset();
     setError(null);
 
     const base = {
       title: title.trim(),
-      description: descEditor.current.html(),
+      description: editor.html(),
       html: true,
       assignee_id: assigneeId,
       start_date: startDate || (task ? '' : null),
@@ -181,7 +193,7 @@ export const TaskFormModal: React.FC<Props> = ({ isOpen, onClose, task, defaultP
       action: async () => {
         result = task
           ? await taskApi.update(task.id, base)
-          : await taskApi.create({ ...base, subfolder_id: subfolderId, from_message_id: prefill?.messageId });
+          : await taskApi.create({ ...base, subfolder_id: subfolderId, from_message_id: prefill?.messageId, from_requirement_id: prefill?.requirementId });
       },
       successTitle: task ? 'Task updated' : 'Task created'
     });
@@ -198,7 +210,7 @@ export const TaskFormModal: React.FC<Props> = ({ isOpen, onClose, task, defaultP
 
   return (
     <Modal isOpen={isOpen} onClose={close} title={task ? 'Edit task' : 'New task'} maxWidth="xl">
-      <form onSubmit={submit} className="space-y-4">
+      <form noValidate onSubmit={submit} className="space-y-4">
         {error && (
           <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>
         )}
@@ -215,13 +227,19 @@ export const TaskFormModal: React.FC<Props> = ({ isOpen, onClose, task, defaultP
               onChange={(e) => {
                 setProjectId(e.target.value);
                 setSubfolderId('');
+                f.clear('subfolder');
               }}
               options={[{ value: '', label: 'Select a project' }, ...projects.map((p) => ({ value: p.id, label: p.name }))]}
             />
             <Select
               label="Subfolder"
               value={subfolderId}
-              onChange={(e) => setSubfolderId(e.target.value)}
+              data-field="subfolder"
+              error={f.errors.subfolder}
+              onChange={(e) => {
+                setSubfolderId(e.target.value);
+                f.clear('subfolder');
+              }}
               disabled={!projectId}
               helperText={projectId && subfolders.length === 0 ? 'You are not a member of any subfolder here.' : undefined}
               options={[{ value: '', label: 'Select a subfolder' }, ...subfolders.map((s) => ({ value: s.id, label: s.name }))]}
@@ -229,27 +247,48 @@ export const TaskFormModal: React.FC<Props> = ({ isOpen, onClose, task, defaultP
           </div>
         )}
 
-        <Input label="Title" placeholder="e.g. Write homepage copy" value={title} onChange={(e) => setTitle(e.target.value)} required />
-        <div>
+        <Input
+          label="Title"
+          placeholder="e.g. Write homepage copy"
+          value={title}
+          data-field="title"
+          data-label="task name"
+          error={f.errors.title}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            f.clear('title');
+          }}
+          required
+        />
+        <FieldGroup name="description" error={f.errors.description}>
           <span className="mb-1.5 block text-[12.5px] font-bold text-[var(--tm-ink-soft)]">Description</span>
           <RichEditor
-            key={`${task?.id ?? 'new'}-${prefill?.messageId ?? ''}-${isOpen}`}
+            key={`${task?.id ?? 'new'}-${prefill?.messageId ?? prefill?.requirementId ?? ''}-${isOpen}`}
             ref={descEditor}
             initialHtml={task ? toHtml(task) : (prefill?.description ?? '')}
             placeholder="What needs to be done, and what does done look like?"
-            onChange={({ empty }) => setDescEmpty(empty)}
+            onChange={({ empty }) => {
+              setDescEmpty(empty);
+              if (!empty) f.clear('description');
+            }}
             maxHeightClass="max-h-64"
             label="Description"
           />
           {descEmpty && <span className="sr-only">The description is required.</span>}
           {prefill?.fileName && <p className="mt-1.5 text-[12px] text-[var(--tm-ink-muted)]">“{prefill.fileName}” from the message is attached to the task.</p>}
-        </div>
+          {prefill?.filesNote && <p className="mt-1.5 text-[12px] text-[var(--tm-ink-muted)]">{prefill.filesNote}</p>}
+        </FieldGroup>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Select
             label="Assignee"
             value={assigneeId}
-            onChange={(e) => setAssigneeId(e.target.value)}
+            data-field="assignee"
+            error={f.errors.assignee}
+            onChange={(e) => {
+              setAssigneeId(e.target.value);
+              f.clear('assignee');
+            }}
             options={assignees.length ? assignees.map((a) => ({ value: a.id, label: a.id === me?.id ? `${a.name} (me)` : a.name })) : [{ value: '', label: 'Pick a subfolder first' }]}
           />
           <Input label="Start date" type="date" value={startDate} max={dueDate || undefined} onChange={(e) => setStartDate(e.target.value)} />

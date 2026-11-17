@@ -30,6 +30,8 @@ export interface OfficePost {
   resolved_at: string | null;
   /** The author or an admin. */
   can_resolve: boolean;
+  /** The author or an admin. */
+  can_delete?: boolean;
   created_at: string;
 }
 
@@ -74,5 +76,7 @@ export const officeApi = {
   react: (id: string, emoji: string) =>
     call<OfficePost>(() => api.put(`/office/posts/${id}/reactions`, { emoji }), 'Could not react'),
   setResolved: (id: string, resolved: boolean) =>
-    call<OfficePost>(() => api.patch(`/office/posts/${id}`, { resolved }), 'Could not update the post')
+    call<OfficePost>(() => api.patch(`/office/posts/${id}`, { resolved }), 'Could not update the post'),
+  /** An admin deletes any post, an employee only their own. It goes to the Trash. */
+  remove: (id: string) => call<void>(() => api.delete(`/office/posts/${id}`), 'Could not delete the post')
 };

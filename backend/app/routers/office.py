@@ -20,6 +20,7 @@ from app.schemas.office import (
     Status,
 )
 from app.services.office import check_photo, post_outs, snippet, tell_everyone, unseen_filter
+from app.services.trash import trash_office_post
 
 router = APIRouter(prefix="/office", tags=["office"])
 
@@ -104,6 +105,21 @@ async def toggle_reaction(post_id: PydanticObjectId, body: ReactionSet, user: Us
     op = "$pull" if user.id in post.reactions.get(body.emoji, []) else "$addToSet"
     await OfficePost.find({"_id": post.id}).update({op: {field: user.id}})
     return await _one(post.id, user)
+
+
+@router.delete("/posts/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_post(post_id: PydanticObjectId, user: User = Depends(get_current_user)) -> None:
+    """An admin deletes any post; an employee only their own. It goes to the Trash (an admin can restore it for 30 days)
+    and everyone's board is told, so it disappears live."""
+    post = await _get_or_404(post_id)
+    require(user, "office.delete", creator_id=post.author_id)
+    await trash_office_post(post, user)
+    await tell_everyone(
+        user,
+        type="office_deleted",
+        title=f"Post deleted: {CATEGORIES[post.category][0]}",
+        body=f"{user.name} deleted: {snippet(post.text, 100)}",
+    )
 
 
 @router.patch("/posts/{post_id}", response_model=PostOut)

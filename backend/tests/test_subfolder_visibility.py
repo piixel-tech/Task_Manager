@@ -218,7 +218,8 @@ async def test_selected_people_can_read_but_never_change_anything(client, team):
 
 async def test_picking_people_is_checked_and_listed_without_members(client, team):
     listed = (await client.get(f"/subfolders/{team.design.id}/viewer-candidates", headers=team.hana.headers)).json()
-    assert [p["name"] for p in listed] == ["Pat Piixel", "Vic Video"]  # company employees; Hana and Mia are members, Zed is another company, Cleo a client
+    # Company employees, plus the subfolder's own members flagged (Hana heads it, Mia is a member). Zed is another company, Cleo a client.
+    assert [(p["name"], p["member"]) for p in listed] == [("Hana Head", True), ("Mia Member", True), ("Pat Piixel", False), ("Vic Video", False)]
     assert all("@" in p["email"] for p in listed)  # so the list can be searched by email
     for who in (team.mia, team.pat):
         assert (await client.get(f"/subfolders/{team.design.id}/viewer-candidates", headers=who.headers)).status_code == 403

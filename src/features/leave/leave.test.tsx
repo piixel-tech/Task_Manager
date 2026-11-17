@@ -95,7 +95,7 @@ describe('the calendar', () => {
 });
 
 describe('My requests', () => {
-  it('shows status badges, the reason when rejected, and Cancel only on pending ones', async () => {
+  it('shows status badges and the reason when rejected, with Cancel on pending and not-yet-started approved requests only', async () => {
     const cancel = vi.spyOn(leaveApi, 'cancel').mockResolvedValue();
     const onChanged = vi.fn();
     render(
@@ -105,17 +105,42 @@ describe('My requests', () => {
         requests={[
           req({ id: 'p', status: 'pending' }),
           req({ id: 'a', status: 'approved', type: 'wfh', start_date: day(8), end_date: day(8) }),
+          req({ id: 'started', status: 'approved', start_date: day(-1), end_date: day(1) }),
+          req({ id: 'c', status: 'cancelled', start_date: day(14), end_date: day(14) }),
           req({ id: 'x', status: 'rejected', start_date: day(12), end_date: day(12), reject_reason: 'Release week' })
         ]}
       />
     );
     expect(screen.getByText('Pending')).toBeTruthy();
-    expect(screen.getByText('Approved')).toBeTruthy();
+    expect(screen.getAllByText('Approved')).toHaveLength(2);
+    expect(screen.getByText('Cancelled')).toBeTruthy();
     expect(screen.getByText('Rejected')).toBeTruthy();
     expect(screen.getByText('Release week')).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: /^Cancel/ })).toHaveLength(1);
-    fireEvent.click(screen.getByRole('button', { name: /^Cancel/ }));
+    // pending and the approved one that starts in the future; not the one already running, nor cancelled or rejected
+    expect(screen.getAllByRole('button', { name: /^Cancel/ })).toHaveLength(2);
+    fireEvent.click(screen.getAllByRole('button', { name: /^Cancel/ })[0]);
     await waitFor(() => expect(cancel).toHaveBeenCalledWith('p'));
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
+  });
+
+  it('lets the employee delete pending, rejected and cancelled requests, but not an approved one', async () => {
+    const remove = vi.spyOn(leaveApi, 'remove').mockResolvedValue();
+    const onChanged = vi.fn();
+    render(
+      <MyLeaveRequests
+        loading={false}
+        onChanged={onChanged}
+        requests={[
+          req({ id: 'p', status: 'pending' }),
+          req({ id: 'a', status: 'approved', start_date: day(8), end_date: day(8) }),
+          req({ id: 'x', status: 'rejected', start_date: day(12), end_date: day(12), reject_reason: 'No' }),
+          req({ id: 'c', status: 'cancelled', start_date: day(14), end_date: day(14) })
+        ]}
+      />
+    );
+    expect(screen.getAllByRole('button', { name: /^Delete / })).toHaveLength(3); // not the approved one
+    fireEvent.click(screen.getAllByRole('button', { name: /^Delete / })[0]);
+    await waitFor(() => expect(remove).toHaveBeenCalledWith('p'));
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
   });
 

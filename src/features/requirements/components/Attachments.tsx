@@ -14,7 +14,7 @@ export const Attachments: React.FC<{ files: Asset[] }> = ({ files }) => {
           {f.kind === 'link' ? (
             <button
               type="button"
-              onClick={() => assetApi.open(f).catch((err) => toast.error('Could not open the file', err.message))}
+              onClick={() => assetApi.open(f, files).catch((err) => toast.error('Could not open the file', err.message))}
               className="flex max-w-[260px] items-center gap-2 rounded-full bg-[var(--tm-card-muted)] px-3 py-1.5 text-[12px] font-semibold text-[var(--tm-ink)] hover:bg-[var(--tm-bg-sunken)]"
             >
               <Link2 className="h-3.5 w-3.5 shrink-0" />

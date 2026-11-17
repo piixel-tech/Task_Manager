@@ -3,7 +3,7 @@ import { InfoTile as Tile } from '../../../components/ui/InfoTile';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CalendarClock, Eye, MessageSquare, ExternalLink, FileText, Link2, Pencil, Play, Send, Square, Trash2 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Avatar } from '../../../components/ui/Avatar';
 import { PersonLink } from '../../../components/ui/PersonLink';
@@ -145,7 +145,7 @@ export const TaskDetailPage: React.FC = () => {
       if (ok) navigate(`${prefix}/tasks`);
     });
 
-  const open = (a: Asset) => assetApi.open(a).catch((err) => toast.error('Could not open the file', err.message));
+  const open = (a: Asset) => assetApi.open(a, task.assets).catch((err) => toast.error('Could not open the file', err.message));
 
   /** A Drive file picked or created here joins the task's attachments (the same save the edit form makes). */
   const addAssets = async (files: Asset[]) => {
@@ -203,7 +203,10 @@ export const TaskDetailPage: React.FC = () => {
         <Card>
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <CardTitle className="text-base font-extrabold">Assets ({task.assets.length})</CardTitle>
+              <div className="min-w-0">
+<CardTitle className="text-base font-extrabold">Assets ({task.assets.length})</CardTitle>
+<CardDescription>Files and links for this task.</CardDescription>
+</div>
               {task.can_edit && task.status !== 'approved' && (
                 <div className="flex flex-wrap items-center gap-2">
                   <AttachMenu
@@ -380,7 +383,10 @@ export const TaskDetailPage: React.FC = () => {
         <div className="grid gap-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base font-extrabold">Description</CardTitle>
+              <div className="min-w-0">
+<CardTitle className="text-base font-extrabold">Description</CardTitle>
+<CardDescription>What needs to be done.</CardDescription>
+</div>
             </CardHeader>
             <CardContent>
               {task.description_html ? (
@@ -405,9 +411,12 @@ export const TaskDetailPage: React.FC = () => {
           {rounds.length > 0 && (
             <Card>
               <CardHeader className="flex items-center justify-between">
-                <CardTitle className="text-base font-extrabold">
+                <div className="min-w-0">
+<CardTitle className="text-base font-extrabold">
                   {rounds.some((r) => r.decision === 'changes_requested') ? 'Changes requested' : 'Review history'}
                 </CardTitle>
+<CardDescription>What reviewers said, round by round.</CardDescription>
+</div>
                 <span className="text-[12px] font-semibold text-[var(--tm-ink-muted)]">
                   {rounds.length} {rounds.length === 1 ? 'round' : 'rounds'}
                 </span>

@@ -7,7 +7,7 @@ from pymongo import IndexModel
 
 LeaveType = Literal["leave", "wfh"]
 LeaveDuration = Literal["full", "first_half", "second_half"]
-LeaveStatus = Literal["pending", "approved", "rejected"]
+LeaveStatus = Literal["pending", "approved", "rejected", "cancelled"]
 
 
 class LeaveRequest(Document):
@@ -26,6 +26,9 @@ class LeaveRequest(Document):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     decided_at: datetime | None = None
     decided_by: PydanticObjectId | None = None
+    deleted_at: datetime | None = None  # soft delete: the employee removed it from their list; it stays on record
+    cancelled_at: datetime | None = None  # the employee cancelled it (it stays on record, status "cancelled")
+    cancelled_from: Literal["pending", "approved"] | None = None  # what it was when it was cancelled
 
     class Settings:
         name = "leave_requests"

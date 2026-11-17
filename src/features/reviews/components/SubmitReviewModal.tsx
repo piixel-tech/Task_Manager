@@ -4,6 +4,7 @@ import { Button } from '../../../components/ui/Button';
 import { Textarea } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
 import { useConfirm } from '../../../hooks/useConfirm';
+import { useFieldErrors } from '../../../hooks/useFieldErrors';
 import type { UserBrief } from '../../../services/http/projectApi';
 import { assetApi, type ApiTask, type Asset } from '../../../services/http/taskApi';
 import { reviewApi } from '../../../services/http/reviewApi';
@@ -19,6 +20,7 @@ interface Props {
 /** Hand a task in for review: a note, optional files, and which head should approve it. */
 export const SubmitReviewModal: React.FC<Props> = ({ isOpen, onClose, task, onSubmitted }) => {
   const confirm = useConfirm();
+  const f = useFieldErrors<'note' | 'approver'>();
   const [approvers, setApprovers] = useState<UserBrief[]>([]);
   const [approverId, setApproverId] = useState('');
   const [note, setNote] = useState('');
@@ -64,8 +66,11 @@ export const SubmitReviewModal: React.FC<Props> = ({ isOpen, onClose, task, onSu
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!note.trim()) return setError('Add a note about what you did.');
-    if (!approverId) return setError('Pick who should review it.');
+    const problems: Parameters<typeof f.fail>[0] = {};
+    if (!note.trim()) problems.note = 'Write a short note about what you did';
+    if (!approverId) problems.approver = 'Pick who should review it';
+    if (Object.keys(problems).length > 0) return f.fail(problems);
+    f.reset();
     setError(null);
 
     const approver = approvers.find((a) => a.id === approverId);
@@ -87,7 +92,7 @@ export const SubmitReviewModal: React.FC<Props> = ({ isOpen, onClose, task, onSu
 
   return (
     <Modal isOpen={isOpen} onClose={close} title="Submit for review" maxWidth="xl">
-      <form onSubmit={submit} className="space-y-4">
+      <form noValidate onSubmit={submit} className="space-y-4">
         {error && (
           <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>
         )}
@@ -97,13 +102,23 @@ export const SubmitReviewModal: React.FC<Props> = ({ isOpen, onClose, task, onSu
           rows={4}
           placeholder="What did you do, and what should the reviewer look at?"
           value={note}
-          onChange={(e) => setNote(e.target.value)}
+          data-field="note"
+          error={f.errors.note}
+          onChange={(e) => {
+            setNote(e.target.value);
+            f.clear('note');
+          }}
         />
 
         <Select
           label="Approver"
           value={approverId}
-          onChange={(e) => setApproverId(e.target.value)}
+          data-field="approver"
+          error={f.errors.approver}
+          onChange={(e) => {
+            setApproverId(e.target.value);
+            f.clear('approver');
+          }}
           disabled={loading || approvers.length === 0}
           helperText={
             !loading && approvers.length === 0

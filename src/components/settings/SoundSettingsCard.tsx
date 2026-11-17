@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, VolumeX, Sparkles } from 'lucide-react';
+import { Volume2, VolumeX, Play } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -47,8 +47,7 @@ export const SoundSettingsCard: React.FC = () => {
             <div>
               <CardTitle>Audio &amp; sound effects</CardTitle>
               <CardDescription>
-                Play a soft chime when tasks or projects are marked complete. Your preference is
-                saved on this device.
+                A soft chime when work is marked complete.
               </CardDescription>
             </div>
           </div>
@@ -74,7 +73,7 @@ export const SoundSettingsCard: React.FC = () => {
             size="sm"
             onClick={playDingSound}
             disabled={!soundEnabled}
-            leftIcon={<Sparkles className="h-3.5 w-3.5" />}
+            leftIcon={<Play className="h-3.5 w-3.5" />}
           >
             Test soft ding
           </Button>

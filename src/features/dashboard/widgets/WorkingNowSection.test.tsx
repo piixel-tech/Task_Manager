@@ -50,7 +50,7 @@ describe('Working now', () => {
     expect(within(piixel).getByText(/this session 1:00 · since/)).toBeTruthy(); // the running session, an hour so far
     expect(within(piixel).getByRole('button', { name: 'View Logo' })).toBeTruthy();
     const unwork = screen.getByRole('region', { name: 'Unwork: 0 working' });
-    expect(within(unwork).getByText('No one is working on a task right now.')).toBeTruthy();
+    expect(within(unwork).getByText('Nobody is working right now')).toBeTruthy();
   });
 
   it('ticks every second', async () => {

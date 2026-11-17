@@ -3,6 +3,8 @@ import { ImagePlus, X } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { useConfirm } from '../../../hooks/useConfirm';
+import { useFieldErrors } from '../../../hooks/useFieldErrors';
+import { FieldError } from '../../../components/ui/FieldError';
 import { assetApi, type Asset } from '../../../services/http/taskApi';
 import { officeApi, type OfficePost } from '../../../services/http/officeApi';
 
@@ -23,6 +25,7 @@ export const NewPostModal: React.FC<Props> = ({ isOpen, onClose, onPosted }) => 
   const [important, setImportant] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const f = useFieldErrors<'text'>();
 
   const discardPhoto = (p: typeof photo) => {
     if (!p) return;
@@ -65,7 +68,8 @@ export const NewPostModal: React.FC<Props> = ({ isOpen, onClose, onPosted }) => 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const body = text.trim();
-    if (!body) return setError('Say what is going on.');
+    if (!body) return f.fail({ text: 'Write what is going on' });
+    f.reset();
     setError(null);
     let created: OfficePost | null = null;
     const ok = await confirm({
@@ -87,7 +91,7 @@ export const NewPostModal: React.FC<Props> = ({ isOpen, onClose, onPosted }) => 
 
   return (
     <Modal isOpen={isOpen} onClose={close} title="New office post" description="Broken coffee machine? AC acting up? Tell the team." maxWidth="lg">
-      <form onSubmit={submit} className="space-y-5">
+      <form noValidate onSubmit={submit} className="space-y-5">
         {error && <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>}
 
         <div>
@@ -97,12 +101,18 @@ export const NewPostModal: React.FC<Props> = ({ isOpen, onClose, onPosted }) => 
           <textarea
             id="office-text"
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            data-field="text"
+            data-invalid={f.errors.text ? 'true' : undefined}
+            onChange={(e) => {
+              setText(e.target.value);
+              f.clear('text');
+            }}
             maxLength={1000}
             rows={4}
             placeholder="e.g. The coffee is finished, can someone order more?"
             className="w-full resize-y rounded-[var(--tm-radius-md)] border border-[var(--tm-border)] bg-[var(--tm-card)] p-3 text-[14px] text-[var(--tm-ink)] outline-none focus:border-[var(--tm-primary)]"
           />
+          <FieldError message={f.errors.text} />
           <p className="mt-1 text-right text-[11px] text-[var(--tm-ink-muted)]">{text.length}/1000</p>
         </div>
 

@@ -57,7 +57,7 @@ export const ProfileSection: React.FC = () => {
     <Card>
       <CardHeader>
         <CardTitle>My profile</CardTitle>
-        <CardDescription>This is what your colleagues see on your profile, in chats and on tasks.</CardDescription>
+        <CardDescription>What colleagues see on your profile and in chats.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex flex-wrap items-center gap-5 rounded-[var(--tm-radius-lg)] bg-[var(--tm-card-muted)] p-5">
@@ -79,7 +79,7 @@ export const ProfileSection: React.FC = () => {
           </div>
         </div>
 
-        <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
+        <form noValidate onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
           <Input label="Name" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} required />
           <Input label="Job title" value={title} maxLength={100} placeholder="e.g. Designer" onChange={(e) => setTitle(e.target.value)} />
           <Input label="Phone" type="tel" value={phone} maxLength={40} onChange={(e) => setPhone(e.target.value)} />

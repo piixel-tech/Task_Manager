@@ -53,7 +53,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           )}
         </div>
         {error ? (
-          <p className="text-[12px] font-medium text-[var(--tm-danger)]">{error}</p>
+          <p role="alert" className="text-[12px] font-medium text-[var(--tm-danger)]">{error}</p>
         ) : helperText ? (
           <p className="text-[12px] text-[var(--tm-ink-muted)]">{helperText}</p>
         ) : null}
@@ -95,7 +95,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           {...props}
         />
         {error ? (
-          <p className="text-[12px] font-medium text-[var(--tm-danger)]">{error}</p>
+          <p role="alert" className="text-[12px] font-medium text-[var(--tm-danger)]">{error}</p>
         ) : helperText ? (
           <p className="text-[12px] text-[var(--tm-ink-muted)]">{helperText}</p>
         ) : null}

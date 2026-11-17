@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { userService, taskService } from '../../../services';
 import type { User, Task } from '../../../types';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
 import { UserName } from '../../../components/ui/UserName';
 
@@ -41,7 +41,7 @@ export const LeaderboardPage: React.FC = () => {
 
       <PageHeader
         title="Team Productivity Leaderboard"
-        description="Gamified task achievement points, output milestones, and streaks for Piixel & Unwork."
+        description="Points, milestones and streaks for the team."
       />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
@@ -78,7 +78,10 @@ export const LeaderboardPage: React.FC = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Complete Rankings</CardTitle>
+          <div className="min-w-0">
+<CardTitle>Complete Rankings</CardTitle>
+<CardDescription>Everyone, ranked by points.</CardDescription>
+</div>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">

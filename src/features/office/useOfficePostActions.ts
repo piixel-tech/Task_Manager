@@ -72,5 +72,20 @@ export function useOfficePostActions(setItems: Dispatch<SetStateAction<OfficePos
       if (ok) reload(); // it may no longer match the open/resolved tab
     });
 
-  return { onViewed, react, toggleResolved };
+  const remove = (post: OfficePost) =>
+    confirm({
+      title: 'Delete this post?',
+      message: 'It is removed from the board for everyone and the team is notified. An admin can restore it from the Trash for 30 days.',
+      confirmLabel: 'Delete post',
+      danger: true,
+      action: async () => {
+        await officeApi.remove(post.id);
+        setItems((cur) => cur.filter((p) => p.id !== post.id));
+      },
+      successTitle: 'Post deleted'
+    }).then((ok) => {
+      if (ok) reload();
+    });
+
+  return { onViewed, react, toggleResolved, remove };
 }

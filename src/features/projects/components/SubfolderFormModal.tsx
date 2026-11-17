@@ -3,6 +3,8 @@ import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { useConfirm } from '../../../hooks/useConfirm';
+import { useFieldErrors } from '../../../hooks/useFieldErrors';
+import { FieldGroup } from '../../../components/ui/FieldError';
 import { projectApi, type Subfolder, type UserBrief } from '../../../services/http/projectApi';
 import { PeoplePicker } from './PeoplePicker';
 
@@ -19,6 +21,7 @@ interface Props {
 /** Create or edit a subfolder: name, heads, members. */
 export const SubfolderFormModal: React.FC<Props> = ({ isOpen, onClose, projectId, subfolder, onSaved }) => {
   const confirm = useConfirm();
+  const f = useFieldErrors<'name' | 'heads'>();
   const [people, setPeople] = useState<UserBrief[]>([]);
   const [name, setName] = useState('');
   const [heads, setHeads] = useState<string[]>([]);
@@ -28,6 +31,7 @@ export const SubfolderFormModal: React.FC<Props> = ({ isOpen, onClose, projectId
   useEffect(() => {
     if (!isOpen) return;
     setError(null);
+    f.reset();
     setName(subfolder?.name ?? '');
     setHeads(subfolder?.heads.map((h) => h.id) ?? []);
     // Heads are listed separately, so keep only the other members here.
@@ -46,8 +50,11 @@ export const SubfolderFormModal: React.FC<Props> = ({ isOpen, onClose, projectId
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return setError('Give the subfolder a name.');
-    if (heads.length === 0) return setError('Pick at least one head.');
+    const problems: Parameters<typeof f.fail>[0] = {};
+    if (!name.trim()) problems.name = 'Enter a name for the subfolder';
+    if (heads.length === 0) problems.heads = 'Pick at least one head';
+    if (Object.keys(problems).length > 0) return f.fail(problems);
+    f.reset();
     setError(null);
 
     const input = { name: name.trim(), head_ids: heads, member_ids: members };
@@ -77,20 +84,37 @@ export const SubfolderFormModal: React.FC<Props> = ({ isOpen, onClose, projectId
       description="Heads manage the subfolder. Everyone else on it can work in it but not change it."
       maxWidth="lg"
     >
-      <form onSubmit={submit} className="space-y-4">
+      <form noValidate onSubmit={submit} className="space-y-4">
         {error && (
           <div className="tm-error px-4 py-3 text-xs font-semibold">
             {error}
           </div>
         )}
-        <Input label="Name" placeholder="e.g. Design" value={name} onChange={(e) => setName(e.target.value)} required />
-        <PeoplePicker
-          label="Heads"
-          hint="At least one. A head is also a member."
-          people={people}
-          value={heads}
-          onChange={toggleHead}
+        <Input
+          label="Name"
+          placeholder="e.g. Design"
+          value={name}
+          data-field="name"
+          data-label="subfolder name"
+          error={f.errors.name}
+          onChange={(e) => {
+            setName(e.target.value);
+            f.clear('name');
+          }}
+          required
         />
+        <FieldGroup name="heads" error={f.errors.heads}>
+          <PeoplePicker
+            label="Heads"
+            hint="At least one. A head is also a member."
+            people={people}
+            value={heads}
+            onChange={(ids) => {
+              toggleHead(ids);
+              f.clear('heads');
+            }}
+          />
+        </FieldGroup>
         <PeoplePicker label="Members" people={people} value={members} onChange={setMembers} lockedIds={heads} />
         <div className="flex justify-end gap-3 border-t border-[var(--tm-border)] pt-5">
           <Button variant="outline" type="button" onClick={onClose}>

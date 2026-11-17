@@ -18,6 +18,18 @@ class ViewerCandidate(UserBrief):
     """A person who could be picked to view a subfolder."""
 
     email: str
+    member: bool = False  # already a member or head of this subfolder: always sees it, so shown ticked and locked
+
+
+class DeleteSummary(BaseModel):
+    """What deleting a project or subfolder takes with it."""
+
+    subfolders: int
+    tasks: int
+    files: int
+    checklist_items: int
+    requirements: int = 0
+    chats: int = 0  # chat groups linked to it: they stay, but lose the link
 
 
 class SubfolderCreate(BaseModel):

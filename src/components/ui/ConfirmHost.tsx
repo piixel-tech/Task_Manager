@@ -38,6 +38,8 @@ export const ConfirmHost: React.FC = () => {
       isOpen={!!request}
       title={request?.title ?? ''}
       message={request?.message}
+      details={request?.details}
+      requireText={request?.requireText}
       confirmLabel={request?.confirmLabel}
       danger={request?.danger}
       send={request?.send}

@@ -50,7 +50,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             {title}
           </h1>
           {description && (
-            <p className="mt-2 text-[14px] leading-relaxed text-[var(--tm-ink-muted)]">{description}</p>
+            <p data-hint className="mt-2 text-[14px] leading-relaxed text-[var(--tm-ink-muted)]">{description}</p>
           )}
         </div>
       </div>

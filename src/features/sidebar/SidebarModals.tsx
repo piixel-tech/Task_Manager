@@ -131,7 +131,7 @@ const RenameModal: React.FC<{
 
   return (
     <Modal isOpen onClose={onClose} title={`Rename ${noun}`} maxWidth="sm">
-      <form onSubmit={submit} className="space-y-4">
+      <form noValidate onSubmit={submit} className="space-y-4">
         <Input label="Name" value={name} maxLength={100} autoFocus onChange={(e) => setName(e.target.value)} />
         <div className="flex justify-end gap-3">
           <Button type="button" variant="outline" onClick={onClose}>

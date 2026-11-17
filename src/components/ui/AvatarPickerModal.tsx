@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Modal } from './Modal';
 import { Button } from './Button';
 import { Avatar, AVATAR_ICONS } from './Avatar';
-import { Camera, Type, Smile, Sparkles } from 'lucide-react';
+import { Camera, Type, Smile, Shapes } from 'lucide-react';
 
 export interface AvatarPickerModalProps {
   isOpen: boolean;
@@ -113,7 +113,7 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
           {[
             { id: 'photo', label: 'Photo', icon: Camera },
             { id: 'initials', label: 'Initials', icon: Type },
-            { id: 'icon', label: 'Icon', icon: Sparkles },
+            { id: 'icon', label: 'Icon', icon: Shapes },
             { id: 'emoji', label: 'Emoji', icon: Smile }
           ].map((tab) => {
             const Icon = tab.icon;

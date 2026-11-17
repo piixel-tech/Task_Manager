@@ -3,6 +3,7 @@ import { ExternalLink, FileText, Film } from 'lucide-react';
 import { AuthImage } from '../../../components/ui/AuthImage';
 import { Button } from '../../../components/ui/Button';
 import { SkeletonRows } from '../../../components/ui/Skeleton';
+import { EmptyState } from '../../../components/ui/EmptyState';
 import { assetApi } from '../../../services/http/taskApi';
 import { toast } from '../../../store/useToastStore';
 import { chatApi, type ChatMessage, type LinkItem } from '../../../services/http/chatApi';
@@ -70,7 +71,7 @@ export const SharedTabs: React.FC<Props> = ({ groupId, onOpenMessage }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId, kind]);
 
-  const open = (m: ChatMessage) => m.file && assetApi.open(m.file).catch((err) => toast.error('Could not open the file', err.message));
+  const open = (m: ChatMessage) => m.file && assetApi.open(m.file, files.flatMap((x) => (x.file ? [x.file] : []))).catch((err) => toast.error('Could not open the file', err.message));
   const empty = !loading && !error && (kind === 'links' ? links.length === 0 : files.length === 0);
 
   return (
@@ -99,9 +100,11 @@ export const SharedTabs: React.FC<Props> = ({ groupId, onOpenMessage }) => {
       {error && <p className="tm-error px-4 py-3 text-xs font-semibold">{error}</p>}
       {loading && files.length + links.length === 0 && <SkeletonRows count={4} />}
       {empty && (
-        <p className="py-6 text-center text-[13px] text-[var(--tm-ink-muted)]">
-          {kind === 'media' ? 'No photos or videos yet.' : kind === 'docs' ? 'No documents yet.' : 'No links yet.'}
-        </p>
+        <EmptyState
+          size="compact"
+          title={kind === 'media' ? 'No photos or videos yet' : kind === 'docs' ? 'No documents yet' : 'No links yet'}
+          description={kind === 'media' ? 'Photos and videos sent in this chat show up here.' : kind === 'docs' ? 'Files sent in this chat show up here.' : 'Links shared in this chat show up here.'}
+        />
       )}
 
       {kind === 'media' && files.length > 0 && (

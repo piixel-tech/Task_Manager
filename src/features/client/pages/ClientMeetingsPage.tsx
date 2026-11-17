@@ -96,7 +96,7 @@ export const ClientMeetingsPage: React.FC = () => {
 
   return (
     <>
-      <PageHeader title="Book a meeting" description="Choose someone from your project team and a time that suits you." />
+      <PageHeader title="Book a meeting" description="Pick a teammate and a time that suits you." />
       {error && <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>}
 
       {!projects ? (
@@ -112,7 +112,8 @@ export const ClientMeetingsPage: React.FC = () => {
           )}
 
           <section aria-label="Team">
-            <h2 className="mb-3 text-[13px] font-extrabold uppercase tracking-wide text-[var(--tm-ink-muted)]">1 · Who</h2>
+            <h2 className="text-[13px] font-extrabold uppercase tracking-wide text-[var(--tm-ink-muted)]">1 · Who</h2>
+            <p data-hint className="mb-3 mt-0.5 text-[13px] text-[var(--tm-ink-muted)]">Pick who you would like to meet.</p>
             <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {project?.team.map(({ user }) => (
                 <li key={user.id}>
@@ -132,13 +133,14 @@ export const ClientMeetingsPage: React.FC = () => {
                 </li>
               ))}
             </ul>
-            {project && project.team.length === 0 && <p className="text-[13px] text-[var(--tm-ink-muted)]">No one has been assigned to this project yet.</p>}
+            {project && project.team.length === 0 && <EmptyState size="compact" title="No team yet" description="People who work on this project show up here." />}
           </section>
 
           {host && (
             <Card>
               <CardContent className="space-y-5 pt-6">
                 <h2 className="text-[13px] font-extrabold uppercase tracking-wide text-[var(--tm-ink-muted)]">2 · When · {host.name}</h2>
+                <p data-hint className="mt-0.5 text-[13px] text-[var(--tm-ink-muted)]">Pick a free time.</p>
                 <div className="grid gap-4 sm:grid-cols-2 lg:max-w-xl">
                   <Input label="Day" type="date" min={todayStr()} value={date} onChange={(e) => e.target.value && setDate(e.target.value)} />
                   <Select label="Length" value={String(minutes)} onChange={(e) => setMinutes(Number(e.target.value))} options={DURATIONS.map((d) => ({ value: String(d), label: `${d} minutes` }))} />
@@ -164,7 +166,7 @@ export const ClientMeetingsPage: React.FC = () => {
       )}
 
       <Modal isOpen={!!slot} onClose={() => setSlot(null)} title="Book this time" description={slot && host ? `${host.name} · ${time(slot.start)} to ${time(slot.end)}` : undefined} maxWidth="md">
-        <form onSubmit={book} className="space-y-4">
+        <form noValidate onSubmit={book} className="space-y-4">
           <Input label="Title" value={title} maxLength={200} onChange={(e) => setTitle(e.target.value)} autoFocus />
           <div>
             <label htmlFor="meeting-note" className="mb-1.5 block text-[12.5px] font-bold text-[var(--tm-ink-soft)]">

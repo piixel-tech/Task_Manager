@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Award, ShieldCheck, Zap, Heart, CheckCircle2, Plus } from 'lucide-react';
+import { Award, ShieldCheck, Timer, Heart, CheckCircle2, Plus } from 'lucide-react';
 import { gamificationService, userService } from '../../../services';
 import type { BadgeType, UserGamification, User } from '../../../types';
 import { useAuthStore } from '../../../store/authStore';
@@ -18,7 +18,7 @@ const ALL_BADGE_TYPES: { type: BadgeType; title: string; description: string; ic
     type: 'fastest_delivery',
     title: 'Fastest Delivery',
     description: 'Delivered a critical task significantly ahead of deadline',
-    icon: <Zap className="w-5 h-5" />,
+    icon: <Timer className="w-5 h-5" />,
     color: 'from-[var(--tm-warning)] to-[var(--tm-warning)] text-[var(--tm-on-primary)] bg-[var(--tm-warning-bg)] border-[var(--tm-warning-ring)]'
   },
   {
@@ -160,7 +160,7 @@ export const BadgesGrid: React.FC<BadgesGridProps> = ({ targetUserId, showAwardB
 
       {/* Admin Award Badge Modal */}
       <Modal isOpen={isAwardModalOpen} onClose={() => setIsAwardModalOpen(false)} title="Award Recognition Badge">
-        <form onSubmit={handleAwardBadgeSubmit} className="space-y-4 text-xs">
+        <form noValidate onSubmit={handleAwardBadgeSubmit} className="space-y-4 text-xs">
           <div>
             <label className="block text-[var(--tm-ink-soft)] font-medium mb-1">Select Employee</label>
             <Select

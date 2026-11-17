@@ -4,6 +4,7 @@ import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
 import { Textarea } from '../../../components/ui/Input';
 import { useConfirm } from '../../../hooks/useConfirm';
+import { useFieldErrors } from '../../../hooks/useFieldErrors';
 import { reviewApi, type Review } from '../../../services/http/reviewApi';
 
 interface Props {
@@ -21,6 +22,7 @@ export const ReviewActions: React.FC<Props> = ({ review, onDone, size = 'sm', va
   const [asking, setAsking] = useState(false);
   const [comments, setComments] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const f = useFieldErrors<'comments'>();
 
   const who = review.submitted_by?.name ?? 'The assignee';
 
@@ -39,7 +41,8 @@ export const ReviewActions: React.FC<Props> = ({ review, onDone, size = 'sm', va
 
   const requestChanges = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!comments.trim()) return setError('Say what needs to change: comments are required.');
+    if (!comments.trim()) return f.fail({ comments: 'Say what needs to change' });
+    f.reset();
     setError(null);
     const ok = await confirm({
       title: `Request changes on “${review.task_title}”?`,
@@ -102,7 +105,7 @@ export const ReviewActions: React.FC<Props> = ({ review, onDone, size = 'sm', va
       )}
 
       <Modal isOpen={asking} onClose={() => setAsking(false)} title="Request changes" maxWidth="lg">
-        <form onSubmit={requestChanges} className="space-y-4">
+        <form noValidate onSubmit={requestChanges} className="space-y-4">
           {error && (
             <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>
           )}
@@ -111,7 +114,12 @@ export const ReviewActions: React.FC<Props> = ({ review, onDone, size = 'sm', va
             rows={5}
             placeholder="What should be fixed or improved?"
             value={comments}
-            onChange={(e) => setComments(e.target.value)}
+            data-field="comments"
+            error={f.errors.comments}
+            onChange={(e) => {
+              setComments(e.target.value);
+              f.clear('comments');
+            }}
             autoFocus
           />
           <div className="flex justify-end gap-3 border-t border-[var(--tm-border)] pt-5">

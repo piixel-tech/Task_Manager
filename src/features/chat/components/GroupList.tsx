@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { AtSign, MessageSquarePlus, Search, Users } from 'lucide-react';
 import { Avatar } from '../../../components/ui/Avatar';
-import { Button } from '../../../components/ui/Button';
 import { SkeletonRows } from '../../../components/ui/Skeleton';
+import { EmptyState } from '../../../components/ui/EmptyState';
 import type { ChatGroup } from '../../../services/http/chatApi';
 import { listTime } from '../chatUtils';
 
@@ -101,20 +101,17 @@ export const GroupList: React.FC<Props> = ({ groups, loaded, activeId, meId, onS
             <SkeletonRows count={5} />
           </div>
         ) : shown.length === 0 ? (
-          <div className="p-6 text-center text-[13px] text-[var(--tm-ink-muted)]">
+          <div className="p-3">
             {groups.length === 0 ? (
-              <>
-                <p className="mb-3">{onNew ? 'No chats yet.' : 'No conversations yet. Use the invite link your team sent you to join one.'}</p>
-                {onNew && (
-                  <Button size="sm" onClick={onNew}>
-                    Start a group
-                  </Button>
-                )}
-              </>
+              onNew ? (
+                <EmptyState size="compact" title="No chats yet" description="Start a group to talk with your team." actionLabel="Start a group" onAction={onNew} />
+              ) : (
+                <EmptyState size="compact" title="No conversations yet" description="Use the invite link your team sent you to join one." />
+              )
             ) : tab === 'unread' && !q ? (
-              'Nothing unread.'
+              <EmptyState size="compact" title="Nothing unread" description="New messages show up here." />
             ) : (
-              'No chats match.'
+              <EmptyState size="compact" title="No chats match" description="Try a different search." />
             )}
           </div>
         ) : (

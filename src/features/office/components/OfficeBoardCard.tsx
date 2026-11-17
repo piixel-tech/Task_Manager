@@ -41,7 +41,7 @@ export const OfficeBoardCard: React.FC = () => {
       setData((d) => (d ? { ...d, latest: typeof update === 'function' ? update(d.latest) : update } : d)),
     []
   );
-  const { onViewed, react, toggleResolved } = useOfficePostActions(setLatest, load);
+  const { onViewed, react, toggleResolved, remove } = useOfficePostActions(setLatest, load);
 
   if (failed && !data) return null; // the dashboard is still useful without it
 
@@ -80,7 +80,7 @@ export const OfficeBoardCard: React.FC = () => {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {data?.latest.map((p, i) => (
-              <OfficePostCard key={p.id} post={p} index={i} onViewed={onViewed} onReact={react} onToggleResolved={toggleResolved} />
+              <OfficePostCard key={p.id} post={p} index={i} onViewed={onViewed} onReact={react} onToggleResolved={toggleResolved} onDelete={remove} />
             ))}
           </div>
         )}

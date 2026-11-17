@@ -46,6 +46,9 @@ class UserSettings(BaseModel):
     alert_muted: bool = False
     desktop_popups: bool = False
     notif_prefs: NotifPrefs = NotifPrefs()
+    # Guidance: the short lines under headings and the "i" icons (tooltips are always on), and which first-login tour was finished.
+    hints: bool = True
+    tour: str | None = Field(default=None, max_length=40)
 
     @field_validator("palette")
     @classmethod

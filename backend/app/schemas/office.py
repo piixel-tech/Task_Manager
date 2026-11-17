@@ -69,6 +69,7 @@ class PostOut(BaseModel):
     resolved_by: UserBrief | None
     resolved_at: datetime | None
     can_resolve: bool  # the author or an admin
+    can_delete: bool = False  # the author or an admin
     created_at: datetime
 
 

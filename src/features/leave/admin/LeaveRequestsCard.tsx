@@ -10,12 +10,12 @@ export const LeaveRequestsCard: React.FC = () => {
   const { pending, loaded, error, load } = useLeaveInbox(true);
   return (
     <StaggerItem className="lg:col-span-12">
-      <DashboardCard animate={false} icon={<CalendarCheck className="h-5 w-5" />} title="Leave requests" badge={pending.length} to="/admin/leave-requests" cta="Open leave requests" className="h-full">
+      <DashboardCard animate={false} icon={<CalendarCheck className="h-5 w-5" />} title="Leave requests" description="Requests waiting for your decision." badge={pending.length} to="/admin/leave-requests" cta="Open leave requests" className="h-full">
         {error && <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>}
         {!loaded ? (
           <WidgetSkeleton />
         ) : pending.length === 0 ? (
-          <WidgetEmpty>No leave or work-from-home requests are waiting for you.</WidgetEmpty>
+          <WidgetEmpty title="No requests waiting" actionLabel="Open leave requests" to="/admin/leave-requests">Leave and work-from-home requests show up here.</WidgetEmpty>
         ) : (
           <LeaveReviewList requests={pending} onChanged={() => void load()} />
         )}

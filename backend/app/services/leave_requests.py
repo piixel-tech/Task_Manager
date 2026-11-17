@@ -65,7 +65,7 @@ async def create_request(user: User, body: LeaveRequestCreate) -> LeaveRequest:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Pick an admin of your company")
 
     open_ones = await LeaveRequest.find(
-        {"user_id": user.id, "status": {"$in": ["pending", "approved"]}, "start_date": {"$lte": body.end_date}, "end_date": {"$gte": body.start_date}}
+        {"user_id": user.id, "status": {"$in": ["pending", "approved"]}, "start_date": {"$lte": body.end_date}, "end_date": {"$gte": body.start_date}, "deleted_at": None}
     ).to_list()
     if any(_overlaps(body, other) for other in open_ones):
         raise HTTPException(status.HTTP_409_CONFLICT, "You already have a pending or approved request for these dates")
@@ -117,6 +117,48 @@ async def decide(req: LeaveRequest, admin: User, *, approve: bool, reason: str |
     return req
 
 
+async def cancel_request(req: LeaveRequest, user: User) -> LeaveRequest:
+    """The employee cancels their own request: while pending, or once approved but only before it starts. It stays on record as
+    "cancelled". If it had been approved, the admin who approved it is told."""
+    was = req.status
+    if was not in ("pending", "approved"):
+        raise HTTPException(status.HTTP_409_CONFLICT, f"A {was} request can't be cancelled")
+    if was == "approved" and req.start_date <= today_local().isoformat():
+        raise HTTPException(status.HTTP_409_CONFLICT, "An approved request can only be cancelled before its start date")
+    now = datetime.now(timezone.utc)
+    # Only from the state we saw, so it cannot be cancelled while an admin is deciding it (or twice).
+    result = await LeaveRequest.find({"_id": req.id, "status": was}).update(
+        {"$set": {"status": "cancelled", "cancelled_at": now, "cancelled_from": was}}
+    )
+    if not result or result.modified_count != 1:
+        raise HTTPException(status.HTTP_409_CONFLICT, "This request was just decided or cancelled. Refresh and try again")
+    req.status, req.cancelled_at, req.cancelled_from = "cancelled", now, was
+    if was == "approved":
+        await notify(
+            [req.decided_by or req.admin_id],
+            type="leave_cancelled",
+            title=f"{user.name} cancelled approved {TYPE_LABEL[req.type]}",
+            body=f"{when_text(req)}. It was approved and has now been cancelled.",
+            link=ADMIN_LINK,
+            actor_id=user.id,
+        )
+    await tell_admin(req.admin_id, req.id, "cancelled")  # it leaves the admin's lists at once
+    return req
+
+
+async def delete_request(req: LeaveRequest, user: User) -> None:
+    """The employee removes their own request from their list: pending, rejected or cancelled ones. An approved request has to be
+    cancelled first (before it starts). It is kept on record, marked deleted, and the admin's screens update at once."""
+    if req.status == "approved":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Cancel an approved request first (before its start date), then you can delete it")
+    now = datetime.now(timezone.utc)
+    # Only from the state we saw, so it cannot vanish from under an admin who is deciding it right now.
+    result = await LeaveRequest.find({"_id": req.id, "status": req.status, "deleted_at": None}).update({"$set": {"deleted_at": now}})
+    if not result or result.modified_count != 1:
+        raise HTTPException(status.HTTP_409_CONFLICT, "This request just changed. Refresh and try again")
+    await tell_admin(req.admin_id, req.id, "deleted")  # it leaves the admin's lists (and the Pending badge) at once
+
+
 async def outs(requests: Iterable[LeaveRequest]) -> list[LeaveRequestOut]:
     """Requests as the API returns them, with the people and the company filled in."""
     requests = list(requests)
@@ -143,6 +185,7 @@ async def outs(requests: Iterable[LeaveRequest]) -> list[LeaveRequestOut]:
                 created_at=as_utc(r.created_at),
                 decided_at=as_utc(r.decided_at) if r.decided_at else None,
                 decided_by=brief(people[r.decided_by]) if r.decided_by in people else None,
+                cancelled_at=as_utc(r.cancelled_at) if r.cancelled_at else None,
             )
         )
     return out

@@ -15,6 +15,10 @@ interface NotificationState {
   /** "Remind me in 1h". */
   snooze: (id: string, minutes?: number) => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  /** Deletes one notification for good. */
+  remove: (id: string) => Promise<void>;
+  /** Deletes all notifications, or only the read ones. */
+  removeAll: (readOnly?: boolean) => Promise<void>;
   clear: () => void;
 }
 
@@ -68,6 +72,25 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       unreadCount: 0
     }));
     await notificationApi.markAllRead().catch(() => get().fetchNotifications());
+  },
+
+  remove: async (id) => {
+    await notificationApi.remove(id);
+    set((state) => {
+      const target = state.notifications.find((n) => n.id === id);
+      return {
+        notifications: state.notifications.filter((n) => n.id !== id),
+        unreadCount: target && !target.read ? Math.max(0, state.unreadCount - 1) : state.unreadCount
+      };
+    });
+  },
+
+  removeAll: async (readOnly = false) => {
+    await notificationApi.clear(readOnly);
+    set((state) => ({
+      notifications: readOnly ? state.notifications.filter((n) => !n.read) : [],
+      unreadCount: readOnly ? state.unreadCount : 0
+    }));
   },
 
   clear: () => set({ notifications: [], unreadCount: 0 })

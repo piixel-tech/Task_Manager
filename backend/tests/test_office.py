@@ -262,3 +262,33 @@ async def test_summary_has_the_latest_unresolved_posts_and_the_unseen_count(clie
 async def test_empty_board(client, team):
     assert await posts(client, team.mia) == {"total": 0, "unseen_count": 0, "items": []}
     assert (await client.get("/office/summary", headers=team.mia.headers)).json() == {"unseen_count": 0, "open_count": 0, "latest": []}
+
+
+# --- Deleting ------------------------------------------------------------------------------------------------
+async def test_admins_delete_any_post_and_employees_only_their_own_and_it_waits_in_the_trash(client, team):
+    from app.models import TrashItem
+
+    uploaded = await client.post("/files", files=[("files", ("leak.png", b"\x89PNG", "image/png"))], headers=team.mia.headers)
+    photo = uploaded.json()[0]
+    mine = (await post(client, team.mia, "Leak in the pantry", photo_id=photo["id"])).json()
+    other = (await post(client, team.max, "Printer is jammed")).json()
+    assert mine["can_delete"] is True
+    listed = {p["id"]: p["can_delete"] for p in (await posts(client, team.mia))["items"]}
+    assert listed == {mine["id"]: True, other["id"]: False}
+
+    assert (await client.delete(f"{POSTS}/{other['id']}", headers=team.mia.headers)).status_code == 403  # not theirs
+    assert (await client.delete(f"{POSTS}/{mine['id']}")).status_code == 401
+    await Notification.find_all().delete()
+    assert (await client.delete(f"{POSTS}/{mine['id']}", headers=team.mia.headers)).status_code == 204  # their own
+    assert await OfficePost.find_all().count() == 1
+    assert await File.find_all().count() == 1  # soft delete: the photo stays until the trash is purged
+    told = await Notification.find(Notification.type == "office_deleted").to_list()
+    assert team.mia.user.id not in {n.user_id for n in told} and team.max.user.id in {n.user_id for n in told}  # everyone else's board updates
+    assert (await client.delete(f"{POSTS}/{mine['id']}", headers=team.mia.headers)).status_code == 404
+
+    assert (await client.delete(f"{POSTS}/{other['id']}", headers=team.admin.headers)).status_code == 204  # an admin deletes any
+    assert await OfficePost.find_all().count() == 0
+    trashed = await TrashItem.find(TrashItem.kind == "office_post").to_list()
+    assert {t.title for t in trashed} == {"Leak in the pantry", "Printer is jammed"}
+    restored = await client.post(f"/trash/{trashed[0].id}/restore", headers=team.admin.headers)
+    assert restored.json() == {"restored": "office_post"} and await OfficePost.find_all().count() == 1

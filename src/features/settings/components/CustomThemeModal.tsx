@@ -5,6 +5,7 @@ import { Input } from '../../../components/ui/Input';
 import { Modal } from '../../../components/ui/Modal';
 import { Switch } from '../../../components/ui/Switch';
 import { useConfirm } from '../../../hooks/useConfirm';
+import { useFieldErrors } from '../../../hooks/useFieldErrors';
 import type { PaletteColors } from '../../../services/http/festivalApi';
 import { themeApi, type CustomTheme } from '../../../services/http/themeApi';
 import { useCustomThemesStore } from '../../../store/useCustomThemesStore';
@@ -36,6 +37,7 @@ export const CustomThemeModal: React.FC<Props> = ({ editing, onClose, onSaved })
   const [warnings, setWarnings] = useState<string[]>([]);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const f = useFieldErrors<'name'>();
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const seq = useRef(0);
 
@@ -62,7 +64,8 @@ export const CustomThemeModal: React.FC<Props> = ({ editing, onClose, onSaved })
 
   const save = async () => {
     setError(null);
-    if (!name.trim()) return setError('Give your theme a name');
+    if (!name.trim()) return f.fail({ name: 'Enter a name for your theme' });
+    f.reset();
     const input = { name: name.trim(), ...picks, shared };
     let saved: CustomTheme | null = null;
     const ok = await confirm({
@@ -98,7 +101,18 @@ export const CustomThemeModal: React.FC<Props> = ({ editing, onClose, onSaved })
     >
       <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
         <div className="space-y-4">
-          <Input label="Theme name" value={name} maxLength={30} onChange={(e) => setName(e.target.value)} placeholder="e.g. Ocean" />
+          <Input
+            label="Theme name"
+            value={name}
+            maxLength={30}
+            data-field="name"
+            error={f.errors.name}
+            onChange={(e) => {
+              setName(e.target.value);
+              f.clear('name');
+            }}
+            placeholder="e.g. Ocean"
+          />
           <div className="space-y-2.5">
             {PICKERS.map((p) => (
               <label key={p.key} className="flex items-center gap-3 rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)] bg-[var(--tm-card)] p-2.5">

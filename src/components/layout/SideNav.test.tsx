@@ -10,7 +10,7 @@ const admin = [
   entry('Projects', 0),
   entry('Task Hub', 0),
   entry('Chats', 0),
-  entry('Activity', 0),
+  entry('Inbox', 0),
   entry('Calendar', 0),
   entry('Reviews', 1),
   entry('Office board', 1),
@@ -29,9 +29,9 @@ describe('rail fitting', () => {
     expect(fitRail(admin, 680)).toEqual({ dense: true, hidden: [] });
   });
 
-  it('moves Board first, then Reviews, then Activity, and never Calendar or Home', () => {
+  it('moves Board first, then Reviews, then Inbox, and never Calendar or Home', () => {
     expect(fitRail(admin, 620).hidden).toEqual(['Office board', 'Reviews']); // one cut would not leave room for the More button
-    expect(fitRail(admin, 575).hidden).toEqual(['Office board', 'Reviews', 'Activity']);
+    expect(fitRail(admin, 575).hidden).toEqual(['Office board', 'Reviews', 'Inbox']);
     for (const h of [620, 575, 500, 400, 200]) {
       const hidden = fitRail(admin, h).hidden;
       expect(hidden).not.toContain('Calendar');

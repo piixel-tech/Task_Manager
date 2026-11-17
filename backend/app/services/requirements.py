@@ -56,7 +56,7 @@ def _out(r: Requirement, viewer: User, project: Project, siblings: list[Subfolde
         edited=bool(r.history),
         version_count=len(r.history) + 1,
         can_edit=can(viewer, "requirement.edit", creator_id=r.created_by, siblings=siblings, project=project),
-        can_delete=can(viewer, "requirement.delete"),
+        can_delete=can(viewer, "requirement.delete", creator_id=r.created_by, siblings=siblings, project=project),
     )
 
 

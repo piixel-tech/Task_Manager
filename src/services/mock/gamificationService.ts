@@ -25,7 +25,7 @@ const BADGE_TITLES: Record<BadgeType, { title: string; description: string }> = 
     description: 'Stepped in and completed a task assigned by a peer'
   },
   zero_revisions: {
-    title: 'Zero Revisions ✨',
+    title: 'Zero Revisions',
     description: 'Completed work with perfect quality on first submission'
   }
 };

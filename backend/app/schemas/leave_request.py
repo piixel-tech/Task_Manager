@@ -72,3 +72,4 @@ class LeaveRequestOut(BaseModel):
     created_at: datetime
     decided_at: datetime | None
     decided_by: UserBrief | None
+    cancelled_at: datetime | None = None

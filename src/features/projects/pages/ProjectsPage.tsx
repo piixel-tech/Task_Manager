@@ -85,7 +85,10 @@ export const ProjectsPage: React.FC = () => {
         />
       ) : (
         <div className="animate-fade-in">
-          <h2 className="mb-3 text-[20px] font-bold text-[var(--tm-ink)]">Folders</h2>
+          <div className="mb-3">
+            <h2 className="text-[20px] font-bold text-[var(--tm-ink)]">Folders</h2>
+            <p data-hint className="mt-0.5 text-[13px] text-[var(--tm-ink-muted)]">Your projects. Open one to see its subfolders.</p>
+          </div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
             {visible.map((p) => {
               const companyNames = p.company_ids.map((id) => companyName(id).toLowerCase()).filter(Boolean);

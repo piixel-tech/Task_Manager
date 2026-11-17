@@ -33,6 +33,8 @@ import { HolidayDatePicker, type DateSel } from '../components/HolidayDatePicker
 import { projectApi, type Project } from '../../../services/http/projectApi';
 import { formatTimeAgo } from '../../../utils/time';
 
+import { useFieldErrors } from '../../../hooks/useFieldErrors';
+
 const errorOf = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
 const Alert: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div role="alert" className="tm-error px-4 py-3 text-xs font-semibold">
@@ -47,7 +49,7 @@ export const PeopleSection: React.FC = () => {
     <Card>
       <CardHeader>
         <CardTitle>People</CardTitle>
-        <CardDescription>Everyone with an account: their role, company and whether they are active. New people get a temporary password and choose their own when they first sign in.</CardDescription>
+        <CardDescription>Everyone with an account, their role and company.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-wrap gap-3">
         <Button leftIcon={<UserPlus className="h-4 w-4" />} onClick={() => navigate('/admin/users?invite=1')}>
@@ -123,7 +125,7 @@ export const CompaniesSection: React.FC = () => {
       </CardHeader>
       <CardContent className="space-y-4">
         {error && <Alert>{error}</Alert>}
-        <form onSubmit={add} className="flex gap-3">
+        <form noValidate onSubmit={add} className="flex gap-3">
           <div className="flex-1">
             <Input aria-label="New company name" placeholder="New company name" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
           </div>
@@ -189,6 +191,7 @@ export const WorkspaceSection: React.FC = () => {
   const [editing, setEditing] = useState<Holiday | null>(null);
   const [edit, setEdit] = useState({ name: '', type: 'company' as Holiday['type'], company: '', start: '', end: '' });
   const [error, setError] = useState<string | null>(null);
+  const f = useFieldErrors<'end'>();
 
   useEffect(() => {
     if (!workspace) void useWorkspaceStore.getState().load();
@@ -211,7 +214,8 @@ export const WorkspaceSection: React.FC = () => {
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (start >= end) return setError('Working hours must end after they start.');
+    if (start >= end) return f.fail({ end: 'The working day must end after it starts' });
+    f.reset();
     await confirm({
       title: 'Save workspace settings?',
       message: 'The name shows in the sidebar. Working hours decide the free times people can book.',
@@ -334,7 +338,7 @@ export const WorkspaceSection: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle>Workspace</CardTitle>
-          <CardDescription>The name and logo people see, and the hours meetings can be booked in.</CardDescription>
+          <CardDescription>Name, logo and the hours meetings can be booked.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex flex-wrap items-center gap-4">
@@ -357,12 +361,23 @@ export const WorkspaceSection: React.FC = () => {
             </div>
           </div>
 
-          <form onSubmit={save} className="grid gap-4 sm:grid-cols-3">
+          <form noValidate onSubmit={save} className="grid gap-4 sm:grid-cols-3">
             <div className="sm:col-span-3">
               <Input label="Workspace name" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} required />
             </div>
             <Input label="Working day starts" type="time" value={start} onChange={(e) => setStart(e.target.value)} required />
-            <Input label="Working day ends" type="time" value={end} onChange={(e) => setEnd(e.target.value)} required />
+            <Input
+              label="Working day ends"
+              type="time"
+              value={end}
+              data-field="end"
+              error={f.errors.end}
+              onChange={(e) => {
+                setEnd(e.target.value);
+                f.clear('end');
+              }}
+              required
+            />
             <div className="flex items-end justify-end">
               <Button type="submit" disabled={!dirty || !name.trim()}>
                 Save
@@ -378,7 +393,7 @@ export const WorkspaceSection: React.FC = () => {
           <CardDescription>Days the office is closed. Nobody can book time on them.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form onSubmit={addHoliday} className="space-y-4">
+          <form noValidate onSubmit={addHoliday} className="space-y-4">
             <HolidayDatePicker value={picked} onChange={setPicked} />
             <div className="grid gap-3 sm:grid-cols-[1fr_14rem_12rem_auto] sm:items-end">
               <Input label="Name" value={holiday.name} maxLength={100} onChange={(e) => setHoliday({ ...holiday, name: e.target.value })} required />
@@ -422,7 +437,7 @@ export const WorkspaceSection: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle>Weekly off</CardTitle>
-          <CardDescription>Days off every week. They show as a holiday band on all calendars, and nobody is asked for a daily status on them.</CardDescription>
+          <CardDescription>Days the office is closed every week.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-3">
           {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((d, i) => (
@@ -476,7 +491,15 @@ export const WorkspaceSection: React.FC = () => {
 };
 
 // --- Trash --------------------------------------------------------------------------------------------------------------------
-const KIND_LABEL: Record<TrashKind, string> = { task: 'Task', subfolder: 'Subfolder', project: 'Project', message: 'Chat message' };
+const KIND_LABEL: Record<TrashKind, string> = {
+  task: 'Task',
+  subfolder: 'Subfolder',
+  project: 'Project',
+  message: 'Chat message',
+  requirement: 'Requirement',
+  activity: 'Mid-way change',
+  office_post: 'Office post'
+};
 
 export const TrashSection: React.FC = () => {
   const confirm = useConfirm();
@@ -501,7 +524,7 @@ export const TrashSection: React.FC = () => {
   const restore = async (r: TrashRow) => {
     const ok = await confirm({
       title: `Restore “${r.title}”?`,
-      message: r.kind === 'project' ? 'The project returns with its subfolders, tasks and requirements.' : r.kind === 'subfolder' ? 'The subfolder returns with its tasks, checklist and deliverables.' : r.kind === 'message' ? 'The message reappears in its chat for everyone.' : 'The task returns with its comments and history.',
+      message: r.kind === 'project' ? 'The project returns with its subfolders, tasks and requirements.' : r.kind === 'subfolder' ? 'The subfolder returns with its tasks, checklist and deliverables.' : r.kind === 'message' ? 'The message reappears in its chat for everyone.' : r.kind === 'requirement' ? 'The requirement returns to its project with its files and history.' : r.kind === 'activity' ? 'The entry returns to its place, with its replies and files.' : r.kind === 'office_post' ? 'The post returns to the office board.' : 'The task returns with its comments and history.',
       confirmLabel: 'Restore',
       action: async () => void (await trashApi.restore(r.id)),
       successTitle: `${KIND_LABEL[r.kind]} restored`
@@ -525,7 +548,7 @@ export const TrashSection: React.FC = () => {
     <Card>
       <CardHeader>
         <CardTitle>Trash</CardTitle>
-        <CardDescription>Deleted tasks, subfolders, projects and chat messages stay here for 30 days, then are removed for good.</CardDescription>
+        <CardDescription>Deleted items stay here for 30 days.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <PillTabs
@@ -701,14 +724,14 @@ export const SecuritySection: React.FC = () => {
     <Card>
       <CardHeader>
         <CardTitle>Security</CardTitle>
-        <CardDescription>Who is signed in, and on which device. Ending a sign-in logs that device out at once.</CardDescription>
+        <CardDescription>Who is signed in, and on which device.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {error && <Alert>{error}</Alert>}
         {rows === null ? (
           error ? null : <SkeletonRows count={3} />
         ) : rows.length === 0 ? (
-          <p className="py-4 text-center text-[13px] text-[var(--tm-ink-muted)]">No one is signed in right now.</p>
+          <EmptyState size="compact" title="No active sign-ins" description="Devices that are signed in show up here." />
         ) : (
           <ul className="divide-y divide-[var(--tm-border)] rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)]">
             {rows.map((s) => (

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/Button';
+import { useConfirm } from '../../../hooks/useConfirm';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { PillTabs } from '../../../components/ui/PillTabs';
 import { socket } from '../../../services/socket';
@@ -16,6 +17,7 @@ const ENOUGH = 15;
 /** Everything the bell has ever shown, with the unread ones first to hand. */
 export const ActivityPage: React.FC = () => {
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const unreadCount = useNotificationStore((s) => s.unreadCount);
   const bell = useNotificationStore((s) => s.notifications);
   // One row of tabs: All, Unread (asked of the server), Mentions and Approvals (the bell's filters, applied to the list).
@@ -36,7 +38,7 @@ export const ActivityPage: React.FC = () => {
         if (filter === 'all') setAllTotal(p.total);
         setError(null);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Could not load your activity'));
+      .catch((err) => setError(err instanceof Error ? err.message : 'Could not load your inbox'));
   }, [filter]);
 
   useEffect(() => {
@@ -82,17 +84,57 @@ export const ActivityPage: React.FC = () => {
     setItems((cur) => cur && (filter === 'unread' ? [] : cur.map((x) => ({ ...x, read: true }))));
   };
 
+  const removeOne = async (n: AppNotification) => {
+    const ok = await confirm({
+      title: 'Delete this notification?',
+      message: 'It is removed from your inbox for good.',
+      confirmLabel: 'Delete',
+      danger: true,
+      action: () => useNotificationStore.getState().remove(n.id),
+      successTitle: 'Notification deleted'
+    });
+    if (ok) {
+      setItems((cur) => cur && cur.filter((x) => x.id !== n.id));
+      setTotal((t) => Math.max(0, t - 1));
+      setAllTotal((t) => (t === undefined ? t : Math.max(0, t - 1)));
+    }
+  };
+
+  const removeAll = async (readOnly: boolean) => {
+    const ok = await confirm({
+      title: readOnly ? 'Delete all read notifications?' : 'Delete all notifications?',
+      message: readOnly ? 'Unread ones are kept.' : 'Your whole inbox is cleared. This cannot be undone.',
+      confirmLabel: readOnly ? 'Delete read' : 'Delete all',
+      danger: true,
+      action: () => useNotificationStore.getState().removeAll(readOnly),
+      successTitle: readOnly ? 'Read notifications deleted' : 'Inbox cleared'
+    });
+    if (ok) load();
+  };
+
   return (
     <>
       <PageHeader
-        title="Activity"
-        description="Everything that was sent to you: assignments, reviews, mentions, chats and more."
+        title="Inbox"
+        description="Everything sent to you, newest first."
         actions={
-          unreadCount > 0 && (
-            <Button size="sm" variant="outline" onClick={markAll}>
-              Mark all as read
-            </Button>
-          )
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <Button size="sm" variant="outline" onClick={markAll}>
+                Mark all as read
+              </Button>
+            )}
+            {(allTotal ?? total) > 0 && (
+              <>
+                <Button size="sm" variant="outline" onClick={() => removeAll(true)}>
+                  Delete read
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => removeAll(false)}>
+                  Delete all
+                </Button>
+              </>
+            )}
+          </div>
         }
       />
       <PillTabs
@@ -120,7 +162,7 @@ export const ActivityPage: React.FC = () => {
       ) : (
         <>
           <div className="rounded-[var(--tm-radius-lg)] border border-[var(--tm-border)] bg-[var(--tm-card)] px-2 pt-1 shadow-soft-xs">
-            <NotificationGroups items={items.filter((n) => matchesTab(n, tab === 'unread' ? 'all' : tab))} onOpen={open} />
+            <NotificationGroups items={items.filter((n) => matchesTab(n, tab === 'unread' ? 'all' : tab))} onOpen={open} onDelete={removeOne} />
           </div>
           {items.length < total && (
             <div className="flex justify-center">

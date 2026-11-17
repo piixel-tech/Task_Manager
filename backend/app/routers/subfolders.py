@@ -6,8 +6,8 @@ from app.core.deps import get_current_user
 from app.core.permissions import can, require
 from app.models import File, User
 from app.schemas.file import FileOut
-from app.schemas.project import SubfolderOut, SubfolderUpdate, SubfolderVisibility, ViewerCandidate
-from app.services.trash import trash_subfolder
+from app.schemas.project import DeleteSummary, SubfolderOut, SubfolderUpdate, SubfolderVisibility, ViewerCandidate
+from app.services.trash import delete_summary, trash_subfolder
 from app.services.projects import (
     brief,
     check_staff,
@@ -190,10 +190,15 @@ async def _viewer_candidates(sub, project) -> list[User]:
 
 @router.get("/{subfolder_id}/viewer-candidates", response_model=list[ViewerCandidate])
 async def viewer_candidates(subfolder_id: PydanticObjectId, user: User = Depends(get_current_user)) -> list[ViewerCandidate]:
-    """The company employees a head can pick for "Visible to selected people" (members are left out: they already see it)."""
+    """Everyone for the "Visible to selected people" picker: company employees to pick, and this subfolder's members and heads flagged as members."""
     sub = await get_subfolder_or_404(subfolder_id)
     require(user, "subfolder.visibility", sub)
-    return [ViewerCandidate(**brief(p).model_dump(), email=p.email) for p in await _viewer_candidates(sub, await get_project_or_404(sub.project_id))]
+    candidates = await _viewer_candidates(sub, await get_project_or_404(sub.project_id))
+    # The whole picture: company employees to pick from, plus this subfolder's own members and heads (shown ticked and locked).
+    belonging = await User.find({"_id": {"$in": [*sub.member_ids, *sub.head_ids]}, "is_active": True}).to_list()
+    everyone = sorted([*candidates, *belonging], key=lambda p: p.name.lower())
+    member_ids = {*sub.member_ids, *sub.head_ids}
+    return [ViewerCandidate(**brief(p).model_dump(), email=p.email, member=p.id in member_ids) for p in everyone]
 
 
 @router.patch("/{subfolder_id}/visibility", response_model=SubfolderOut)
@@ -239,6 +244,14 @@ async def set_visibility(subfolder_id: PydanticObjectId, body: SubfolderVisibili
                 actor=user,
             )
     return await subfolder_out(sub, await subfolders_of(sub.project_id), user)
+
+
+@router.get("/{subfolder_id}/delete-summary", response_model=DeleteSummary)
+async def subfolder_delete_summary(subfolder_id: PydanticObjectId, user: User = Depends(get_current_user)) -> DeleteSummary:
+    """What deleting this subfolder would take with it (admins), for the confirmation."""
+    sub = await get_subfolder_or_404(subfolder_id)
+    require(user, "subfolder.delete", sub, siblings=await subfolders_of(sub.project_id))
+    return DeleteSummary(**await delete_summary([sub.id]))
 
 
 @router.delete("/{subfolder_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -1,5 +1,15 @@
 import { api, getErrorMessage } from '../api';
 
+export interface DeleteSummary {
+  subfolders: number;
+  tasks: number;
+  files: number;
+  checklist_items: number;
+  requirements: number;
+  /** Chat groups linked to it: they stay, but lose the link. */
+  chats: number;
+}
+
 export interface UserBrief {
   id: string;
   name: string;
@@ -10,6 +20,8 @@ export interface UserBrief {
   focus_until?: string | null;
   /** Only on the people a head can pick to view a subfolder. */
   email?: string;
+  /** Only in the viewer picker: already a member or head of that subfolder. */
+  member?: boolean;
 }
 
 /** Who beyond its own members can see a subfolder: nobody, everyone in the project's company (read only), or everyone there (as members). */
@@ -103,6 +115,10 @@ export const projectApi = {
     call<Subfolder>(() => api.patch(`/subfolders/${id}/visibility`, { visibility, viewer_ids: viewerIds }), 'Could not change who can see the subfolder'),
   /** Company employees a head can pick for "selected" (members are left out). */
   viewerCandidates: (id: string) => call<UserBrief[]>(() => api.get(`/subfolders/${id}/viewer-candidates`), 'Could not load the team'),
+
+  /** What deleting a project / subfolder would take with it (admins), for the confirmation. */
+  projectDeleteSummary: (id: string) => call<DeleteSummary>(() => api.get(`/projects/${id}/delete-summary`), 'Could not check what is inside'),
+  subfolderDeleteSummary: (id: string) => call<DeleteSummary>(() => api.get(`/subfolders/${id}/delete-summary`), 'Could not check what is inside'),
 
   deleteSubfolder: (id: string) => call<void>(() => api.delete(`/subfolders/${id}`), 'Could not delete the subfolder'),
 

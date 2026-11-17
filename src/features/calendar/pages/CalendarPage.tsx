@@ -17,7 +17,7 @@ import {
   startOfWeek
 } from 'date-fns';
 import { ArrowDown, CalendarDays, ChevronLeft, ChevronRight, Clock, Trash2 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Avatar } from '../../../components/ui/Avatar';
 import { Input, Textarea } from '../../../components/ui/Input';
@@ -257,18 +257,19 @@ export const CalendarPage: React.FC = () => {
       if (ok) load();
     });
 
-  // The team picker needs everyone, so it comes from its own endpoint (all companies, no paging), fetched when the dialog first opens.
+  // The guest picker needs everyone (admins, employees and clients of every company, no paging), so it comes from its own endpoint,
+  // fetched each time the dialog opens: people added since the page loaded show up too.
   const dialogOpen = !!slotStart && canBook;
   useEffect(() => {
-    if (!dialogOpen || team2 !== null) return;
+    if (!dialogOpen) return;
     directoryApi
-      .team()
+      .team({ includeClients: true })
       .then((rows) => {
         setTeam2(rows.map((r) => ({ id: r.id, name: r.name, avatar_url: r.avatar_url, title: r.title, role: r.role, company: r.company_name })));
         setTeamError(null);
       })
       .catch((err) => setTeamError(err instanceof Error ? err.message : 'Could not load the team'));
-  }, [dialogOpen, team2]);
+  }, [dialogOpen]);
 
   /** Everyone who can be invited: the whole team except you (excluded by the server) and the host, who already has the booking. */
   const guestPeople = useMemo(() => (team2 ?? []).filter((p) => p.id !== hostId), [team2, hostId]);
@@ -482,7 +483,10 @@ export const CalendarPage: React.FC = () => {
             <Card>
               <CardHeader>
                 <div>
-                  <CardTitle className="text-base font-extrabold">{format(selected, 'EEEE, d MMMM')}</CardTitle>
+                  <div className="min-w-0">
+<CardTitle className="text-base font-extrabold">{format(selected, 'EEEE, d MMMM')}</CardTitle>
+<CardDescription>Bookings and status for this day.</CardDescription>
+</div>
                   <div className="mt-2">
                     {selectedStatus ? (
                       <StatusChip tone={statusMeta(selectedStatus)?.tone} size="sm" dot>
@@ -569,7 +573,10 @@ export const CalendarPage: React.FC = () => {
             <div ref={slotsRef} id="book" className="scroll-mt-24">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base font-extrabold">Book a slot</CardTitle>
+                <div className="min-w-0">
+<CardTitle className="text-base font-extrabold">Book a slot</CardTitle>
+<CardDescription>Pick a free time to book.</CardDescription>
+</div>
               </CardHeader>
               <CardContent>
                 {isOwn ? (
@@ -659,7 +666,7 @@ export const CalendarPage: React.FC = () => {
                 </>
               }
             >
-              <form
+              <form noValidate
                 className="space-y-4"
                 onSubmit={(e) => {
                   e.preventDefault();

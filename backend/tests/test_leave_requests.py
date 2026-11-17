@@ -2,6 +2,7 @@ from datetime import timedelta
 from types import SimpleNamespace
 
 import pytest_asyncio
+from beanie import PydanticObjectId
 
 from app.core.timeutil import today_local
 from app.models import Company, LeaveRequest, Notification
@@ -137,17 +138,41 @@ async def test_i_see_only_my_own_requests_newest_first_and_can_filter(client, te
     assert (await client.get("/leave-requests/mine?status=maybe", headers=team.eva.headers)).status_code == 422
 
 
-async def test_cancelling_works_only_for_my_own_pending_request(client, team):
+async def test_cancelling_works_only_for_my_own_request_and_keeps_it_on_record(client, team):
     a = (await ask(client, team, start_date=day(3), end_date=day(3))).json()
-    b = (await ask(client, team, start_date=day(8), end_date=day(8))).json()
-    assert (await client.delete(f"/leave-requests/{a['id']}", headers=team.ulf.headers)).status_code == 404  # someone else's
-    assert (await client.delete(f"/leave-requests/{a['id']}", headers=team.ada.headers)).status_code == 403  # an admin is not the employee
-    await client.post(f"/leave-requests/{b['id']}/approve", headers=team.ada.headers)
-    assert (await client.delete(f"/leave-requests/{b['id']}", headers=team.eva.headers)).status_code == 409  # already decided
-    assert (await client.delete(f"/leave-requests/{a['id']}", headers=team.eva.headers)).status_code == 204
-    assert (await client.delete(f"/leave-requests/{a['id']}", headers=team.eva.headers)).status_code == 404
-    assert await LeaveRequest.find_all().count() == 1
+
+    def cancel(r, who):
+        return client.post(f"/leave-requests/{r['id']}/cancel", headers=who.headers)
+
+    assert (await cancel(a, team.ulf)).status_code == 404  # someone else's
+    assert (await cancel(a, team.ada)).status_code == 403  # an admin is not the employee
+    done = await cancel(a, team.eva)
+    assert done.status_code == 200 and done.json()["status"] == "cancelled" and done.json()["cancelled_at"]
+    assert (await cancel(a, team.eva)).status_code == 409  # already cancelled
+    assert await LeaveRequest.find_all().count() == 1  # soft: it stays, with its new status
     assert (await ask(client, team, start_date=day(3), end_date=day(3))).status_code == 201  # the dates are free again
+
+
+async def test_an_approved_request_can_be_cancelled_before_it_starts_and_the_approver_is_told(client, team):
+    from app.core.timeutil import today_local
+
+    b = (await ask(client, team, start_date=day(8), end_date=day(8))).json()
+    await client.post(f"/leave-requests/{b['id']}/approve", headers=team.ada.headers)
+    await Notification.find_all().delete()
+    done = await client.post(f"/leave-requests/{b['id']}/cancel", headers=team.eva.headers)
+    assert done.status_code == 200 and done.json()["status"] == "cancelled"
+    told = await Notification.find(Notification.type == "leave_cancelled").to_list()
+    assert [n.user_id for n in told] == [team.ada.user.id]  # the admin who approved it
+
+    c = (await ask(client, team, start_date=day(10), end_date=day(10))).json()
+    await client.post(f"/leave-requests/{c['id']}/approve", headers=team.ada.headers)
+    await LeaveRequest.find({"_id": PydanticObjectId(c["id"])}).update({"$set": {"start_date": today_local().isoformat()}})  # it starts today
+    late = await client.post(f"/leave-requests/{c['id']}/cancel", headers=team.eva.headers)
+    assert late.status_code == 409 and "before its start date" in late.json()["detail"]
+
+    d = (await ask(client, team, start_date=day(12), end_date=day(12))).json()
+    await client.post(f"/leave-requests/{d['id']}/reject", json={"reason": "busy"}, headers=team.ada.headers)
+    assert (await client.post(f"/leave-requests/{d['id']}/cancel", headers=team.eva.headers)).status_code == 409  # rejected: nothing to cancel
 
 
 # --- The admin's side ---------------------------------------------------------------------------------------------
@@ -216,7 +241,59 @@ async def test_the_addressed_admin_is_told_live_when_a_request_is_made_cancelled
     monkeypatch.setattr(manager, "send_to_users", record)
     a = (await ask(client, team, start_date=day(3), end_date=day(3))).json()
     b = (await ask(client, team, start_date=day(8), end_date=day(8))).json()
-    await client.delete(f"/leave-requests/{a['id']}", headers=team.eva.headers)
+    await client.post(f"/leave-requests/{a['id']}/cancel", headers=team.eva.headers)
     await client.post(f"/leave-requests/{b['id']}/approve", headers=team.ada.headers)
     mine = [(who, event, state) for who, event, state in sent if event == "leave_requests"]
     assert mine == [({team.ada.user.id}, "leave_requests", s) for s in ("created", "created", "cancelled", "approved")]
+
+
+# --- Deleting ---------------------------------------------------------------------------------------------------
+async def test_an_employee_deletes_their_own_pending_rejected_or_cancelled_request_but_not_an_approved_one(client, team):
+    def remove(r, who):
+        return client.delete(f"/leave-requests/{r['id']}", headers=who.headers)
+
+    pending = (await ask(client, team, start_date=day(3), end_date=day(3))).json()
+    rejected = (await ask(client, team, start_date=day(8), end_date=day(8))).json()
+    cancelled = (await ask(client, team, start_date=day(12), end_date=day(12))).json()
+    approved = (await ask(client, team, start_date=day(16), end_date=day(16))).json()
+    await client.post(f"/leave-requests/{rejected['id']}/reject", json={"reason": "busy"}, headers=team.ada.headers)
+    await client.post(f"/leave-requests/{cancelled['id']}/cancel", headers=team.eva.headers)
+    await client.post(f"/leave-requests/{approved['id']}/approve", headers=team.ada.headers)
+
+    assert (await remove(pending, team.ulf)).status_code == 404  # someone else's
+    assert (await remove(pending, team.ada)).status_code == 403  # an admin is not the employee
+    assert (await remove(pending, team.eva)).status_code == 204
+    assert (await remove(rejected, team.eva)).status_code == 204
+    assert (await remove(cancelled, team.eva)).status_code == 204
+    refused = await remove(approved, team.eva)  # approved: cancel it first
+    assert refused.status_code == 409 and "Cancel an approved request first" in refused.json()["detail"]
+    assert (await remove(pending, team.eva)).status_code == 404  # already gone
+
+    # soft delete: still in the database, gone from every list
+    assert await LeaveRequest.find_all().count() == 4
+    assert [r["id"] for r in (await client.get("/leave-requests/mine", headers=team.eva.headers)).json()] == [approved["id"]]
+    assert (await client.get("/leave-requests", headers=team.ada.headers)).json()[0]["id"] == approved["id"]
+    assert len((await client.get("/leave-requests", headers=team.ada.headers)).json()) == 1
+    assert (await client.post(f"/leave-requests/{pending['id']}/approve", headers=team.ada.headers)).status_code == 404
+
+    # the dates of a deleted pending request are free again
+    assert (await ask(client, team, start_date=day(3), end_date=day(3))).status_code == 201
+
+    # approved -> cancel (before it starts) -> then it can be deleted
+    assert (await client.post(f"/leave-requests/{approved['id']}/cancel", headers=team.eva.headers)).status_code == 200
+    assert (await remove(approved, team.eva)).status_code == 204
+
+
+async def test_deleting_tells_the_admin_live(client, team, monkeypatch):
+    from app.services.ws_manager import manager
+
+    sent = []
+
+    async def record(user_ids, event, data):
+        sent.append((set(user_ids), event, data.get("state")))
+
+    monkeypatch.setattr(manager, "send_to_users", record)
+    a = (await ask(client, team, start_date=day(3), end_date=day(3))).json()
+    sent.clear()
+    await client.delete(f"/leave-requests/{a['id']}", headers=team.eva.headers)
+    assert sent == [({team.ada.user.id}, "leave_requests", "deleted")]

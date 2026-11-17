@@ -8,14 +8,14 @@ from app.core.deps import get_current_user, require_role
 from app.core.permissions import can, require
 from app.core.timeutil import today_local
 from app.integrations.runner import schedule_push
-from app.models import File, Subfolder, Task, TimeLog, User
+from app.models import File, Requirement, Subfolder, Task, TimeLog, User
 from app.models.chat import ChatMessage
 from app.models.task import Priority, TaskStatus
 from app.schemas.task import ProgressSet, ReminderRun, TaskCreate, TaskOut, TaskUpdate, TimeLogOut, TimerResult
 from app.services import richtext
 from app.services.activity import log_task
 from app.services.chat import member_group, publish_message
-from app.services.projects import get_subfolder_or_404, subfolders_of, visible_subfolder_ids
+from app.services.projects import get_project_or_404, get_subfolder_or_404, subfolders_of, visible_subfolder_ids
 from app.services.reminders import run_reminders
 from app.services.trash import trash_task
 from app.services.tasks import (
@@ -114,6 +114,15 @@ async def create_task(body: TaskCreate, user: User = Depends(get_current_user)) 
     asset_ids = list(dict.fromkeys(body.asset_ids))
     if source and source.file_id and (original := await File.get(source.file_id)):
         asset_ids.append((await copy_file(original, user)).id)  # the message's file becomes the task's own attachment
+
+    if body.from_requirement_id:
+        req = await Requirement.get(body.from_requirement_id)
+        if req is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Requirement not found")
+        project = await get_project_or_404(req.project_id)
+        require(user, "requirement.view", siblings=await subfolders_of(project.id), project=project)
+        for original in await File.find({"_id": {"$in": req.attachment_ids}}).to_list():
+            asset_ids.append((await copy_file(original, user)).id)  # the task gets its own copies
 
     task = Task(
         subfolder_id=sub.id,

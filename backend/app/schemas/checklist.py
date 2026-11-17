@@ -44,6 +44,7 @@ class ChecklistItemOut(BaseModel):
     created_by: UserBrief | None
     created_at: datetime
     updated_at: datetime | None  # set once the text has been edited
+    pinned: bool
     attachments: list[ChecklistFileOut]
     can_edit: bool  # the person who added it
     can_delete: bool  # the person who added it, a head or an admin

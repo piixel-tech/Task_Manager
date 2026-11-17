@@ -3,7 +3,7 @@ import type { LeaveDuration, LeaveRequest, LeaveStatus, LeaveType } from '../../
 
 export const TYPE_LABEL: Record<LeaveType, string> = { leave: 'Leave', wfh: 'Work from home' };
 export const DURATION_LABEL: Record<LeaveDuration, string> = { full: 'Full day', first_half: 'First half', second_half: 'Second half' };
-export const STATUS_LABEL: Record<LeaveStatus, string> = { pending: 'Pending', approved: 'Approved', rejected: 'Rejected' };
+export const STATUS_LABEL: Record<LeaveStatus, string> = { pending: 'Pending', approved: 'Approved', rejected: 'Rejected', cancelled: 'Cancelled' };
 
 export const iso = (d: Date): string => format(d, 'yyyy-MM-dd');
 
@@ -25,7 +25,7 @@ export interface DayMark {
 export function marksByDay(requests: LeaveRequest[]): Map<string, DayMark[]> {
   const marks = new Map<string, DayMark[]>();
   for (const r of requests) {
-    if (r.status === 'rejected') continue;
+    if (r.status === 'rejected' || r.status === 'cancelled') continue;
     for (const d of eachDayOfInterval({ start: parseISO(r.start_date), end: parseISO(r.end_date) })) {
       const key = iso(d);
       marks.set(key, [...(marks.get(key) ?? []), { status: r.status, type: r.type, duration: r.duration }]);

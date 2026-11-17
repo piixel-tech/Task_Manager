@@ -64,6 +64,7 @@ export const RailTimer: React.FC = () => {
       <button
         ref={btn}
         type="button"
+        data-tour="timer"
         aria-label={label}
         aria-haspopup="dialog"
         aria-expanded={open}

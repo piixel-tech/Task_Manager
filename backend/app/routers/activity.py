@@ -16,7 +16,7 @@ from app.services.activity import (
     tell,
     unresolved_counts,
 )
-from app.services.checklist import delete_files
+from app.services.trash import trash_activity
 from app.services.projects import get_subfolder_or_404, subfolders_of, unique
 from app.services.tasks import check_assets, get_task_or_404
 
@@ -187,13 +187,24 @@ async def toggle_reaction(entry_id: PydanticObjectId, body: ReactionToggle, user
 
 @router.delete("/activity/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_entry(entry_id: PydanticObjectId, user: User = Depends(get_current_user)) -> None:
-    """Remove your own mid-way change or comment (admins can remove any). Its replies and files go with it."""
-    row, sub, _ = await _entry_scope(entry_id, user)
+    """Remove your own mid-way change or comment (admins can remove any). Its replies and files go with it, into the Trash
+    (an admin can restore them for 30 days). The rest of the team is told, so their screens update."""
+    row, sub, task = await _entry_scope(entry_id, user)
     if row.kind == "log":
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "The activity log can't be edited")
     require(user, "activity.delete", sub, creator_id=row.author_id)
-    replies = await TaskActivity.find({"parent_id": row.id}).to_list()
-    await delete_files([*row.file_ids, *(i for r in replies for i in r.file_ids)])
-    await TaskActivity.find({"parent_id": row.id}).delete()
-    await row.delete()
+    await trash_activity(row, user)
+    if row.parent_id is None:
+        where = f"“{task.title}”" if task else sub.name
+        kind = "mid-way change" if row.kind == "change_request" else "comment"
+        await tell(
+            [*sub.head_ids, *sub.member_ids, *([task.assignee_id] if task else [])],
+            user,
+            type="activity_deleted",
+            title=f"{user.name} deleted a {kind}",
+            body=where,
+            sub=sub,
+            task=task,
+            entry=row.id,
+        )
 

@@ -113,8 +113,8 @@ def can(
         return admin
     if action == "subfolder.create":  # a new sibling in a project that already has subfolders
         return admin or (staff and head_of_any)
-    if action == "subfolder.delete":  # remove a subfolder with its tasks: admins, and the heads of that subfolder
-        return admin or (staff and head)
+    if action == "subfolder.delete":  # remove a subfolder with everything in it: admins only
+        return admin
     if action in ("subfolder.edit", "members.manage"):  # name, members, heads; add members / invite clients
         return admin or (staff and head)
     if action == "subfolder.view":  # one subfolder (see `sees`); with no subfolder: the project page, if any of its subfolders is visible
@@ -162,8 +162,8 @@ def can(
 
     # --- Client requirements (pass the project and all its subfolders as `siblings`) --
     if action in ("requirement.view", "requirement.add", "requirement.edit", "requirement.delete"):
-        if action == "requirement.delete":  # admins only
-            return admin
+        if action == "requirement.delete":  # an admin deletes any; employees and heads only their own
+            return admin or (staff and in_project and creator_id == user.id)
         client_of = client and project is not None and user.id in (getattr(project, "client_ids", None) or [])
         if action == "requirement.add":  # the project's clients, admins, heads of any subfolder in the project
             return admin or client_of or (staff and head_of_any)
@@ -205,7 +205,7 @@ def can(
         return user.role == "employee"
     if action == "leave.review":  # decide the requests sent to you: admins (the router also checks it was sent to this admin)
         return admin
-    if action == "office.resolve":  # the author or an admin
+    if action in ("office.resolve", "office.delete"):  # the author or an admin
         return admin or (staff and creator_id == user.id)
     if action == "integration.manage":  # connect your own Google Calendar etc.; clients have no calendar of their own
         return staff

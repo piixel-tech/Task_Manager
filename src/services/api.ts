@@ -1,4 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import { friendlyMessage } from './friendlyError';
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:8000/api/v1' : '');
 
@@ -82,13 +83,10 @@ api.interceptors.response.use(
 /** Pull a readable message out of a FastAPI error response. */
 export function getErrorMessage(err: unknown, fallback = 'Something went wrong'): string {
   if (axios.isAxiosError(err)) {
-    if (!err.response) return 'Cannot reach the server. Please try again.';
-    const detail = err.response.data?.detail;
-    if (typeof detail === 'string') return detail;
-    if (detail && typeof detail === 'object' && typeof detail.message === 'string') return detail.message;
-    if (Array.isArray(detail) && detail[0]?.msg) return detail[0].msg;
+    if (!err.response) return friendlyMessage({ networkDown: true }, fallback);
+    return friendlyMessage({ status: err.response.status, detail: err.response.data?.detail }, fallback);
   }
-  return err instanceof Error ? err.message : fallback;
+  return err instanceof Error ? friendlyMessage({ message: err.message }, fallback) : fallback;
 }
 
 function tokenExpiresAt(token: string): number {

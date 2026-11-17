@@ -10,6 +10,7 @@ import {
   CheckSquare,
   ClipboardList,
   Clock,
+  Trash2,
   Folder,
   MessageSquare,
   MessagesSquare,
@@ -187,9 +188,11 @@ interface CardProps {
   onClick: () => void;
   /** "Remind me in 1h": shown on hover when given. */
   onSnooze?: () => void;
+  /** Removes it for good: shown on hover when given. */
+  onDelete?: () => void;
 }
 
-export const NotificationCard: React.FC<CardProps> = ({ n, index, onClick, onSnooze }) => {
+export const NotificationCard: React.FC<CardProps> = ({ n, index, onClick, onSnooze, onDelete }) => {
   const { reduced } = useMotionPrefs();
   return (
     <motion.li
@@ -199,18 +202,33 @@ export const NotificationCard: React.FC<CardProps> = ({ n, index, onClick, onSno
       exit={reduced ? undefined : { opacity: 0, x: 28, scale: 0.97, transition: { duration: 0.2 } }}
       className="group/card relative list-none"
     >
-      {onSnooze && (
-        <button
-          type="button"
-          onClick={onSnooze}
-          title="Remind me in 1 hour"
-          aria-label="Remind me in 1 hour"
-          className="absolute bottom-2 right-2 z-10 flex items-center gap-1 rounded-full bg-[var(--tm-card)] px-2 py-0.5 text-[10.5px] font-bold text-[var(--tm-primary-dark)]
-            opacity-0 shadow-soft-sm transition-opacity hover:bg-[var(--tm-primary-soft)] focus-visible:opacity-100 group-hover/card:opacity-100"
-        >
-          <Clock className="h-3 w-3" />
-          Remind me in 1h
-        </button>
+      {(onSnooze || onDelete) && (
+        <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover/card:opacity-100">
+          {onSnooze && (
+            <button
+              type="button"
+              onClick={onSnooze}
+              title="Remind me in 1 hour"
+              aria-label="Remind me in 1 hour"
+              className="flex items-center gap-1 rounded-full bg-[var(--tm-card)] px-2 py-0.5 text-[10.5px] font-bold text-[var(--tm-primary-dark)] shadow-soft-sm hover:bg-[var(--tm-primary-soft)]"
+            >
+              <Clock className="h-3 w-3" />
+              Remind me in 1h
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              title="Delete"
+              aria-label="Delete notification"
+              className="flex items-center gap-1 rounded-full bg-[var(--tm-card)] px-2 py-0.5 text-[10.5px] font-bold text-[var(--tm-danger)] shadow-soft-sm hover:bg-[var(--tm-bg-sunken)]"
+            >
+              <Trash2 className="h-3 w-3" />
+              Delete
+            </button>
+          )}
+        </div>
       )}
       <motion.button
         type="button"
@@ -259,7 +277,8 @@ export const NotificationGroups: React.FC<{
   items: AppNotification[];
   onOpen: (n: AppNotification) => void;
   onSnooze?: (n: AppNotification) => void;
-}> = ({ items, onOpen, onSnooze }) => {
+  onDelete?: (n: AppNotification) => void;
+}> = ({ items, onOpen, onSnooze, onDelete }) => {
   let index = 0;
   return (
     <>
@@ -269,7 +288,7 @@ export const NotificationGroups: React.FC<{
           <ul className="space-y-1.5 pb-2">
             <AnimatePresence mode="popLayout" initial>
               {g.items.map((n) => (
-                <NotificationCard key={n.id} n={n} index={index++} onClick={() => onOpen(n)} onSnooze={onSnooze ? () => onSnooze(n) : undefined} />
+                <NotificationCard key={n.id} n={n} index={index++} onClick={() => onOpen(n)} onSnooze={onSnooze ? () => onSnooze(n) : undefined} onDelete={onDelete ? () => onDelete(n) : undefined} />
               ))}
             </AnimatePresence>
           </ul>

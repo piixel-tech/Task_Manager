@@ -12,6 +12,7 @@ import { useConfirm } from '../../../hooks/useConfirm';
 import { CustomThemeModal } from '../components/CustomThemeModal';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { FocusControls } from '../../focus/FocusMenu';
+import { HelpCenter } from '../../help/HelpCenter';
 import { ShortcutList } from '../../shortcuts/ShortcutList';
 import { desktopPermission, desktopSupported, playAlertSound, requestDesktopPermission, sendTestNotification, SOUND_OPTIONS } from '../../notifications/notificationAlerts';
 import { toast } from '../../../store/useToastStore';
@@ -35,7 +36,7 @@ export const NotificationsSection: React.FC = () => {
       <CardHeader>
         <CardTitle>Notifications</CardTitle>
         <CardDescription>
-          Switch off what you do not want to hear about. A kind that is off is not shown as a popup and does not appear in your bell at all. Mentions and Focus mode work separately.
+          Choose which kinds of updates you get.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-1">
@@ -135,7 +136,7 @@ const AlertsCard: React.FC = () => {
     <Card>
       <CardHeader>
         <CardTitle>Alerts</CardTitle>
-        <CardDescription>How new notifications sound and show up. Saved on your account, so it works on every device.</CardDescription>
+        <CardDescription>How new notifications sound and show up.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-1">
         <AlertRow title="Mute sounds" note="No sound for normal notifications. Important ones (mentions, approvals, overdue) still sound.">
@@ -319,7 +320,7 @@ export const AppearanceSection: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle>Colour theme</CardTitle>
-          <CardDescription>Pick a palette, or build your own. It applies at once and is saved on your account, so it follows you to other devices.</CardDescription>
+          <CardDescription>Pick a colour theme, or build your own.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-5">
@@ -424,6 +425,17 @@ export const AppearanceSection: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Hints</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <Switch label="Show hints" checked={settings.hints} onChange={(on) => void update({ hints: on })} />
+          {/* Always visible, even with hints off: it explains the switch itself */}
+          <p className="text-[12.5px] text-[var(--tm-ink-muted)]">The short lines under headings and the “i” icons. Tooltips on buttons always stay.</p>
+        </CardContent>
+      </Card>
     </div>
   );
 };
@@ -446,7 +458,7 @@ export const ShortcutsSection: React.FC = () => (
   <Card>
     <CardHeader>
       <CardTitle>Keyboard shortcuts</CardTitle>
-      <CardDescription>Press ? anywhere to see this list. Shortcuts are paused while you type in a field.</CardDescription>
+      <CardDescription>Press ? anywhere to see this list.</CardDescription>
     </CardHeader>
     <CardContent>
       <ShortcutList />
@@ -454,29 +466,4 @@ export const ShortcutsSection: React.FC = () => (
   </Card>
 );
 
-const HELP: { q: string; a: string }[] = [
-  { q: 'Where do my tasks live?', a: 'Open a project in the sidebar, then a subfolder. My Tasks (under More) lists everything assigned to you.' },
-  { q: 'How do I ask for changes while work is in progress?', a: 'Open the task and use the Mid-way changes tab in the Activity panel. For something that affects a whole subfolder, use its Mid-way changes tab.' },
-  { q: 'How do I turn a chat message into a task?', a: 'Open the message menu in the chat and choose Create task. The task shows a link back to the message.' },
-  { q: 'Can I send a message later?', a: 'Yes: type your message, then use the arrow next to Send and pick a time. Scheduled messages can be edited or cancelled from the clock icon in the chat.' },
-  { q: 'How do I stop being interrupted?', a: 'Use Focus mode (the moon in the top bar). Notifications still wait in your bell, and colleagues see a moon on your avatar.' },
-  { q: 'I deleted something by mistake.', a: 'Ask an admin: deleted tasks, subfolders, projects and chat messages stay in the Trash for 30 days and can be restored.' },
-  { q: 'I forgot my password.', a: 'An admin can set a temporary password for you; you will be asked to choose your own when you sign in.' }
-];
-
-export const HelpSection: React.FC = () => (
-  <Card>
-    <CardHeader>
-      <CardTitle>Help</CardTitle>
-      <CardDescription>Quick answers. For anything else, ask an admin.</CardDescription>
-    </CardHeader>
-    <CardContent className="space-y-2">
-      {HELP.map((h) => (
-        <details key={h.q} className="group rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)] px-4 py-3">
-          <summary className="cursor-pointer text-[14px] font-bold text-[var(--tm-ink)]">{h.q}</summary>
-          <p className="mt-2 text-[13.5px] leading-relaxed text-[var(--tm-ink-soft)]">{h.a}</p>
-        </details>
-      ))}
-    </CardContent>
-  </Card>
-);
+export const HelpSection: React.FC = () => <HelpCenter />;

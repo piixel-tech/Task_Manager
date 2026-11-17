@@ -1,3 +1,4 @@
+import { InfoTip } from '../../../components/ui/InfoTip';
 import React, { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CalendarClock, ClipboardCheck, FolderKanban, ShieldQuestion, Users } from 'lucide-react';
 import { StatCard } from '../../../components/ui/StatCard';
@@ -55,6 +56,8 @@ export const AdminWidgets: React.FC = () => {
         <DashboardCard animate={false}
           icon={<ShieldQuestion className="h-5 w-5" />}
           title="Client approvals waiting"
+          description="Yes-or-no questions clients have not answered."
+          info={<InfoTip topic="approvals-reminder">Clients answer these in their portal. They are reminded every day until they do.</InfoTip>}
           badge={data?.approvals.length}
           to="/admin/chat"
           cta="Open chats"
@@ -63,7 +66,7 @@ export const AdminWidgets: React.FC = () => {
           {loading ? (
             <WidgetSkeleton />
           ) : data.approvals.length === 0 ? (
-            <WidgetEmpty>No client is waiting on an answer in your chats.</WidgetEmpty>
+            <WidgetEmpty title="No approvals waiting" actionLabel="Open chats" to="/admin/chat">Questions you have asked clients show up here until they answer.</WidgetEmpty>
           ) : (
             <ul>
               {data.approvals.map((i) => (
@@ -84,11 +87,11 @@ export const AdminWidgets: React.FC = () => {
 
       {/* Today's meetings */}
       <StaggerItem className="lg:col-span-6">
-        <DashboardCard animate={false} icon={<CalendarClock className="h-5 w-5" />} title="Today's meetings" badge={data?.meetings.length} to="/admin/calendar" cta="Open calendar" className="h-full">
+        <DashboardCard animate={false} icon={<CalendarClock className="h-5 w-5" />} title="Today's meetings" description="Everything booked for today." badge={data?.meetings.length} to="/admin/calendar" cta="Open calendar" className="h-full">
           {loading ? (
             <WidgetSkeleton />
           ) : data.meetings.length === 0 ? (
-            <WidgetEmpty>No meetings booked for today.</WidgetEmpty>
+            <WidgetEmpty title="No meetings today" actionLabel="Open calendar" to="/admin/calendar">Bookings for today show up here.</WidgetEmpty>
           ) : (
             <ul>
               {data.meetings.map((m) => (
@@ -108,11 +111,11 @@ export const AdminWidgets: React.FC = () => {
 
       {/* Project health */}
       <StaggerItem className="lg:col-span-7">
-        <DashboardCard animate={false} icon={<FolderKanban className="h-5 w-5" />} title="Project health" to="/admin/projects" cta="All projects" className="h-full">
+        <DashboardCard animate={false} icon={<FolderKanban className="h-5 w-5" />} title="Project health" description="How each project is doing." to="/admin/projects" cta="All projects" className="h-full">
           {loading ? (
             <WidgetSkeleton />
           ) : data.projects.length === 0 ? (
-            <WidgetEmpty>No projects yet.</WidgetEmpty>
+            <WidgetEmpty title="No projects yet" actionLabel="Create a project" to="/admin/projects">Projects group the work you do for each client.</WidgetEmpty>
           ) : (
             <ul>
               {data.projects.slice(0, 6).map((p) => (
@@ -139,11 +142,11 @@ export const AdminWidgets: React.FC = () => {
 
       {/* Team workload */}
       <StaggerItem className="lg:col-span-5">
-        <DashboardCard animate={false} icon={<Users className="h-5 w-5" />} title="Team workload" to="/admin/tasks" cta="Open tasks" className="h-full">
+        <DashboardCard animate={false} icon={<Users className="h-5 w-5" />} title="Team workload" description="Open tasks for each person." to="/admin/tasks" cta="Open tasks" className="h-full">
           {loading ? (
             <WidgetSkeleton />
           ) : data.workload.length === 0 ? (
-            <WidgetEmpty>Nobody has open tasks.</WidgetEmpty>
+            <WidgetEmpty title="No open tasks" actionLabel="Open tasks" to="/admin/tasks">Open tasks for each person show up here.</WidgetEmpty>
           ) : (
             <ul>
               {data.workload.map((w) => {

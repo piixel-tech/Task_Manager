@@ -211,7 +211,7 @@ export const ProfilePage: React.FC = () => {
             </div>
           ) : (
             /* EDITABLE FORM */
-            <form onSubmit={handleSavePersonalInfoCard} className="space-y-5 max-w-2xl">
+            <form noValidate onSubmit={handleSavePersonalInfoCard} className="space-y-5 max-w-2xl">
               {passwordError && (
                 <div className="p-3 rounded-[var(--tm-radius-sm)] bg-[var(--tm-danger-bg)] border border-[var(--tm-danger-ring)] text-[var(--tm-danger)] text-xs font-medium">
                   {passwordError}

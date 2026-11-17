@@ -15,6 +15,7 @@ import {
 } from '../../../services/http/festivalApi';
 import { useFestivalStore } from '../../../store/useFestivalStore';
 import { PalettePreview } from '../components/PalettePreview';
+import { useFieldErrors } from '../../../hooks/useFieldErrors';
 
 const CUSTOM = 'custom';
 const BLANK: PaletteColors = {
@@ -48,6 +49,7 @@ export const FestivalSection: React.FC = () => {
   const [checking, setChecking] = useState(false);
   const [adjusted, setAdjusted] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const f = useFieldErrors<'name' | 'start' | 'end'>();
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
@@ -119,9 +121,13 @@ export const FestivalSection: React.FC = () => {
 
   const publish = async () => {
     setFormError(null);
-    if (!name.trim()) return setFormError('Give the festival a name');
-    if (!start || !end) return setFormError('Pick a start and an end date');
-    if (end < start) return setFormError("The end date can't be before the start date");
+    const problems: Parameters<typeof f.fail>[0] = {};
+    if (!name.trim()) problems.name = 'Enter a name for the festival';
+    if (!start) problems.start = 'Pick a start date';
+    if (!end) problems.end = 'Pick an end date';
+    else if (start && end < start) problems.end = 'Pick an end date on or after the start date';
+    if (Object.keys(problems).length > 0) return f.fail(problems);
+    f.reset();
     await confirm({
       title: `Publish the ${name.trim()} theme?`,
       message: `Everyone will see it from ${nice(start)} to ${nice(end)}, with a small banner. People can switch back to their own theme, and it ends by itself after ${nice(end)}.`,
@@ -173,8 +179,7 @@ export const FestivalSection: React.FC = () => {
         <CardHeader>
           <CardTitle>Festival theme</CardTitle>
           <CardDescription>
-            Give everyone a festive look for a few days. It applies to the whole team and clients between the dates, shows a small banner, lets people switch
-            back to their own theme, and ends by itself.
+            A festive look for everyone, for a few days.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -195,7 +200,7 @@ export const FestivalSection: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle>Choose a festival</CardTitle>
-          <CardDescription>Start from a preset, or pick Custom festival to name it and choose every colour yourself.</CardDescription>
+          <CardDescription>Start from a preset, or make your own.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="flex flex-wrap gap-2">
@@ -217,13 +222,45 @@ export const FestivalSection: React.FC = () => {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Input label="Festival name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder="e.g. Founders Day" />
+            <Input
+              label="Festival name"
+              value={name}
+              maxLength={60}
+              data-field="name"
+              error={f.errors.name}
+              onChange={(e) => {
+                setName(e.target.value);
+                f.clear('name');
+              }}
+              placeholder="e.g. Founders Day"
+            />
             <Input label="Emoji (optional)" value={emoji} maxLength={8} onChange={(e) => setEmoji(e.target.value)} placeholder="🎉" />
             <div className="sm:col-span-2">
               <Input label="Banner message" value={greeting} maxLength={140} onChange={(e) => setGreeting(e.target.value)} placeholder={`Happy ${name || 'festival'}!`} />
             </div>
-            <Input label="Starts" type="date" value={start} onChange={(e) => setStart(e.target.value)} />
-            <Input label="Ends" type="date" value={end} min={start} onChange={(e) => setEnd(e.target.value)} />
+            <Input
+              label="Starts"
+              type="date"
+              value={start}
+              data-field="start"
+              error={f.errors.start}
+              onChange={(e) => {
+                setStart(e.target.value);
+                f.clear('start');
+              }}
+            />
+            <Input
+              label="Ends"
+              type="date"
+              value={end}
+              min={start}
+              data-field="end"
+              error={f.errors.end}
+              onChange={(e) => {
+                setEnd(e.target.value);
+                f.clear('end');
+              }}
+            />
           </div>
         </CardContent>
       </Card>
@@ -232,7 +269,7 @@ export const FestivalSection: React.FC = () => {
         <CardHeader>
           <CardTitle>Colours and preview</CardTitle>
           <CardDescription>
-            Tweak any colour. Text colours are adjusted automatically when they would be hard to read.
+            Tweak any colour. Text stays readable.
           </CardDescription>
         </CardHeader>
         <CardContent>

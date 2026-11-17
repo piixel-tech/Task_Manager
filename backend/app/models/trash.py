@@ -5,7 +5,7 @@ from beanie import Document, PydanticObjectId
 from pydantic import Field
 from pymongo import IndexModel
 
-TrashKind = Literal["task", "subfolder", "project", "message"]
+TrashKind = Literal["task", "subfolder", "project", "message", "requirement", "activity", "office_post"]
 KEEP_DAYS = 30
 
 

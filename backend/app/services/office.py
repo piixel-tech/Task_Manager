@@ -53,6 +53,7 @@ async def post_outs(posts: list[OfficePost], viewer: User) -> list[PostOut]:
                 resolved_by=brief(people[p.resolved_by]) if p.resolved_by in people else None,
                 resolved_at=as_utc(p.resolved_at) if p.resolved_at else None,
                 can_resolve=can(viewer, "office.resolve", creator_id=p.author_id),
+                can_delete=can(viewer, "office.delete", creator_id=p.author_id),
                 created_at=as_utc(p.created_at),
             )
         )

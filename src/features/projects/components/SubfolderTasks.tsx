@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, ArrowUpRight, CalendarClock, CheckCircle2, CheckSquare, Clock, Timer } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, CalendarClock, CheckCircle2, CheckSquare, ChevronDown, Clock, Timer } from 'lucide-react';
 import { Avatar } from '../../../components/ui/Avatar';
 import { Button } from '../../../components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { FilterBar, FilterSearch } from '../../../components/ui/FilterBar';
 import { Stagger, StaggerItem } from '../../../components/ui/Stagger';
@@ -42,6 +42,13 @@ const FILTER_LABEL: Record<TaskFilter, string> = {
 };
 
 const matches = (f: TaskFilter, t: ApiTask) => f === 'all' || (f === 'overdue' ? isOverdue(t) : groupOf(t) === f);
+
+/** What an empty section says. */
+const GROUP_EMPTY: Record<Group, { title: string; description: string }> = {
+  in_progress: { title: 'Nothing in progress', description: 'Start a task’s timer and it moves here.' },
+  upcoming: { title: 'Nothing coming up', description: 'Tasks nobody has started yet show up here.' },
+  completed: { title: 'Nothing completed yet', description: 'Approved tasks are kept here.' }
+};
 
 const REFRESH_MS = 30_000;
 const COMPLETED_SHOWN = 8;
@@ -225,6 +232,8 @@ export const SubfolderTasksTab: React.FC<TabProps> = ({ data, filter, onFilter }
   const { tasks, error, spent, sessionSeconds, workersOn } = data;
   const [search, setSearch] = useState('');
   const [allCompleted, setAllCompleted] = useState(false);
+  /** Completed work is tucked into a dropdown, closed until asked for (or until the Completed filter is on). */
+  const [completedOpen, setCompletedOpen] = useState(false);
 
   const c = useMemo(() => counts(tasks ?? []), [tasks]);
   const q = search.trim().toLowerCase();
@@ -276,20 +285,39 @@ export const SubfolderTasksTab: React.FC<TabProps> = ({ data, filter, onFilter }
         <div className="space-y-5">
           {GROUPS.map((g) => {
             const all = visible.filter((t) => groupOf(t) === g.id);
-            if (all.length === 0) return null;
+            // The open-work sections stay listed when empty (unless a filter or search is on), so none seems to have gone missing.
+            if (all.length === 0 && (filter !== 'all' || q)) return null;
             const rows = g.id === 'completed' && !allCompleted ? all.slice(0, COMPLETED_SHOWN) : all;
+            const collapsed = g.id === 'completed' && !completedOpen && filter !== 'completed' && !q;
             return (
               <section key={`${g.id}-${filter}-${q}`} aria-label={g.label}>
-                <h3 className="mb-3 flex items-center gap-2 px-1 text-[13px] font-extrabold text-[var(--tm-ink)]">
-                  {g.label}
-                  <span className="rounded-full bg-[var(--tm-bg-sunken)] px-2 py-0.5 text-[11px] font-bold tabular-nums text-[var(--tm-ink-soft)]">{all.length}</span>
+                <h3 className="mb-3 px-1 text-[13px] font-extrabold text-[var(--tm-ink)]">
+                  {g.id === 'completed' ? (
+                    <button
+                      type="button"
+                      aria-expanded={!collapsed}
+                      onClick={() => setCompletedOpen(!completedOpen)}
+                      className="flex items-center gap-2 rounded-full py-0.5 pr-2 hover:text-[var(--tm-primary-dark)]"
+                    >
+                      <ChevronDown className={`h-4 w-4 transition-transform ${collapsed ? '-rotate-90' : ''}`} />
+                      {g.label} ({all.length})
+                    </button>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      {g.label}
+                      <span className="rounded-full bg-[var(--tm-bg-sunken)] px-2 py-0.5 text-[11px] font-bold tabular-nums text-[var(--tm-ink-soft)]">{all.length}</span>
+                    </span>
+                  )}
                 </h3>
+                {!collapsed && all.length === 0 && <EmptyState size="compact" className="py-4" title={GROUP_EMPTY[g.id].title} description={GROUP_EMPTY[g.id].description} />}
+                {!collapsed && (
                 <Stagger className="space-y-3" role="list">
                   {rows.map((t) => (
                     <TaskRow key={t.id} task={t} spent={spent(t)} sessionSeconds={sessionSeconds(t)} workers={workersOn(t.id)} onOpen={() => navigate(taskPath(t.id))} />
                   ))}
                 </Stagger>
-                {g.id === 'completed' && all.length > COMPLETED_SHOWN && (
+                )}
+                {g.id === 'completed' && !collapsed && all.length > COMPLETED_SHOWN && (
                   <div className="mt-3 flex justify-center">
                     <Button variant="outline" size="sm" onClick={() => setAllCompleted((v) => !v)}>
                       {allCompleted ? 'Show fewer' : `Show all ${all.length}`}
@@ -324,7 +352,10 @@ export const SubfolderTaskSummary: React.FC<{ data: SubfolderTasksData; onOpen: 
     <Card className={className}>
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="text-base font-extrabold">Tasks</CardTitle>
+          <div className="min-w-0">
+<CardTitle className="text-base font-extrabold">Tasks</CardTitle>
+<CardDescription>What is moving in this subfolder.</CardDescription>
+</div>
           <Button variant="ghost" size="sm" onClick={() => onOpen('all')} rightIcon={<ArrowUpRight className="h-4 w-4" />}>
             View all
           </Button>

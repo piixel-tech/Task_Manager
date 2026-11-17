@@ -60,7 +60,14 @@ export const notificationApi = {
   async snooze(id: string, minutes = 60): Promise<void> {
     await api.post(`/notifications/${id}/snooze`, { minutes });
   },
-  async mutes(): Promise<Record<string, string>> {
+  async remove(id: string): Promise<void> {
+    await api.delete(`/notifications/${id}`);
+  },
+  /** Clears the list: everything, or only what is already read. */
+  async clear(readOnly = false): Promise<void> {
+    await api.delete('/notifications', { params: { read_only: readOnly || undefined } });
+  },
+  async mutes():Promise<Record<string, string>> {
     return (await api.get<Record<string, string>>('/me/mutes')).data;
   },
   async setMute(key: string, duration: '8h' | '1w' | 'always' | 'off'): Promise<Record<string, string>> {

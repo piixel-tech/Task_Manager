@@ -1,3 +1,4 @@
+import { InfoTip } from '../../../components/ui/InfoTip';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, Timer } from 'lucide-react';
@@ -146,7 +147,7 @@ export const WorkingNowSection: React.FC = () => {
 
   return (
     <StaggerItem className="lg:col-span-12">
-      <DashboardCard animate={false} icon={<Timer className="h-5 w-5" />} title="Working now" to="/admin/tasks?quick=open" cta="Open tasks" className="h-full">
+      <DashboardCard animate={false} icon={<Timer className="h-5 w-5" />} title="Working now" description="Who has a timer running." info={<InfoTip topic="tasks-timer-who">Everyone with a timer running right now, and the task they are on.</InfoTip>} to="/admin/tasks?quick=open" cta="Open tasks" className="h-full">
         {error && <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>}
         {!data ? (
           !error && <WidgetSkeleton />
@@ -159,7 +160,7 @@ export const WorkingNowSection: React.FC = () => {
                   <span className="rounded-full bg-[var(--tm-primary-soft)] px-2 py-0.5 text-[11px] font-bold leading-none tracking-normal text-[var(--tm-primary-dark)]">{g.items.length}</span>
                 </h3>
                 {g.items.length === 0 ? (
-                  <WidgetEmpty>No one is working on a task right now.</WidgetEmpty>
+                  <WidgetEmpty title="Nobody is working right now">People with a running timer show up here.</WidgetEmpty>
                 ) : (
                   <ul className="divide-y divide-[var(--tm-border)]">
                     {g.items.map((i) => (

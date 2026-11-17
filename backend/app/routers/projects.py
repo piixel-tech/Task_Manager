@@ -7,6 +7,7 @@ from app.models.deliverable import DEFAULT_STAGES
 from app.models import User
 from app.models.project import Project, Subfolder
 from app.schemas.project import (
+    DeleteSummary,
     ProjectCreate,
     ProjectDetail,
     ProjectOut,
@@ -32,7 +33,7 @@ from app.services.projects import (
     unique,
     with_heads_as_members,
 )
-from app.services.trash import trash_project
+from app.services.trash import delete_summary, trash_project
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -168,6 +169,15 @@ async def update_project(
             actor=user,
         )
     return await _detail(project, user)
+
+
+@router.get("/{project_id}/delete-summary", response_model=DeleteSummary)
+async def project_delete_summary(project_id: PydanticObjectId, user: User = Depends(get_current_user)) -> DeleteSummary:
+    """What deleting this project would take with it (admins), for the confirmation."""
+    require(user, "project.delete")
+    project = await get_project_or_404(project_id)
+    subs = await subfolders_of(project.id)
+    return DeleteSummary(**await delete_summary([s.id for s in subs], project.id))
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)

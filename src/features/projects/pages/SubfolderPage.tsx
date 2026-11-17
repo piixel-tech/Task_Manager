@@ -1,8 +1,8 @@
 import { FadeIn } from '../../../components/ui/FadeIn';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Eye, Pencil } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
+import { Eye, Pencil, Trash2 } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { MuteMenu } from '../../../components/ui/MuteMenu';
 import { PageHeader } from '../../../components/ui/PageHeader';
@@ -11,6 +11,9 @@ import { EmptyState } from '../../../components/ui/EmptyState';
 import { SkeletonGrid } from '../../../components/ui/Skeleton';
 import { HeadBadge } from '../../../components/ui/HeadBadge';
 import { useAuthStore } from '../../../store/authStore';
+import { useConfirm } from '../../../hooks/useConfirm';
+import { InfoTip } from '../../../components/ui/InfoTip';
+import { confirmDeleteSubfolder } from '../deleteConfirm';
 import { projectApi, type ProjectDetail, type Subfolder } from '../../../services/http/projectApi';
 import { PersonChip } from '../components/PersonChip';
 import { SubfolderFormModal } from '../components/SubfolderFormModal';
@@ -19,9 +22,8 @@ import { VisibilityMenu } from '../components/VisibilityMenu';
 import { ChecklistTab } from '../components/ChecklistTab';
 import { DeliverablesTab } from '../components/DeliverablesTab';
 import { ChangesBox } from '../../activity/components/ChangesBox';
-import { SubfolderGoogleFiles } from '../../google/SubfolderGoogleFiles';
 import { activityApi } from '../../../services/http/activityApi';
-import { SubfolderTasksTab, SubfolderTaskSummary, useSubfolderTasks, type TaskFilter } from '../components/SubfolderTasks';
+import { SubfolderTasksTab, useSubfolderTasks, type TaskFilter } from '../components/SubfolderTasks';
 
 type Tab = 'overview' | 'tasks' | 'checklist' | 'deliverables' | 'changes';
 const TABS: Tab[] = ['overview', 'tasks', 'checklist', 'deliverables', 'changes'];
@@ -30,6 +32,7 @@ export const SubfolderPage: React.FC = () => {
   const { projectId = '', id = '' } = useParams<{ projectId: string; id: string }>();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const confirm = useConfirm();
   const prefix = user?.role === 'admin' ? '/admin' : '/app';
 
   const [subfolder, setSubfolder] = useState<Subfolder | null>(null);
@@ -90,6 +93,7 @@ export const SubfolderPage: React.FC = () => {
           <span className="flex flex-wrap items-center gap-3">
             {subfolder.name}
             <VisibilityMenu subfolder={subfolder} onChanged={setSubfolder} />
+            <InfoTip topic="sub-visibility">The eye shows who can see this subfolder: only its members, everyone in the company, or people picked to view only. Viewers can read but not change anything.</InfoTip>
             {subfolder.viewer_is_head && <HeadBadge />}
             {!subfolder.can_work && <ViewOnlyBadge />}
           </span>
@@ -111,6 +115,17 @@ export const SubfolderPage: React.FC = () => {
                 Edit subfolder
               </Button>
             )}
+            {/* Admins only; a project always keeps at least one subfolder. The confirmation lists what is inside and asks for the name. */}
+            {user?.role === 'admin' && project.subfolders.length > 1 && (
+              <Button
+                size="sm"
+                variant="danger"
+                leftIcon={<Trash2 className="h-4 w-4" />}
+                onClick={() => void confirmDeleteSubfolder(confirm, subfolder).then((ok) => ok && navigate(`${prefix}/projects/${project.id}`))}
+              >
+                Delete subfolder
+              </Button>
+            )}
           </div>
         }
       />
@@ -122,7 +137,7 @@ export const SubfolderPage: React.FC = () => {
         tabs={[
           { id: 'overview', label: 'Overview' },
           { id: 'tasks', label: 'Tasks' },
-          { id: 'checklist', label: 'Checklist' },
+          { id: 'checklist', label: 'Essentials' },
           { id: 'deliverables', label: 'Deliverables' },
           { id: 'changes', label: 'Mid-way changes', count: openChanges || undefined }
         ]}
@@ -138,7 +153,7 @@ export const SubfolderPage: React.FC = () => {
       {!subfolder.can_work && (
         <div className="flex items-center gap-2.5 rounded-[var(--tm-radius-md)] bg-[var(--tm-info-bg)] px-4 py-3 text-[13px] text-[var(--tm-info)]">
           <Eye className="h-4 w-4 shrink-0" />
-          View only. You can read this subfolder, but not add tasks, checklist items or comments.
+          View only. You can read this subfolder, but not add tasks, essentials or comments.
         </div>
       )}
 
@@ -153,7 +168,13 @@ export const SubfolderPage: React.FC = () => {
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           <Card className="min-w-0">
             <CardHeader>
-              <CardTitle className="text-base font-extrabold">Heads</CardTitle>
+              <div className="min-w-0">
+                <CardTitle className="flex items-center gap-1.5 text-base font-extrabold">
+                  Heads
+                  <InfoTip topic="sub-structure">A head looks after one subfolder: they manage its people and can approve its work. It is a job on a subfolder, not a separate kind of account.</InfoTip>
+                </CardTitle>
+                <CardDescription>They lead this subfolder and approve its work.</CardDescription>
+              </div>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-x-6 gap-y-3">
               {subfolder.heads.map((h) => (
@@ -164,7 +185,10 @@ export const SubfolderPage: React.FC = () => {
 
           <Card className="min-w-0">
             <CardHeader>
-              <CardTitle className="text-base font-extrabold">Members ({others.length})</CardTitle>
+              <div className="min-w-0">
+<CardTitle className="text-base font-extrabold">Members ({others.length})</CardTitle>
+<CardDescription>People who work in this subfolder.</CardDescription>
+</div>
             </CardHeader>
             <CardContent>
               {others.length === 0 ? (
@@ -183,7 +207,10 @@ export const SubfolderPage: React.FC = () => {
 
           <Card className="min-w-0 md:col-span-2 xl:col-span-1">
             <CardHeader>
-              <CardTitle className="text-base font-extrabold">Other subfolders</CardTitle>
+              <div className="min-w-0">
+<CardTitle className="text-base font-extrabold">Other subfolders</CardTitle>
+<CardDescription>Jump to the rest of this project.</CardDescription>
+</div>
             </CardHeader>
             <CardContent>
               {siblings.length === 0 ? (
@@ -210,16 +237,6 @@ export const SubfolderPage: React.FC = () => {
             </CardContent>
           </Card>
 
-          <SubfolderGoogleFiles subfolderId={subfolder.id} className="min-w-0 md:col-span-2 xl:col-span-3" />
-
-          <SubfolderTaskSummary
-            data={taskData}
-            className="min-w-0 md:col-span-2 xl:col-span-3"
-            onOpen={(f) => {
-              setTaskFilter(f);
-              setParams({ tab: 'tasks' }, { replace: true });
-            }}
-          />
         </div>
       )}
       </div>

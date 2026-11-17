@@ -42,6 +42,10 @@ export interface UserSettings {
   desktop_popups: boolean;
   /** Kinds of notification this person wants. Off means nothing is saved or shown for that kind. */
   notif_prefs: NotifPrefs;
+  /** Show the short lines under headings and the "i" icons. Tooltips are always on. */
+  hints: boolean;
+  /** The first-login tour this person has finished ("employee-1", "admin-1"), so it is shown once. */
+  tour: string | null;
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -54,6 +58,8 @@ export const DEFAULT_SETTINGS: UserSettings = {
   alert_volume: 70,
   alert_muted: false,
   desktop_popups: false,
+  hints: true,
+  tour: null,
   notif_prefs: { tasks: true, reviews: true, chat: true, mentions: true, office: true, bookings: true }
 };
 

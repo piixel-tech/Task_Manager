@@ -9,7 +9,7 @@ export const AssetDownloadButton: React.FC<{ asset: Asset; size?: 'sm' | 'md'; c
     size={size}
     className={className}
     label={`Download ${asset.name}`}
-    onDownload={(progress) => assetApi.open(asset, progress)}
+    onDownload={(progress) => assetApi.download(asset, progress)}
     onError={(err) => toast.error('Could not open the file', err.message)}
   />
 );

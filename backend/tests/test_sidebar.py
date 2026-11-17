@@ -37,7 +37,8 @@ async def test_a_head_manages_their_subfolder_but_not_the_project(client, team):
     assert acme["can_rename"] is False and acme["can_delete"] is False  # admin only
     assert acme["can_add_subfolder"] is True and acme["can_add_requirement"] is True  # heads of any subfolder in the project
     design = sub(acme, "Design")
-    assert design["is_head"] and all(design[k] for k in ("can_add_task", "can_add_checklist", "can_edit_deliverables", "can_chat", "can_rename", "can_delete"))
+    assert design["is_head"] and all(design[k] for k in ("can_add_task", "can_add_checklist", "can_edit_deliverables", "can_chat", "can_rename"))
+    assert design["can_delete"] is False  # only admins delete a subfolder, not even its head
     assert design["visibility"] == "hidden" and design["can_work"] is True
     assert [s["name"] for s in acme["subfolders"]] == ["Design"]  # Video is private to its own people: not in the tree
 
@@ -104,7 +105,8 @@ async def test_who_may_delete_a_subfolder(client, team):
     assert (await delete(client, team.mia, team.design)).status_code == 403  # a member
     assert (await delete(client, team.hana, team.video)).status_code == 403  # head of a different subfolder
     assert (await delete(client, team.cleo, team.design)).status_code == 403
-    assert (await delete(client, team.hana, team.design)).status_code == 204  # its own head
+    assert (await delete(client, team.hana, team.design)).status_code == 403  # even its own head: only admins delete
+    assert (await delete(client, team.admin, team.design)).status_code == 204
     assert await Subfolder.get(team.design.id) is None
     assert (await delete(client, team.admin, team.video)).status_code == 409  # the last one in the project
     assert await Subfolder.get(team.video.id) is not None
@@ -132,6 +134,20 @@ async def test_deleting_a_subfolder_takes_its_work_with_it_and_tells_the_members
 
 
 async def test_the_tree_forgets_a_deleted_subfolder(client, team):
-    await delete(client, team.hana, team.design)
+    await delete(client, team.admin, team.design)
     assert [s["name"] for s in project(await tree(client, team.admin))["subfolders"]] == ["Video"]
     assert (await client.get("/projects", headers=team.mia.headers)).json() == []  # Mia was only in Design
+
+
+async def test_the_delete_summary_counts_what_is_inside_and_is_for_admins(client, team):
+    await make_task(client, team)
+    await ChecklistItem(subfolder_id=team.design.id, text="Pick fonts", created_by=team.mia.user.id).insert()
+    await ChatGroup(name="Design chat", member_ids=[team.mia.user.id], subfolder_id=team.design.id, created_by=team.mia.user.id).insert()
+    url = f"/subfolders/{team.design.id}/delete-summary"
+    got = (await client.get(url, headers=team.admin.headers)).json()
+    assert got["tasks"] == 1 and got["checklist_items"] == 1 and got["chats"] == 1 and got["subfolders"] == 1 and got["files"] >= 0
+    assert (await client.get(url, headers=team.hana.headers)).status_code == 403  # not even its head
+    assert (await client.get(url, headers=team.mia.headers)).status_code == 403
+    project_url = f"/projects/{team.project.id}/delete-summary"
+    assert (await client.get(project_url, headers=team.admin.headers)).json()["subfolders"] == 2
+    assert (await client.get(project_url, headers=team.hana.headers)).status_code == 403

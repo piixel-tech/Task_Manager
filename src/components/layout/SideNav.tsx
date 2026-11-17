@@ -31,14 +31,14 @@ const SHORT_LABEL: Record<string, string> = {
 };
 
 /** Group order inside the rail. Anything not listed lands in "work", so no item is ever dropped. */
-const MAIN = ['Home', 'Projects', 'My Tasks', 'Task Hub', 'Chats', 'Activity', 'Calendar', 'Leave', 'Leave requests'];
+const MAIN = ['Home', 'Projects', 'My Tasks', 'Task Hub', 'Chats', 'Inbox', 'Calendar', 'Leave', 'Leave requests'];
 const WORK = ['Reviews', 'Office board'];
 const BOTTOM = ['Settings'];
 
 /** Never moved into More. */
 const PINNED = ['Home', 'Calendar'];
 /** When the rail is too short, these move into More first, in this order. Then the rest from the bottom up. */
-const MOVE_FIRST = ['Office board', 'Reviews', 'Activity'];
+const MOVE_FIRST = ['Office board', 'Reviews', 'Inbox'];
 
 const rank = (order: string[], item: NavItem) => order.indexOf(item.label);
 
@@ -195,6 +195,7 @@ const SideNavBody: React.FC<NavModel> = ({ main, more }) => {
     <>
       <nav
         ref={navRef}
+        data-tour="rail"
         aria-label="Main"
         className={`tm-sidebar fixed bottom-4 left-4 top-[88px] z-30 hidden w-[72px] flex-col items-center overflow-hidden
           rounded-full px-1.5 lg:flex ${dense ? 'gap-0.5 py-8' : 'gap-1 py-10'}`}

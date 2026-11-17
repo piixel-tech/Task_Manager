@@ -7,7 +7,7 @@ from app.models import LeaveRequest, User
 from app.models.leave_request import LeaveStatus
 from app.schemas.leave_request import LeaveReject, LeaveRequestCreate, LeaveRequestOut
 from app.schemas.project import UserBrief
-from app.services.leave_requests import admins_of, create_request, decide, outs, tell_admin
+from app.services.leave_requests import admins_of, cancel_request, create_request, decide, delete_request, outs
 from app.services.projects import brief
 
 router = APIRouter(prefix="/leave-requests", tags=["leave-requests"])
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/leave-requests", tags=["leave-requests"])
 
 async def _get_or_404(request_id: PydanticObjectId) -> LeaveRequest:
     req = await LeaveRequest.get(request_id)
-    if req is None:
+    if req is None or req.deleted_at is not None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Request not found")
     return req
 
@@ -44,24 +44,31 @@ async def my_requests(
 ) -> list[LeaveRequestOut]:
     """My own requests, newest first."""
     require(user, "leave.request")
-    query: dict = {"user_id": user.id}
+    query: dict = {"user_id": user.id, "deleted_at": None}
     if status_:
         query["status"] = status_
     return await outs(await LeaveRequest.find(query).sort("-created_at").skip(skip).limit(limit).to_list())
 
 
-@router.delete("/{request_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def cancel(request_id: PydanticObjectId, user: User = Depends(get_current_user)) -> None:
-    """Cancel my own request while it is still pending."""
+@router.post("/{request_id}/cancel", response_model=LeaveRequestOut)
+async def cancel(request_id: PydanticObjectId, user: User = Depends(get_current_user)) -> LeaveRequestOut:
+    """Cancel my own request: while it is pending, or once approved but only before its start date (the approving admin is told).
+    It stays on record with the status "cancelled"."""
     require(user, "leave.request")
     req = await _get_or_404(request_id)
     if req.user_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Request not found")  # someone else's: do not reveal it exists
-    # Only while still pending in the database, so it cannot disappear from under an admin who just decided it.
-    result = await LeaveRequest.find({"_id": req.id, "status": "pending"}).delete()
-    if not result or result.deleted_count != 1:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Only a pending request can be cancelled")
-    await tell_admin(req.admin_id, req.id, "cancelled")  # it leaves the admin's Pending list at once
+    return (await outs([await cancel_request(req, user)]))[0]
+
+
+@router.delete("/{request_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete(request_id: PydanticObjectId, user: User = Depends(get_current_user)) -> None:
+    """Delete my own request (pending, rejected or cancelled). An approved one must be cancelled first. It is kept on record."""
+    require(user, "leave.request")
+    req = await _get_or_404(request_id)
+    if req.user_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Request not found")  # someone else's: do not reveal it exists
+    await delete_request(req, user)
 
 
 # --- Admin ------------------------------------------------------------------------------------------------------
@@ -75,7 +82,7 @@ async def sent_to_me(
 ) -> list[LeaveRequestOut]:
     """Admin: the requests sent to me, newest first. Filter by status and company."""
     require(admin, "leave.review")
-    query: dict = {"admin_id": admin.id}
+    query: dict = {"admin_id": admin.id, "deleted_at": None}
     if status_:
         query["status"] = status_
     if company_id:

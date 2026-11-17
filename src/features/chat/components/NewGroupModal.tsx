@@ -4,6 +4,7 @@ import { Input } from '../../../components/ui/Input';
 import { Modal } from '../../../components/ui/Modal';
 import { Select } from '../../../components/ui/Select';
 import { useConfirm } from '../../../hooks/useConfirm';
+import { useFieldErrors } from '../../../hooks/useFieldErrors';
 import { useAuthStore } from '../../../store/authStore';
 import { chatApi, type ChatGroup } from '../../../services/http/chatApi';
 import { projectApi, type UserBrief } from '../../../services/http/projectApi';
@@ -28,6 +29,7 @@ export const NewGroupModal: React.FC<Props> = ({ isOpen, onClose, onCreated, def
   const [members, setMembers] = useState<string[]>([]);
   const [subfolderId, setSubfolderId] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const f = useFieldErrors<'name'>();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -41,7 +43,8 @@ export const NewGroupModal: React.FC<Props> = ({ isOpen, onClose, onCreated, def
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const title = name.trim();
-    if (!title) return setError('Give the group a name.');
+    if (!title) return f.fail({ name: 'Enter a group name' });
+    f.reset();
     setError(null);
     let created: ChatGroup | null = null;
     const ok = await confirm({
@@ -61,9 +64,21 @@ export const NewGroupModal: React.FC<Props> = ({ isOpen, onClose, onCreated, def
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="New group" description="You are added automatically." maxWidth="lg">
-      <form onSubmit={submit} className="space-y-4">
+      <form noValidate onSubmit={submit} className="space-y-4">
         {error && <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>}
-        <Input label="Group name" placeholder="e.g. Acme launch" maxLength={100} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+        <Input
+          label="Group name"
+          placeholder="e.g. Acme launch"
+          maxLength={100}
+          value={name}
+          data-field="name"
+          error={f.errors.name}
+          onChange={(e) => {
+            setName(e.target.value);
+            f.clear('name');
+          }}
+          autoFocus
+        />
         <div>
           <p className="mb-1.5 text-[12.5px] font-bold text-[var(--tm-ink-soft)]">Add people</p>
           <PeoplePickerList people={directory.filter((p) => p.id !== meId)} selected={members} onChange={setMembers} />

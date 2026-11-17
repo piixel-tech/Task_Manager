@@ -26,6 +26,7 @@ class TaskCreate(BaseModel):
     description: str  # required: a task without a description is rejected
     html: bool = False  # description is HTML from the rich editor
     from_message_id: PydanticObjectId | None = None  # created from this chat message
+    from_requirement_id: PydanticObjectId | None = None  # created from this project requirement: its files are copied
     assignee_id: PydanticObjectId
     start_date: str | None = None
     due_date: str | None = None

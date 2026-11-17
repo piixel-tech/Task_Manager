@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { ProgressBar } from '../../../components/ui/ProgressRing';
 import { type Deliverables } from '../../../services/http/deliverableApi';
 import { StageStepper } from '../../projects/components/DeliverablesTab';
@@ -13,7 +13,10 @@ export const DeliverablesView: React.FC<{ title: string; data: Deliverables }> =
     <Card>
       <CardHeader className="space-y-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <CardTitle className="text-base font-extrabold">{title}</CardTitle>
+          <div className="min-w-0">
+<CardTitle className="text-base font-extrabold">{title}</CardTitle>
+<CardDescription>Where each item stands.</CardDescription>
+</div>
           <span className="text-[13px] font-semibold text-[var(--tm-ink-soft)]">
             {data.done} done / {data.remaining} remaining
           </span>

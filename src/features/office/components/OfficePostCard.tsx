@@ -1,10 +1,10 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { CheckCircle2, RotateCcw } from 'lucide-react';
+import { CheckCircle2, RotateCcw, Trash2 } from 'lucide-react';
 import { Avatar } from '../../../components/ui/Avatar';
 import { PersonLink } from '../../../components/ui/PersonLink';
 import { AvatarStack } from '../../../components/ui/AvatarStack';
 import { AuthImage } from '../../../components/ui/AuthImage';
-import { Modal } from '../../../components/ui/Modal';
+import { assetApi } from '../../../services/http/taskApi';
 import { useAuthStore } from '../../../store/authStore';
 import type { OfficePost } from '../../../services/http/officeApi';
 import { REACTIONS, timeAgo } from '../officeMeta';
@@ -21,14 +21,15 @@ interface Props {
   onViewed: (id: string) => void;
   onReact: (post: OfficePost, emoji: string) => void;
   onToggleResolved: (post: OfficePost) => void;
+  /** Delete the post (shown when the viewer may: the author or an admin). */
+  onDelete?: (post: OfficePost) => void;
 }
 
 /** One notice or issue: author, text (4 lines, then "Read more"), photo, reactions, who has seen it, resolved state. */
-export const OfficePostCard: React.FC<Props> = ({ post, index = 0, onViewed, onReact, onToggleResolved }) => {
+export const OfficePostCard: React.FC<Props> = ({ post, index = 0, onViewed, onReact, onToggleResolved, onDelete }) => {
   const me = useAuthStore((s) => s.user);
   const ref = useRef<HTMLElement>(null);
   const textRef = useRef<HTMLParagraphElement>(null);
-  const [zoom, setZoom] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [clamped, setClamped] = useState(false);
   const [popover, setPopover] = useState<string | null>(null); // 'r:<emoji>' or 'seen'
@@ -115,7 +116,7 @@ export const OfficePostCard: React.FC<Props> = ({ post, index = 0, onViewed, onR
       {post.photo && (
         <button
           type="button"
-          onClick={() => setZoom(true)}
+          onClick={() => void assetApi.open(post.photo!)}
           aria-label="Enlarge photo"
           className="block h-16 w-16 overflow-hidden rounded-[12px] border border-[var(--tm-border)]"
         >
@@ -204,6 +205,17 @@ export const OfficePostCard: React.FC<Props> = ({ post, index = 0, onViewed, onR
             <span>Not seen yet</span>
           )}
         </div>
+        {post.can_delete && onDelete && (
+          <button
+            type="button"
+            aria-label="Delete post"
+            title="Delete post"
+            onClick={() => onDelete(post)}
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[var(--tm-ink-muted)] transition-colors hover:bg-[var(--tm-bg-sunken)] hover:text-[var(--tm-danger)] focus-visible:outline-none focus-visible:shadow-glow"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
         {post.can_resolve && (
           <button
             type="button"
@@ -215,12 +227,6 @@ export const OfficePostCard: React.FC<Props> = ({ post, index = 0, onViewed, onR
           </button>
         )}
       </div>
-
-      {post.photo && (
-        <Modal isOpen={zoom} onClose={() => setZoom(false)} title="Photo" maxWidth="lg">
-          <AuthImage url={post.photo.url} alt="Full-size photo" className="max-h-[70vh] w-full rounded-[var(--tm-radius-sm)] object-contain" />
-        </Modal>
-      )}
     </article>
   );
 };

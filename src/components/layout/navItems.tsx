@@ -4,7 +4,7 @@ import {
   Calendar,
   CalendarCheck,
   CalendarClock,
-  CalendarOff,
+  TreePalm,
   CheckSquare,
   ClipboardCheck,
   ClipboardList,
@@ -78,11 +78,11 @@ const TeamSource: React.FC<{ children: Render }> = ({ children }) => {
   ];
 
   const more: NavItem[] = [
-    { label: 'Activity', icon: Activity, path: `${prefix}/activity`, count: unreadNotifications },
+    { label: 'Inbox', icon: Activity, path: `${prefix}/activity`, count: unreadNotifications },
     { label: 'Calendar', icon: Calendar, path: `${prefix}/calendar` },
     isAdmin
       ? { label: 'Leave requests', icon: CalendarCheck, path: `${prefix}/leave-requests`, count: leaveInbox.pending.length }
-      : { label: 'Leave', icon: CalendarOff, path: `${prefix}/leave-requests` },
+      : { label: 'Leave', icon: TreePalm, path: `${prefix}/leave-requests` },
     { label: 'Reviews', icon: ClipboardCheck, path: `${prefix}/reviews`, count: counts.pendingSubmissions },
     { label: 'Monthly Report', icon: FileText, path: `${prefix}/reports` },
     ...(isAdmin

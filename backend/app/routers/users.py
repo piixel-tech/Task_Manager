@@ -41,12 +41,14 @@ async def directory(user: User = Depends(get_current_user)) -> list[UserBrief]:
 
 
 @router.get("/team", response_model=list[TeamMember])
-async def team(user: User = Depends(get_current_user)) -> list[TeamMember]:
+async def team(include_clients: bool = False, user: User = Depends(get_current_user)) -> list[TeamMember]:
     """Every active admin and employee of every company, except the caller, with their job title and company. No paging:
-    the whole team comes back, ordered by company then name. Open to the team, not to clients."""
+    the whole team comes back, ordered by company then name. Open to the team, not to clients. `include_clients=true` adds the
+    active clients too (for pickers that can invite anyone, like a booking's guests)."""
     if user.role == "client":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Insufficient permissions")
-    people = await User.find({"role": {"$in": ["admin", "employee"]}, "is_active": True, "_id": {"$ne": user.id}}).to_list()
+    roles = ["admin", "employee", *(["client"] if include_clients else [])]
+    people = await User.find({"role": {"$in": roles}, "is_active": True, "_id": {"$ne": user.id}}).to_list()
     names = {c.id: c.name for c in await Company.find_all().to_list()}
     rows = [
         TeamMember(

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AlertCircle, CheckSquare, Clock, TrendingUp, Users } from 'lucide-react';
 import { taskService, userService } from '../../../services';
 import type { User } from '../../../types';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { UserName } from '../../../components/ui/UserName';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { StatCard } from '../../../components/ui/StatCard';
@@ -94,7 +94,7 @@ export const WorkloadPage: React.FC = () => {
     <>
       <PageHeader
         title="Workload monitor"
-        description="Open tasks and logged hours per employee, flagging anyone well above the team average."
+        description="Open tasks and logged hours for each person."
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -135,7 +135,10 @@ export const WorkloadPage: React.FC = () => {
           <Card>
             <CardHeader>
               <div>
-                <CardTitle>Logged hours by employee</CardTitle>
+                <div className="min-w-0">
+<CardTitle>Logged hours by employee</CardTitle>
+<CardDescription>Time tracked per person.</CardDescription>
+</div>
                 <p className="mt-1 text-[13px] text-[var(--tm-ink-muted)]">
                   Overload threshold is {(avgHours * 1.5).toFixed(1)}h, or four open tasks.
                 </p>

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/Card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/Card';
 import { PillTabs } from '../../../components/ui/PillTabs';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import { useAuthStore } from '../../../store/authStore';
@@ -10,6 +10,7 @@ import { formatTimeAgo } from '../../../utils/time';
 import { threads, useActivity, useProjectPeople } from '../useActivity';
 import { Entry } from './Entry';
 import { EntryComposer } from './EntryComposer';
+import { EmptyState } from '../../../components/ui/EmptyState';
 
 type Tab = 'changes' | 'comments' | 'log';
 
@@ -53,7 +54,10 @@ export const ActivityPanel: React.FC<{ task: ApiTask }> = ({ task }) => {
   return (
     <Card id="activity">
       <CardHeader>
-        <CardTitle className="text-base font-extrabold">Activity</CardTitle>
+        <div className="min-w-0">
+<CardTitle className="text-base font-extrabold">Activity</CardTitle>
+<CardDescription>Changes, comments and history for this task.</CardDescription>
+</div>
       </CardHeader>
       <CardContent className="space-y-4">
         <PillTabs
@@ -86,7 +90,7 @@ export const ActivityPanel: React.FC<{ task: ApiTask }> = ({ task }) => {
           <>
             {list?.can_post !== false && <EntryComposer kind="comment" people={everyone} placeholder="Write a comment. Type @ to mention someone" onPost={post} />}
             {!list ? null : comments.length === 0 ? (
-              <p className="py-3 text-center text-[13px] text-[var(--tm-ink-muted)]">No comments yet.</p>
+              <EmptyState size="compact" title="No comments yet" description="Questions and updates about this task go here." />
             ) : (
               <ul className="space-y-3">{[...comments].reverse().map(renderThread)}</ul>
             )}
@@ -95,7 +99,7 @@ export const ActivityPanel: React.FC<{ task: ApiTask }> = ({ task }) => {
 
         {tab === 'log' &&
           (!list ? null : log.length === 0 ? (
-            <p className="py-3 text-center text-[13px] text-[var(--tm-ink-muted)]">Nothing has happened yet.</p>
+            <EmptyState size="compact" title="Nothing logged yet" description="Changes to this task are recorded here." />
           ) : (
             <ol className="space-y-2.5 border-l-2 border-[var(--tm-border)] pl-4">
               {log.map((e) => (

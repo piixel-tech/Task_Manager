@@ -36,7 +36,7 @@ export const InterruptionModal: React.FC<InterruptionModalProps> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={onSkip} title="Pause Task - Add Interruption Log">
-      <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+      <form noValidate onSubmit={handleSubmit} className="space-y-4 text-xs">
         <div className="bg-[var(--tm-card-muted)] p-3.5 rounded-[var(--tm-radius-sm)] border border-[var(--tm-border)]">
           <div className="text-[var(--tm-ink-muted)] font-semibold text-[10px] uppercase">Pausing Task</div>
           <div className="text-sm font-bold text-[var(--tm-ink)]">{taskTitle}</div>

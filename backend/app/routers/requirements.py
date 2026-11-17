@@ -9,7 +9,7 @@ from app.core.permissions import can, require
 from app.models import Project, Subfolder, User
 from app.models.requirement import Requirement, Version
 from app.schemas.requirement import RequirementCreate, RequirementDetail, RequirementList, RequirementUpdate
-from app.services.checklist import delete_files
+from app.services.trash import trash_requirement
 from app.services.projects import get_project_or_404, subfolders_of, unique
 from app.services.requirements import (
     requirement_detail,
@@ -139,14 +139,10 @@ async def edit_requirement(requirement_id: PydanticObjectId, body: RequirementUp
 
 @router.delete("/requirements/{requirement_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_requirement(requirement_id: PydanticObjectId, user: User = Depends(get_current_user)) -> None:
-    """Admin only. Removes the requirement, its history and every file ever attached to it."""
-    require(user, "requirement.delete")
+    """An admin deletes any requirement; employees and heads only their own. It goes to the Trash (an admin can restore it for 30 days)."""
     req = await _get_or_404(requirement_id)
-    project = await get_project_or_404(req.project_id)
-    siblings = await subfolders_of(project.id)
-    files = unique([*req.attachment_ids, *(a for v in req.history for a in v.attachment_ids)])
-    await req.delete()
-    await delete_files(files)
+    project, siblings = await _project_ctx(req.project_id, user, "requirement.delete", creator_id=req.created_by)
+    await trash_requirement(req, user)
     await tell_watchers(
         project, siblings, user, type="requirement_deleted", title=f"Requirement deleted: {req.title}",
         body=f"{user.name} deleted it from {project.name}.", extra=[req.created_by],

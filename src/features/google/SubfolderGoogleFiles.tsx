@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Eye, ExternalLink, X } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
 import { useConfirm } from '../../hooks/useConfirm';
 import { subfolderFileApi, type SubfolderFiles } from '../../services/http/googleApi';
 import type { Asset } from '../../services/http/taskApi';
@@ -47,7 +47,10 @@ export const SubfolderGoogleFiles: React.FC<{ subfolderId: string; className?: s
     <Card className={className}>
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <CardTitle className="text-base font-extrabold">Google files{data ? ` (${data.files.length})` : ''}</CardTitle>
+          <div className="min-w-0">
+<CardTitle className="text-base font-extrabold">Google files{data ? ` (${data.files.length})` : ''}</CardTitle>
+<CardDescription>Docs, Sheets and Drive files linked here.</CardDescription>
+</div>
           {data?.can_write && (
             <div className="flex flex-wrap items-center gap-2">
               <AttachMenu onAdded={add} label="Add Google file" />

@@ -61,7 +61,7 @@ export const ChangePasswordPage: React.FC = () => {
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md px-4">
         <Card className="border-[var(--tm-border)]">
           <CardContent className="p-8">
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form noValidate onSubmit={handleSubmit} className="space-y-4">
               {(validationError || error) && (
                 <div className="tm-error px-4 py-3 text-xs font-semibold">
                   {validationError || error}

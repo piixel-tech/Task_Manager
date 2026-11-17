@@ -28,8 +28,9 @@ const remember = (key: string, value: string) => {
 };
 
 /** The page is always light; this sets the colour theme and the compact or comfortable spacing. */
-export function applyAppearance(s: Pick<UserSettings, 'density'> & { palette?: UserSettings['palette'] }): void {
+export function applyAppearance(s: Pick<UserSettings, 'density'> & { palette?: UserSettings['palette']; hints?: boolean }): void {
   const root = document.documentElement;
+  root.setAttribute('data-hints', s.hints === false ? 'off' : 'on'); // off hides every [data-hint] line and "i" icon
   root.setAttribute('data-mode', 'light');
   // A live festival theme takes over unless this browser switched back to the person's own theme.
   root.setAttribute('data-theme', isFestivalApplied(useFestivalStore.getState()) ? 'festival' : themeAttr(isAvailablePalette(s.palette ?? 'purple') ? (s.palette ?? 'purple') : 'purple'));

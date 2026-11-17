@@ -8,6 +8,10 @@ export interface ConfirmOptions {
   danger?: boolean;
   /** Submits, requests, bookings and invites: the confirm button is the Send button (plane, "Sent!", "Failed · Retry"). */
   send?: boolean;
+  /** What the action takes with it, one line each ("3 tasks"): listed under the message. */
+  details?: string[];
+  /** The person must type this (e.g. a project's name) before the confirm button works. */
+  requireText?: string;
   /** Runs when the user confirms. Throw to keep the dialog open and show the error. */
   action: () => Promise<unknown>;
   /** Success toast shown once `action` resolves. */

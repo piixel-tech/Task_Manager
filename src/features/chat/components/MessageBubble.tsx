@@ -5,7 +5,6 @@ import { useAuthStore } from '../../../store/authStore';
 import { Avatar } from '../../../components/ui/Avatar';
 import { PersonLink } from '../../../components/ui/PersonLink';
 import { AuthImage } from '../../../components/ui/AuthImage';
-import { Modal } from '../../../components/ui/Modal';
 import { RichText } from '../../../components/editor/RichText';
 import { focusEndLabel, useFocusOf } from '../../../store/useFocusStore';
 import { assetApi } from '../../../services/http/taskApi';
@@ -49,7 +48,6 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
   // Only clients answer approvals; everyone else just watches the status change.
   const isClient = group.members.find((u) => u.id === meId)?.role === 'client';
   const [menu, setMenu] = useState(false);
-  const [zoom, setZoom] = useState(false);
   const status = statusOf(m, group);
   const nameOf = (id: string) => (id === meId ? 'You' : (group.members.find((u) => u.id === id)?.name ?? 'Former member'));
 
@@ -115,7 +113,7 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
               )}
 
               {m.type === 'image' && m.file && (
-                <button type="button" onClick={() => setZoom(true)} aria-label="Open photo" className="mb-1 block overflow-hidden rounded-[var(--tm-radius-md)]">
+                <button type="button" onClick={open} aria-label="Open photo" className="mb-1 block overflow-hidden rounded-[var(--tm-radius-md)]">
                   <AuthImage url={m.file.url} alt={m.body || 'Photo'} className="max-h-72 w-full max-w-xs object-cover" />
                 </button>
               )}
@@ -129,13 +127,15 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
                 <div className="mb-1 flex w-full max-w-xs items-stretch gap-1.5">
                   {!m.file.drive ? (
                     <div className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[var(--tm-radius-sm)] py-1">
-                      <FileText className="h-5 w-5 shrink-0 text-[var(--tm-ink-soft)]" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px] font-bold">{m.file.name}</span>
-                        <span className="text-[11px] text-[var(--tm-ink-muted)]">
-                          {(m.file.size / 1024).toFixed(m.file.size > 1024 * 100 ? 0 : 1)} KB
+                      <button type="button" onClick={open} aria-label={`Preview ${m.file.name}`} className="flex min-w-0 flex-1 items-center gap-2.5 text-left hover:opacity-80">
+                        <FileText className="h-5 w-5 shrink-0 text-[var(--tm-ink-soft)]" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[13px] font-bold">{m.file.name}</span>
+                          <span className="text-[11px] text-[var(--tm-ink-muted)]">
+                            {(m.file.size / 1024).toFixed(m.file.size > 1024 * 100 ? 0 : 1)} KB
+                          </span>
                         </span>
-                      </span>
+                      </button>
                       <AssetDownloadButton asset={m.file} size="md" />
                     </div>
                   ) : (
@@ -268,11 +268,6 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
 
       {m.type === 'file' && m.file?.drive && <DriveFileViewer file={previewDrive ? m.file : null} onClose={() => setPreviewDrive(false)} />}
 
-      {m.type === 'image' && m.file && (
-        <Modal isOpen={zoom} onClose={() => setZoom(false)} title={m.body || 'Photo'} maxWidth="2xl">
-          <AuthImage url={m.file.url} alt={m.body || 'Photo'} className="max-h-[70vh] w-full rounded-[var(--tm-radius-md)] object-contain" />
-        </Modal>
-      )}
     </div>
   );
 };

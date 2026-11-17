@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Check, Sparkles } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { create } from 'zustand';
 import type { Task } from '../../../types';
 import { useMotionPrefs } from '../../../components/ui/useMotionPrefs';
@@ -374,11 +374,7 @@ export const TaskCompletionCelebration: React.FC = () => {
               transition={{ type: 'spring', stiffness: 400, damping: 15 }}
               className="grid h-16 w-16 place-items-center rounded-[var(--tm-radius-md)] bg-[var(--tm-success)] text-[var(--tm-on-primary)] shadow-soft-lg mb-4"
             >
-              {reduced ? (
-                <Check className="h-9 w-9 stroke-[3]" />
-              ) : (
-                <Sparkles className="h-9 w-9" />
-              )}
+              <Check className="h-9 w-9 stroke-[3]" />
             </motion.div>
             <h2 className="text-2xl font-black text-[var(--tm-ink)]">
               Project complete 🎉

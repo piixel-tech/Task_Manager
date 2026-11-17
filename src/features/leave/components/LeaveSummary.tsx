@@ -52,6 +52,7 @@ export const LeaveSummary: React.FC<{
   return (
     <aside aria-label="Your request" className="h-fit rounded-[var(--tm-radius-card)] border border-[var(--tm-border)]/60 bg-[var(--tm-card)] p-5 shadow-soft-xs ">
       <h3 className="text-[16px] font-bold text-[var(--tm-ink)]">Your request</h3>
+      <p data-hint className="mt-0.5 text-[13px] text-[var(--tm-ink-muted)]">Check your dates, then send it.</p>
 
       <div className="mt-3 rounded-2xl bg-[var(--tm-solid)] p-4 text-[var(--tm-solid-ink)]">
         <div className="flex items-center justify-between text-[10.5px] font-semibold uppercase tracking-[0.1em] opacity-70">
@@ -75,7 +76,7 @@ export const LeaveSummary: React.FC<{
         </p>
       )}
 
-      <form onSubmit={f.submit} className="mt-4 space-y-4">
+      <form noValidate onSubmit={f.submit} className="mt-4 space-y-4">
         <Segmented
           label="Type"
           value={f.type}

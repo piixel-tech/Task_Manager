@@ -4,6 +4,7 @@ import { AlertTriangle, Check, ChevronDown, GripVertical, Layers, ListOrdered, P
 import { Card, CardContent, CardHeader } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
+import { InfoTip } from '../../../components/ui/InfoTip';
 import { Modal } from '../../../components/ui/Modal';
 import { Select } from '../../../components/ui/Select';
 import { ProgressBar } from '../../../components/ui/ProgressRing';
@@ -338,6 +339,13 @@ export const DeliverablesTab: React.FC<{ subfolderId: string }> = ({ subfolderId
 
   return (
     <div className="space-y-5">
+      <div>
+        <h2 className="flex items-center gap-1.5 text-[20px] font-extrabold leading-tight text-[var(--tm-ink)]">
+          Deliverables
+          <InfoTip topic="sub-deliverables">The things this subfolder must produce each month, like reels or posts. Each one moves through stages until it is done.</InfoTip>
+        </h2>
+        <p data-hint className="mt-1 text-[13px] text-[var(--tm-ink-muted)]">Each month's counts and where every item stands.</p>
+      </div>
       {/* Composer: month, and (heads and admins) the buttons that add or set items */}
       <ComposerCard>
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -771,7 +779,7 @@ const AddItemsModal: React.FC<{
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`Add deliverables for ${month}`} maxWidth="md">
-      <form onSubmit={submit} className="space-y-4">
+      <form noValidate onSubmit={submit} className="space-y-4">
         {error && <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>}
         <div className="grid grid-cols-[1fr_110px] gap-3">
           <Input
@@ -910,7 +918,7 @@ const CountsModal: React.FC<{
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`Deliverables for ${month}`} maxWidth="lg">
-      <form onSubmit={submit} className="space-y-4">
+      <form noValidate onSubmit={submit} className="space-y-4">
         {error && <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>}
         <p className="text-[12.5px] text-[var(--tm-ink-muted)]">
           Lowering a count removes the highest numbers, but only ones still in Writing. To delete a single item or a whole type, use the bin

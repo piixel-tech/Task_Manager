@@ -10,6 +10,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { activityApi, type ActivityInput } from '../../../services/http/activityApi';
 import { threads, useActivity, useProjectPeople } from '../useActivity';
 import { Entry } from './Entry';
+import { InfoTip } from '../../../components/ui/InfoTip';
 import { EntryComposer } from './EntryComposer';
 
 interface Props {
@@ -49,6 +50,13 @@ export const ChangesBox: React.FC<Props> = ({ subfolderId, projectId, onCount })
 
   return (
     <div className="space-y-5">
+      <div>
+        <h2 className="flex items-center gap-1.5 text-[20px] font-extrabold leading-tight text-[var(--tm-ink)]">
+          Mid-way changes
+          <InfoTip topic="tasks-activity">Ask for a change while work is still going on. The people involved are told, and tick it off when it is done.</InfoTip>
+        </h2>
+        <p data-hint className="mt-1 text-[13px] text-[var(--tm-ink-muted)]">Change requests that affect the whole subfolder.</p>
+      </div>
       {/* Composer first, so posting is the obvious thing to do */}
       {list?.can_post === false ? (
         <p className="rounded-[var(--tm-radius-md)] bg-[var(--tm-bg-sunken)] px-4 py-3 text-[13px] text-[var(--tm-ink-soft)]">View only: you can read the changes but not post one.</p>
@@ -69,7 +77,7 @@ export const ChangesBox: React.FC<Props> = ({ subfolderId, projectId, onCount })
             onChange={(id) => setShowResolved(id === 'all')}
             tabs={[
               { id: 'all', label: 'All', count: all.length },
-              { id: 'open', label: 'Open', count: all.filter((t) => !t.entry.resolved).length }
+              { id: 'open', label: 'Undone', count: all.filter((t) => !t.entry.resolved).length }
             ]}
           />
         </FilterBar>

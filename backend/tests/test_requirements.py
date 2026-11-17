@@ -38,7 +38,7 @@ async def test_the_client_admin_and_any_head_in_the_project_can_add(client, team
         body = r.json()
         assert body["author_badge"] == badge and body["author"]["id"] == who.id and body["title"] == f"By {badge}"
         assert body["version_count"] == 1 and body["edited"] is False and len(body["versions"]) == 1 and body["versions"][0]["current"] is True
-        assert body["can_edit"] is True and body["can_delete"] is (badge == "admin")  # only admins delete
+        assert body["can_edit"] is True and body["can_delete"] is (badge != "client")  # admins and staff authors delete; a client cannot
 
 
 async def test_other_people_cannot_add(client, team, make_user):
@@ -213,25 +213,37 @@ async def test_a_client_removed_from_the_project_loses_access(client, team):
 
 
 # --- Deleting ------------------------------------------------------------------------------------------------------------
-async def test_only_an_admin_deletes_and_it_takes_every_file_with_it(client, team):
+async def test_admins_delete_any_requirement_and_staff_only_their_own_and_it_waits_in_the_trash(client, team):
+    from app.models import TrashItem
+
     await put_client_on_project(team)
     a = await upload(client, team.cleo, "old.pdf", b"%PDF")
     b = await upload(client, team.cleo, "new.pdf", b"%PDF")
     req = await made(client, team.cleo, team, title="Doomed", attachment_ids=[a["id"]])
     await client.patch(f"/requirements/{req['id']}", json={"attachment_ids": [b["id"]]}, headers=team.cleo.headers)
     one = f"/requirements/{req['id']}"
-    for who in (team.cleo, team.hana, team.vic, team.mia):  # not even the author, not heads
+    for who in (team.cleo, team.hana, team.vic, team.mia):  # not the client author, not heads or members who did not write it
         assert (await client.delete(one, headers=who.headers)).status_code == 403, who
     assert (await client.delete(one)).status_code == 401
     assert await Requirement.find_all().count() == 1 and await File.find_all().count() == 2
 
+    mine = await made(client, team.hana, team, title="Hana own")  # a head deletes their own
+    assert (await client.delete(f"/requirements/{mine['id']}", headers=team.vic.headers)).status_code == 403
+    assert (await client.delete(f"/requirements/{mine['id']}", headers=team.hana.headers)).status_code == 204
+
     await Notification.find_all().delete()
-    assert (await client.delete(one, headers=team.admin.headers)).status_code == 204
-    assert await Requirement.find_all().count() == 0 and await File.find_all().count() == 0  # current and historical files
+    assert (await client.delete(one, headers=team.admin.headers)).status_code == 204  # an admin deletes any
+    assert await Requirement.find_all().count() == 0
+    assert await File.find_all().count() == 2  # soft delete: the files stay until the trash is purged
+    trashed = await TrashItem.find(TrashItem.kind == "requirement", TrashItem.title == "Doomed").to_list()
+    assert len(trashed) == 1
     notes = await Notification.find(Notification.type == "requirement_deleted").to_list()
     assert {n.user_id for n in notes} == {team.hana.user.id, team.vic.user.id, team.cleo.user.id}  # heads and the author; the admin did it
     assert (await client.delete(one, headers=team.admin.headers)).status_code == 404
     assert (await client.get(one, headers=team.admin.headers)).status_code == 404
+
+    assert (await client.post(f"/trash/{trashed[0].id}/restore", headers=team.admin.headers)).json() == {"restored": "requirement"}
+    assert (await client.get(one, headers=team.admin.headers)).status_code == 200
 
 
 async def test_deleting_a_project_removes_its_requirements_and_files(client, team):
@@ -239,4 +251,23 @@ async def test_deleting_a_project_removes_its_requirements_and_files(client, tea
     f = await upload(client, team.cleo, "spec.pdf", b"%PDF")
     await made(client, team.cleo, team, attachment_ids=[f["id"]])
     assert (await client.delete(f"/projects/{team.project.id}", headers=team.admin.headers)).status_code == 204
-    assert await Requirement.find_all().count() == 0 and await File.find_all().count() == 0
+    assert await Requirement.find_all().count() == 0  # it waits in the Trash with the project; its files stay until it is purged
+    assert await File.find_all().count() == 1
+
+
+async def test_a_task_made_from_a_requirement_gets_its_own_copies_of_the_files(client, team):
+    await put_client_on_project(team)
+    f = await upload(client, team.cleo)
+    req = await made(client, team.cleo, team, title="Logo files", attachment_ids=[f["id"]])
+    body = {
+        "subfolder_id": str(team.design.id),
+        "title": "Prepare logo",
+        "description": "From the client",
+        "assignee_id": team.hana.id,
+        "from_requirement_id": req["id"],
+    }
+    r = await client.post("/tasks", json=body, headers=team.hana.headers)
+    assert r.status_code == 201, r.text
+    assets = r.json()["assets"]
+    assert len(assets) == 1 and assets[0]["id"] != f["id"] and assets[0]["name"] == f["name"]
+    assert (await client.post("/tasks", json={**body, "from_requirement_id": "0" * 24}, headers=team.hana.headers)).status_code == 404

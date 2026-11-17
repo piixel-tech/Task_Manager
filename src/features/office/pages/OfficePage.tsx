@@ -96,7 +96,7 @@ export const OfficePage: React.FC = () => {
     }
   };
 
-  const { onViewed, react, toggleResolved } = useOfficePostActions(setItems, load);
+  const { onViewed, react, toggleResolved, remove } = useOfficePostActions(setItems, load);
   const filtered = status !== 'open' || q.trim() !== '';
 
   return (
@@ -113,7 +113,7 @@ export const OfficePage: React.FC = () => {
           </button>
           <div className="min-w-0">
             <h1 className="text-[24px] font-bold leading-tight tracking-[-0.01em] text-[var(--tm-ink)]">Office board</h1>
-            <p className="text-[13px] text-[var(--tm-ink-muted)]">Issues and notices for the whole office. Anything solved stays here as history.</p>
+            <p data-hint className="text-[13px] text-[var(--tm-ink-muted)]">Issues and notices for the whole office.</p>
           </div>
         </div>
 
@@ -161,7 +161,7 @@ export const OfficePage: React.FC = () => {
             <FadeIn>
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
                 {items.map((p, i) => (
-                  <PinNote key={p.id} post={p} index={i} onViewed={onViewed} onReact={react} onToggleResolved={toggleResolved} />
+                  <PinNote key={p.id} post={p} index={i} onViewed={onViewed} onReact={react} onToggleResolved={toggleResolved} onDelete={remove} />
                 ))}
                 <button
                   type="button"
@@ -188,8 +188,9 @@ export const OfficePage: React.FC = () => {
             Solved · history
             <span className="rounded-full bg-[var(--tm-success-bg)] px-2.5 py-0.5 text-[12px] font-semibold tabular-nums text-[var(--tm-success)]">{counts?.resolved ?? 0}</span>
           </h2>
+          <p data-hint className="mt-0.5 text-[13px] text-[var(--tm-ink-muted)]">Fixed issues, kept for reference.</p>
           {history.length === 0 ? (
-            <p className="mt-3 text-[13px] text-[var(--tm-ink-muted)]">Nothing solved yet.</p>
+            <EmptyState size="compact" className="mt-3" title="Nothing solved yet" description="Issues marked solved are kept here." />
           ) : (
             <ul className="mt-3 space-y-3">
               {history.map((p) => (

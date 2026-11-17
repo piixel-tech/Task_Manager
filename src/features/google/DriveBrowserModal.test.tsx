@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { DriveBrowserModal } from './DriveBrowserModal';
 import { AttachMenu } from './AttachMenu';
 import { googleApi, type DriveItem } from '../../services/http/googleApi';
+import { assetApi } from '../../services/http/taskApi';
 import { useAuthStore } from '../../store/authStore';
 import type { User } from '../../types';
 
@@ -10,6 +11,11 @@ vi.mock('../../services/http/googleApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../services/http/googleApi')>()),
   googleApi: { browse: vi.fn(), attachDrive: vi.fn(), createFile: vi.fn() }
 }));
+
+vi.mock('../../services/http/taskApi', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../services/http/taskApi')>();
+  return { ...actual, assetApi: { ...actual.assetApi, addLink: vi.fn() } };
+});
 
 const item = (over: Partial<DriveItem>): DriveItem => ({
   id: 'f1',
@@ -117,8 +123,9 @@ describe('AttachMenu', () => {
     render(<AttachMenu onUpload={() => {}} onAdded={() => {}} />);
     fireEvent.click(screen.getByRole('button', { name: /Attach/ }));
     expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual([
-      'Upload from device',
-      'Google Drive',
+      'Upload',
+      'Paste link',
+      'Google Drive file',
       'Google Doc',
       'Google Sheet',
       'New Google Doc',
@@ -148,10 +155,25 @@ describe('AttachMenu', () => {
     expect(googleApi.createFile).toHaveBeenCalledWith('document', 'Plan');
   });
 
-  it('gives clients only the upload, with no Google entries', () => {
+  it('gives clients only the upload and Paste link, with no Google entries', () => {
     as('client');
     render(<AttachMenu onUpload={() => {}} onAdded={() => {}} />);
-    expect(screen.queryByRole('menuitem')).toBeNull();
-    expect(screen.getByRole('button', { name: /Attach/ }).getAttribute('aria-haspopup')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Attach/ }));
+    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Upload', 'Paste link']);
+  });
+
+  it('adds a pasted link from inside the menu', async () => {
+    as('employee');
+    const link = { id: 'asset-link', name: 'Brief' };
+    vi.mocked(assetApi.addLink).mockResolvedValue(link as never);
+    const added = vi.fn();
+    render(<AttachMenu onUpload={() => {}} onAdded={added} />);
+    fireEvent.click(screen.getByRole('button', { name: /Attach/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Paste link' }));
+    fireEvent.change(screen.getByLabelText('URL'), { target: { value: 'example.com/brief' } });
+    fireEvent.change(screen.getByLabelText('Title (optional)'), { target: { value: 'Brief' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add link' }));
+    await waitFor(() => expect(added).toHaveBeenCalledWith([link]));
+    expect(assetApi.addLink).toHaveBeenCalledWith('Brief', 'https://example.com/brief');
   });
 });

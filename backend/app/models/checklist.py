@@ -10,6 +10,7 @@ class ChecklistItem(Document):
     text: str
     attachment_ids: list[PydanticObjectId] = Field(default_factory=list)  # files and links from the file service
     created_by: PydanticObjectId
+    pinned: bool = False  # shown in Quick access
     updated_at: datetime | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

@@ -249,7 +249,8 @@ async def test_a_deleted_subfolder_returns_with_its_work(client, team):
     chat = await ChatGroup(name="Design chat", member_ids=[team.mia.user.id], subfolder_id=team.design.id, created_by=team.mia.user.id).insert()
     await client.post(f"/subfolders/{team.design.id}/changes", json={"kind": "change_request", "body": "<p>Rethink</p>"}, headers=team.max.headers)
 
-    assert (await client.delete(f"/subfolders/{team.design.id}", headers=team.hana.headers)).status_code == 204
+    assert (await client.delete(f"/subfolders/{team.design.id}", headers=team.hana.headers)).status_code == 403  # a head can no longer delete it
+    assert (await client.delete(f"/subfolders/{team.design.id}", headers=team.admin.headers)).status_code == 204
     assert await Subfolder.get(team.design.id) is None and await ChecklistItem.find_all().count() == 0
     assert (await Requirement.get(req.id)).subfolder_id is None
 

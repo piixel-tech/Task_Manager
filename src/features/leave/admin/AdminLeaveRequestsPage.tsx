@@ -9,11 +9,13 @@ import { leaveApi, type LeaveRequest, type LeaveStatus } from '../../../services
 import { socket } from '../../../services/socket';
 import { useLeaveInbox } from '../../../store/useLeaveInboxStore';
 import { LeaveReviewList } from './LeaveReviewList';
+import { EmptyState } from '../../../components/ui/EmptyState';
 
 const EMPTY: Record<LeaveStatus, string> = {
   pending: 'No requests are waiting for you.',
   approved: 'You have not approved any requests yet.',
-  rejected: 'You have not rejected any requests.'
+  rejected: 'You have not rejected any requests.',
+  cancelled: 'No requests were cancelled.'
 };
 
 /** Admin: the requests sent to me, in tabs (Pending / Approved / Rejected), filterable by company. */
@@ -85,7 +87,7 @@ export const AdminLeaveRequestsPage: React.FC = () => {
             {requests === null ? (
               !error && <p className="py-6 text-[13px] text-[var(--tm-ink-muted)]">Loading…</p>
             ) : requests.length === 0 ? (
-              <p className="my-4 rounded-[var(--tm-radius-md)] bg-[var(--tm-card-muted)] p-4 text-[13px] font-semibold text-[var(--tm-ink-muted)]">{EMPTY[tab]}</p>
+              <EmptyState size="compact" className="my-4" title={`No ${tab} requests`} description={EMPTY[tab]} />
             ) : (
               <LeaveReviewList requests={requests} onChanged={changed} />
             )}

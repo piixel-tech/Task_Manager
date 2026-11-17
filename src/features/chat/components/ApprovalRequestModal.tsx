@@ -73,7 +73,7 @@ export const ApprovalRequestModal: React.FC<Props> = ({ group, onClose }) => {
 
   return (
     <Modal isOpen onClose={close} title="Request client approval" description={`In “${group.name}”`} maxWidth="lg">
-      <form onSubmit={submit} className="space-y-4">
+      <form noValidate onSubmit={submit} className="space-y-4">
         {clients.length === 0 && (
           <div className="tm-warn px-4 py-3 text-xs font-semibold">
             No client has joined this group yet. Create an invite link in Group info first.

@@ -151,6 +151,22 @@
 }
 
 /* ==========================================================================
+   Hints: the short lines under headings and the "i" icons go when Settings > Appearance > Show hints is off
+   (tooltips are separate and stay)
+   ========================================================================== */
+html[data-hints='off'] [data-hint] {
+  display: none !important;
+}
+
+/* ==========================================================================
+   Fields our form validation has flagged: red border and ring, any panel, any theme
+   ========================================================================== */
+[data-invalid='true'] {
+  border-color: var(--tm-danger) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tm-danger) 18%, transparent);
+}
+
+/* ==========================================================================
    Micro-animations — message pop-in, hover lift, press
    ========================================================================== */
 @keyframes tm-msg-in {

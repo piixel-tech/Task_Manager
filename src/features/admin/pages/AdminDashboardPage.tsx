@@ -93,7 +93,7 @@ export const AdminDashboardPage: React.FC = () => {
     <>
       <PageHeader
         title={`${greeting}, ${displayName}`}
-        description="Who is in today, who is working now, workspace stats and project gauges."
+        description="Today’s team, live work and project health."
         actions={
           <>
             <Button
@@ -215,9 +215,12 @@ export const AdminDashboardPage: React.FC = () => {
         {/* Initiatives / Projects */}
         <StaggerItem className="lg:col-span-12">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[22px] font-extrabold tracking-[-0.025em] text-[var(--tm-ink)]">
-              Active Projects
-            </h2>
+            <div>
+              <h2 className="text-[22px] font-extrabold tracking-[-0.025em] text-[var(--tm-ink)]">
+                Active Projects
+              </h2>
+              <p data-hint className="mt-0.5 text-[13px] text-[var(--tm-ink-muted)]">Every project that is currently running.</p>
+            </div>
             <CornerButton label="View all projects" onClick={() => navigate('/admin/projects')} />
           </div>
 

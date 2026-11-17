@@ -67,6 +67,25 @@ async def snooze(notification_id: PydanticObjectId, body: Snooze, user: User = D
     return MarkReadResult(updated=1)
 
 
+@router.delete("/{notification_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_notification(notification_id: PydanticObjectId, user: User = Depends(get_current_user)) -> None:
+    """Remove one of your own notifications."""
+    doc = await Notification.find_one({"_id": notification_id, "user_id": user.id})
+    if doc is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Notification not found")
+    await doc.delete()
+
+
+@router.delete("", response_model=MarkReadResult)
+async def clear_notifications(read_only: bool = False, user: User = Depends(get_current_user)) -> MarkReadResult:
+    """Remove all of your notifications, or only the ones you have already read."""
+    query = Notification.find(Notification.user_id == user.id)
+    if read_only:
+        query = query.find(Notification.read == True)  # noqa: E712
+    result = await query.delete()
+    return MarkReadResult(updated=result.deleted_count if result else 0)
+
+
 if settings.ENVIRONMENT == "development":
 
     @router.post("/test", response_model=NotificationOut, status_code=status.HTTP_201_CREATED)

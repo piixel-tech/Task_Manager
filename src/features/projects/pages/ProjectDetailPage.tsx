@@ -16,6 +16,8 @@ import { fetchCompanies } from '../../../services/http/mappers';
 import { projectApi, type ProjectDetail } from '../../../services/http/projectApi';
 import { PillTabs } from '../../../components/ui/PillTabs';
 import { RequirementsPanel } from '../../requirements/components/RequirementsPanel';
+import { confirmDeleteProject } from '../deleteConfirm';
+import { requirementApi } from '../../../services/http/requirementApi';
 import { PersonChip } from '../components/PersonChip';
 import { ProjectFormModal } from '../components/ProjectFormModal';
 import { SubfolderFormModal } from '../components/SubfolderFormModal';
@@ -36,6 +38,7 @@ export const ProjectDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [addingSubfolder, setAddingSubfolder] = useState(false);
+  const [requirementCount, setRequirementCount] = useState<number | undefined>();
 
   const load = useCallback(async () => {
     try {
@@ -55,6 +58,11 @@ export const ProjectDetailPage: React.FC = () => {
     load();
   }, [load]);
 
+  // The count on the Requirements tab.
+  useEffect(() => {
+    requirementApi.list(id, { limit: 1 }).then((r) => setRequirementCount(r.total)).catch(() => setRequirementCount(undefined));
+  }, [id, tab]);
+
   if (loading) return <SkeletonGrid count={3} />;
   if (!project) {
     return (
@@ -67,15 +75,7 @@ export const ProjectDetailPage: React.FC = () => {
     );
   }
 
-  const deleteProject = () =>
-    confirm({
-      title: `Delete ${project.name}?`,
-      message: 'Its subfolders are deleted too, and everyone on it is notified. This cannot be undone.',
-      confirmLabel: 'Delete project',
-      danger: true,
-      action: () => projectApi.remove(project.id),
-      successTitle: 'Project deleted'
-    }).then((ok) => ok && navigate(`${prefix}/projects`));
+  const deleteProject = () => confirmDeleteProject(confirm, project).then((ok) => ok && navigate(`${prefix}/projects`));
 
   const editableCount = project.subfolders.filter((s) => s.can_edit).length;
 
@@ -131,7 +131,7 @@ export const ProjectDetailPage: React.FC = () => {
         onChange={(t) => setParams(t === 'requirements' ? { tab: 'requirements' } : {}, { replace: true })}
         tabs={[
           { id: 'subfolders', label: 'Subfolders', count: project.subfolders.length },
-          { id: 'requirements', label: 'Requirements' }
+          { id: 'requirements', label: 'Requirements', count: requirementCount }
         ]}
       />
       </div>
@@ -150,7 +150,10 @@ export const ProjectDetailPage: React.FC = () => {
       )}
 
       <div>
-        <h2 className="mb-5 text-[20px] font-bold text-[var(--tm-ink)]">Folders</h2>
+        <div className="mb-5">
+          <h2 className="text-[20px] font-bold text-[var(--tm-ink)]">Folders</h2>
+          <p data-hint className="mt-0.5 text-[13px] text-[var(--tm-ink-muted)]">The subfolders of this project.</p>
+        </div>
         <div className="grid grid-cols-2 gap-6 md:grid-cols-3 xl:grid-cols-4">
           {project.subfolders.map((s) => (
             <FolderCard

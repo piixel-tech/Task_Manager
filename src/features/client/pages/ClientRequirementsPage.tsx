@@ -28,7 +28,7 @@ export const ClientRequirementsPage: React.FC = () => {
 
   return (
     <>
-      <PageHeader title="Requirements" description="A running record of what you have asked for. Add to it any time; the team sees it straight away." />
+      <PageHeader title="Requirements" description="Tell the team what you need. They see it straight away." />
       {error && <div className="tm-error px-4 py-3 text-xs font-semibold">{error}</div>}
       {!projects ? (
         error ? null : <SkeletonGrid count={2} />

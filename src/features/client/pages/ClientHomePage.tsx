@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, CalendarClock, ClipboardList, Layers, MessageSquare, PartyPopper, ShieldQuestion, Sparkles } from 'lucide-react';
+import { ArrowRight, CalendarClock, ClipboardList, Layers, LayoutDashboard, MessageSquare, PartyPopper, ShieldQuestion } from 'lucide-react';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Stagger } from '../../../components/ui/Stagger';
 import { DashboardCard, RowLink, WidgetEmpty, WidgetSkeleton, dayOf, timeOf } from '../../dashboard/widgets/DashboardCard';
@@ -70,7 +70,7 @@ export const ClientHomePage: React.FC = () => {
             className="lg:col-span-8"
             eyebrow={
               <>
-                <Sparkles className="h-3.5 w-3.5" />
+                <LayoutDashboard className="h-3.5 w-3.5" />
                 Client Portal
               </>
             }
@@ -116,7 +116,7 @@ export const ClientHomePage: React.FC = () => {
             <StatCard to="/client/chats" label="Unread chats" value={unread} icon={<MessageSquare className="h-5 w-5" />} tone="neutral" hint="Messages from the team" />
           </div>
 
-          <DashboardCard icon={<ShieldQuestion className="h-5 w-5" />} title="Waiting for your answer" badge={data.pending_approvals} to="/client/approvals" cta="Respond" highlight={data.pending_approvals > 0} className="lg:col-span-12">
+          <DashboardCard icon={<ShieldQuestion className="h-5 w-5" />} title="Waiting for your answer" description="Questions the team needs you to answer." badge={data.pending_approvals} to="/client/approvals" cta="Respond" highlight={data.pending_approvals > 0} className="lg:col-span-12">
             {data.approvals.length === 0 ? (
               <p className="flex items-center gap-2 rounded-[var(--tm-radius-sm)] bg-[var(--tm-card-muted)] p-4 text-[13.5px] font-semibold text-[var(--tm-ink-soft)]">
                 <PartyPopper className="h-4 w-4 text-[var(--tm-primary-dark)]" />
@@ -137,9 +137,9 @@ export const ClientHomePage: React.FC = () => {
             )}
           </DashboardCard>
 
-          <DashboardCard icon={<Layers className="h-5 w-5" />} title={`Deliverables · ${monthName(data.month)}`} to="/client/deliverables" cta="Open tracker" className="lg:col-span-5">
+          <DashboardCard icon={<Layers className="h-5 w-5" />} title={`Deliverables · ${monthName(data.month)}`} description="What the team is producing this month." to="/client/deliverables" cta="Open tracker" className="lg:col-span-5">
             {data.deliverables.total === 0 ? (
-              <p className="rounded-[var(--tm-radius-sm)] bg-[var(--tm-card-muted)] p-4 text-[13.5px] text-[var(--tm-ink-muted)]">Nothing is planned for this month yet.</p>
+              <WidgetEmpty title="Nothing planned yet">The team adds this month’s deliverables here.</WidgetEmpty>
             ) : (
               <div className="space-y-3">
                 <div className="flex items-baseline justify-between">
@@ -172,11 +172,11 @@ export const ClientHomePage: React.FC = () => {
             )}
           </DashboardCard>
 
-          <DashboardCard icon={<CalendarClock className="h-5 w-5" />} title="Upcoming meetings" badge={meetings?.length} to="/client/meetings" cta="Open meetings" className="lg:col-span-5">
+          <DashboardCard icon={<CalendarClock className="h-5 w-5" />} title="Upcoming meetings" description="Your next bookings with the team." badge={meetings?.length} to="/client/meetings" cta="Open meetings" className="lg:col-span-5">
             {meetings === null ? (
               <WidgetSkeleton rows={2} />
             ) : meetings.length === 0 ? (
-              <WidgetEmpty>No meetings booked. Book one with the team.</WidgetEmpty>
+              <WidgetEmpty title="No meetings booked" actionLabel="Book a meeting" to="/client/meetings">Book a time with your project team.</WidgetEmpty>
             ) : (
               <ul>
                 {meetings.slice(0, 4).map((m) => (
@@ -197,7 +197,7 @@ export const ClientHomePage: React.FC = () => {
 
           <DashboardCard icon={<ClipboardList className="h-5 w-5" />} title="Latest requirements" to="/client/requirements" cta="See all" className="lg:col-span-7">
             {data.latest_requirements.length === 0 ? (
-              <p className="rounded-[var(--tm-radius-sm)] bg-[var(--tm-card-muted)] p-4 text-[13.5px] text-[var(--tm-ink-muted)]">Nothing recorded yet. Tell the team what you need.</p>
+              <WidgetEmpty title="No requirements yet" actionLabel="Add a requirement" to="/client/requirements">Tell the team what you need and they see it straight away.</WidgetEmpty>
             ) : (
               <ul className="divide-y divide-[var(--tm-border)]">
                 {data.latest_requirements.map((r) => (

@@ -20,7 +20,8 @@ import {
 } from 'lucide-react';
 import { useConfirm } from '../../hooks/useConfirm';
 import { socket } from '../../services/socket';
-import { projectApi } from '../../services/http/projectApi';
+import { confirmDeleteProject, confirmDeleteSubfolder } from '../projects/deleteConfirm';
+import { EmptyState } from '../../components/ui/EmptyState';
 import type { ProjectNode, SubfolderNode } from '../../services/http/sidebarApi';
 import { inOrder, useSidebarStore } from '../../store/useSidebarStore';
 import { NodeMenu, type MenuAction } from './NodeMenu';
@@ -88,7 +89,7 @@ export const SidebarTree: React.FC<Props> = ({ prefix, onNavigate }) => {
 
   const createForSubfolder = (p: ProjectNode, s: SubfolderNode): MenuAction[] => [
     ...(s.can_add_task ? [{ label: 'Task', icon: <CheckSquare className={ICON} />, onSelect: () => setAction({ kind: 'task', project: p, subfolderId: s.id }) }] : []),
-    ...(s.can_add_checklist ? [{ label: 'Checklist item', icon: <ListChecks className={ICON} />, onSelect: () => go(`${subfolderPath(p, s)}?tab=checklist`) }] : []),
+    ...(s.can_add_checklist ? [{ label: 'Essentials item', icon: <ListChecks className={ICON} />, onSelect: () => go(`${subfolderPath(p, s)}?tab=checklist`) }] : []),
     ...(s.can_edit_deliverables ? [{ label: 'Deliverables', icon: <PackageCheck className={ICON} />, onSelect: () => go(`${subfolderPath(p, s)}?tab=deliverables`) }] : []),
     ...(p.can_add_requirement ? [{ label: 'Requirement', icon: <ClipboardList className={ICON} />, onSelect: () => setAction({ kind: 'requirement', project: p }) }] : []),
     ...(s.can_chat ? [{ label: 'Chat group', icon: <MessageSquarePlus className={ICON} />, onSelect: () => setAction({ kind: 'group', subfolderId: s.id }) }] : [])
@@ -99,28 +100,14 @@ export const SidebarTree: React.FC<Props> = ({ prefix, onNavigate }) => {
   };
 
   const removeProject = (p: ProjectNode) =>
-    confirm({
-      title: `Delete “${p.name}”?`,
-      message: `Its ${p.subfolders.length} subfolder${p.subfolders.length === 1 ? '' : 's'}, every task, checklist, deliverable and client requirement are deleted for everyone. This cannot be undone.`,
-      confirmLabel: 'Delete project',
-      danger: true,
-      action: () => projectApi.remove(p.id),
-      successTitle: 'Project deleted'
-    }).then((ok) => {
+    confirmDeleteProject(confirm, p).then((ok) => {
       if (!ok) return;
       leaveIfOpen(projectPath(p), `${prefix}/projects`);
       void load();
     });
 
   const removeSubfolder = (p: ProjectNode, s: SubfolderNode) =>
-    confirm({
-      title: `Delete “${s.name}”?`,
-      message: 'Its tasks, checklist, deliverables and mid-way changes are deleted for everyone. Client requirements and chat groups stay, but lose the link. This cannot be undone.',
-      confirmLabel: 'Delete subfolder',
-      danger: true,
-      action: () => projectApi.deleteSubfolder(s.id),
-      successTitle: 'Subfolder deleted'
-    }).then((ok) => {
+    confirmDeleteSubfolder(confirm, s).then((ok) => {
       if (!ok) return;
       leaveIfOpen(subfolderPath(p, s), projectPath(p));
       void load();
@@ -213,7 +200,16 @@ export const SidebarTree: React.FC<Props> = ({ prefix, onNavigate }) => {
         <div className="mt-1 space-y-0.5">
           {error && !tree && <p className="px-3 py-2 text-[12px] text-[var(--tm-danger)]">{error}</p>}
           {!tree && !error && <SkeletonRows count={3} />}
-          {tree && projects.length === 0 && <p className={`px-3 py-2 text-[12px] ${muted}`}>{createProject ? 'No projects yet. Use + to start one.' : 'You are not on any project yet.'}</p>}
+          {tree && projects.length === 0 && (
+            <EmptyState
+              size="compact"
+              className="mx-2 my-1"
+              title="No projects yet"
+              description={createProject ? 'Projects group the work for each client.' : 'Projects you are added to show up here.'}
+              actionLabel={createProject ? 'New project' : undefined}
+              onAction={createProject ? () => setAction({ kind: 'project' }) : undefined}
+            />
+          )}
 
           {projects.map((p) => {
             const expanded = open.includes(`p:${p.id}`);

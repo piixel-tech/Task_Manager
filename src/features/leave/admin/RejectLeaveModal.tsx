@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
 import { Textarea } from '../../../components/ui/Input';
+import { useFieldErrors } from '../../../hooks/useFieldErrors';
 import { toast } from '../../../store/useToastStore';
 import { leaveApi, type LeaveRequest } from '../../../services/http/leaveApi';
 import { datesText, TYPE_LABEL } from '../leaveUtils';
@@ -11,6 +12,7 @@ export const RejectLeaveModal: React.FC<{ request: LeaveRequest | null; onClose:
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const f = useFieldErrors<'reason'>();
 
   useEffect(() => {
     setReason('');
@@ -22,7 +24,8 @@ export const RejectLeaveModal: React.FC<{ request: LeaveRequest | null; onClose:
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!reason.trim()) return setError('Give a reason: it is sent to the employee.');
+    if (!reason.trim()) return f.fail({ reason: 'Write a reason. The employee will see it' });
+    f.reset();
     setBusy(true);
     setError(null);
     try {
@@ -38,12 +41,17 @@ export const RejectLeaveModal: React.FC<{ request: LeaveRequest | null; onClose:
 
   return (
     <Modal isOpen onClose={onClose} maxWidth="sm" title="Why are you rejecting this?" description={`${request.user.name} · ${TYPE_LABEL[request.type]} · ${datesText(request)}`}>
-      <form onSubmit={submit} className="space-y-4">
+      <form noValidate onSubmit={submit} className="space-y-4">
         <Textarea
           label="Reason"
           rows={3}
           value={reason}
-          onChange={(e) => setReason(e.target.value)}
+          data-field="reason"
+          error={f.errors.reason}
+          onChange={(e) => {
+            setReason(e.target.value);
+            f.clear('reason');
+          }}
           maxLength={500}
           placeholder="For example: release week, please pick other days"
           required

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Flame, Trophy } from 'lucide-react';
+import { CalendarCheck, Trophy } from 'lucide-react';
 import { gamificationService } from '../../../services';
 import type { UserGamification } from '../../../types';
 import { useAuthStore } from '../../../store/authStore';
@@ -33,7 +33,7 @@ export const UserLevelBadge: React.FC = () => {
     <div className="flex items-center gap-3 bg-[color-mix(in_srgb,var(--tm-hero)_32%,transparent)] backdrop-blur-md px-3.5 py-1.5 rounded-full border border-[var(--tm-border-strong)] text-xs shadow-inner">
       {/* Streak Counter */}
       <div className="flex items-center gap-1 text-[var(--tm-warning)] font-bold" title={`${stats.streak} day productive streak`}>
-        <Flame className="w-4 h-4 text-[var(--tm-warning)] fill-[var(--tm-warning)] animate-pulse" />
+        <CalendarCheck className="w-4 h-4 text-[var(--tm-warning)]" />
         <span>{stats.streak}d</span>
       </div>
 

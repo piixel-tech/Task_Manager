@@ -36,7 +36,7 @@ export const LeaveRequestModal: React.FC<Props> = ({ isOpen, onClose, start, end
       title="Request leave"
       description={datesText({ start_date: start, end_date: end, duration: 'full' })}
     >
-      <form onSubmit={f.submit} className="space-y-4">
+      <form noValidate onSubmit={f.submit} className="space-y-4">
         <Select
           label="Type"
           value={f.type}

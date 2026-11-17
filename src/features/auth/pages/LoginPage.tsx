@@ -119,7 +119,7 @@ export const LoginPage: React.FC = () => {
 
           <StaggerItem>
             <div className="rounded-[var(--tm-radius-xl)] border border-[var(--tm-border)] bg-[var(--tm-card)] p-7 shadow-soft-sm">
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form noValidate onSubmit={handleSubmit} className="space-y-5">
                 {error && (
                   <motion.div
                     initial={reduced ? false : { opacity: 0, y: -6 }}

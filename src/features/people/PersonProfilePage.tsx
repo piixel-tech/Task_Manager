@@ -84,7 +84,10 @@ export const PersonProfilePage: React.FC = () => {
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>About</CardTitle>
+            <div className="min-w-0">
+<CardTitle>About</CardTitle>
+<CardDescription>Role, company and contact details.</CardDescription>
+</div>
           </CardHeader>
           <CardContent>
             {person.bio ? (
@@ -119,7 +122,7 @@ export const PersonProfilePage: React.FC = () => {
                 ? 'Book a meeting with them from your project team.'
                 : isMe
                   ? 'Your daily status, bookings and free slots.'
-                  : 'Their daily status, bookings and free slots. Open the calendar and scroll to book.'}
+                  : 'Their status, bookings and free slots.'}
             </CardDescription>
           </CardHeader>
           <CardContent>

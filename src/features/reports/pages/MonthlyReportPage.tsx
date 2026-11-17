@@ -236,7 +236,7 @@ const AdminView: React.FC = () => {
     <>
       <PageHeader
         title="Monthly Report"
-        description="Every employee's month. The current month is a live preview; finished months are frozen on the 1st."
+        description="Each employee’s month, live until it is final."
         actions={
           <Button size="sm" variant="outline" isLoading={zipping} disabled={!rows?.length} onClick={() => void zip()} leftIcon={<Download className="h-4 w-4" />}>
             Download all (ZIP)
