@@ -7,6 +7,8 @@ export interface NotifPrefs {
   mentions: boolean;
   office: boolean;
   bookings: boolean;
+  /** The 9:30 AM summary email. */
+  daily_email: boolean;
 }
 
 export const PALETTES = ['purple', 'indigo', 'blue', 'sky', 'teal', 'green', 'red', 'coral', 'pink', 'orange', 'gold', 'brown', 'olive', 'grey', 'monochrome'] as const;
@@ -25,6 +27,13 @@ export const coercePalette = (p: unknown): Palette =>
 
 export const ALERT_SOUNDS = ['chime', 'ding', 'pop', 'bell', 'drop', 'soft'] as const;
 export type AlertSound = (typeof ALERT_SOUNDS)[number];
+
+/** The dashboard greeting choice: the greeting always uses the real name; this only switches the daily friendly opener on or off. */
+export interface GreetingPrefs {
+  /** A different friendly opener each day. */
+  rotate: boolean;
+}
+export const DEFAULT_GREETING: GreetingPrefs = { rotate: false };
 
 export interface UserSettings {
   /** Always "light": the app has no dark mode (older accounts may still hold another value; it is ignored). */
@@ -46,6 +55,8 @@ export interface UserSettings {
   hints: boolean;
   /** The first-login tour this person has finished ("employee-1", "admin-1"), so it is shown once. */
   tour: string | null;
+  /** Dashboard greeting personalisation. */
+  greeting: GreetingPrefs;
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -60,7 +71,8 @@ export const DEFAULT_SETTINGS: UserSettings = {
   desktop_popups: false,
   hints: true,
   tour: null,
-  notif_prefs: { tasks: true, reviews: true, chat: true, mentions: true, office: true, bookings: true }
+  greeting: DEFAULT_GREETING,
+  notif_prefs: { tasks: true, reviews: true, chat: true, mentions: true, office: true, bookings: true, daily_email: true }
 };
 
 export interface ProfileInput {
@@ -68,6 +80,12 @@ export interface ProfileInput {
   title?: string;
   phone?: string;
   bio?: string;
+  /** "MM-DD", or "" to clear. */
+  birthday?: string;
+  /** Optional and private; "null" clears it. */
+  birth_year?: number | null;
+  /** YYYY-MM-DD, or "" to clear. */
+  joined_on?: string;
   /** A preset (emoji:/icon:/initials:), an uploaded photo's download path, or "" to clear. */
   avatar_url?: string;
 }

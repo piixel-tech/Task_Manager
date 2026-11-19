@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, Download, Eye, FileDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Eye, FileDown } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Avatar } from '../../../components/ui/Avatar';
 import { Card } from '../../../components/ui/Card';
@@ -138,7 +138,7 @@ const TopBar: React.FC<{ month: string; onMonth: (m: string) => void; report: Mo
   );
 };
 
-const ReportBody: React.FC<{ report: MonthlyReport | null; error: string | null; controls: React.ReactNode }> = ({ report, error, controls }) => {
+const ReportBody: React.FC<{ report: MonthlyReport | null; error: string | null; controls: React.ReactNode; backTo?: string }> = ({ report, error, controls, backTo }) => {
   const navigate = useNavigate();
   const role = useAuthStore.getState().user?.role;
   const base = basePath(role);
@@ -146,7 +146,7 @@ const ReportBody: React.FC<{ report: MonthlyReport | null; error: string | null;
     <>
       {error && <div className="tm-error mb-4 px-4 py-3 text-xs font-semibold">{error}</div>}
       {report ? (
-        <ReportView report={report} admin={role === 'admin'} controls={controls} onOpenTask={(id) => navigate(`${base}/tasks/${id}`)} />
+        <ReportView report={report} admin={role === 'admin'} controls={controls} backTo={backTo} onOpenTask={(id) => navigate(`${base}/tasks/${id}`)} />
       ) : (
         !error && <ReportSkeleton controls={controls} />
       )}
@@ -215,6 +215,7 @@ const AdminView: React.FC = () => {
       <ReportBody
         report={report}
         error={reportError}
+        backTo={`${basePath(useAuthStore.getState().user?.role)}/reports`}
         controls={
           <TopBar
             month={month}
@@ -222,9 +223,7 @@ const AdminView: React.FC = () => {
             report={report}
             onPdf={() => void pdf(viewing, month)}
             lead={
-              <Button size="sm" variant="outline" onClick={() => open(null)} leftIcon={<ArrowLeft className="h-4 w-4" />}>
-                {report?.person.name ?? 'All employees'}
-              </Button>
+              <span className="min-w-0 truncate text-[13px] font-semibold">{report?.person.name ?? 'All employees'}</span>
             }
           />
         }
@@ -275,7 +274,7 @@ const AdminView: React.FC = () => {
                     <p className="truncate text-[12px] text-[var(--tm-ink-muted)]">{r.company || 'No company'}</p>
                   </div>
                 </div>
-                <dl className="grid grid-cols-4 gap-x-6 text-center">
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-center sm:grid-cols-4">
                   {[
                     ['Days present', r.scheduled_days ? `${r.days_worked ?? r.present} / ${Math.max(r.days_worked ?? 0, r.scheduled_days)}` : String(r.days_worked ?? r.present)],
                     ['Usual login', clock12(r.avg_login)],

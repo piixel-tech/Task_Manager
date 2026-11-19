@@ -13,7 +13,6 @@ from pywebpush import WebPushException, webpush
 
 from app.core.config import settings
 from app.models import PushSubscription
-from app.services.ws_manager import manager
 
 log = logging.getLogger(__name__)
 _pending: set[asyncio.Task] = set()
@@ -45,6 +44,17 @@ def _send_one(sub: PushSubscription, payload: str) -> int | None:
     return None
 
 
+async def send_test(user_id: PydanticObjectId) -> tuple[int, int]:
+    """Push a test to every browser this person subscribed. Returns (delivered, subscriptions). Shown even if the app is open."""
+    if not is_configured():
+        return 0, 0
+    total = await PushSubscription.find({"user_id": user_id}).count()
+    sent = await send_push(
+        [user_id], {"id": None, "title": "Task Manager", "body": "Notifications are on. Click this to open the app.", "url": "/", "priority": "normal", "force": True}
+    )
+    return sent, total
+
+
 async def send_push(user_ids: Iterable[PydanticObjectId], payload: dict) -> int:
     """Send `payload` to every subscription of these people. Returns how many were delivered."""
     if not is_configured():
@@ -62,13 +72,14 @@ async def send_push(user_ids: Iterable[PydanticObjectId], payload: dict) -> int:
 
 
 def schedule_push(user_ids: Iterable[PydanticObjectId], payload: dict) -> None:
-    """Fire and forget. People with the app open (a live WebSocket) already get the in-app toast, so they are skipped here."""
+    """Fire and forget. Everyone is pushed, even with the app open: an open WebSocket can be stale (a sleeping laptop, a
+    background tab), so the service worker decides on the device and stays quiet when the app is on screen."""
     if not is_configured():
         return
-    offline = [uid for uid in dict.fromkeys(user_ids) if not manager.is_online(uid)]
-    if not offline:
+    people = list(dict.fromkeys(user_ids))
+    if not people:
         return
-    task = asyncio.get_running_loop().create_task(_safe_send(offline, payload))
+    task = asyncio.get_running_loop().create_task(_safe_send(people, payload))
     _pending.add(task)
     task.add_done_callback(_pending.discard)
 

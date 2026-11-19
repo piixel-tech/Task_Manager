@@ -4,6 +4,7 @@ import { NavDrawer } from './NavDrawer';
 import { SideNav } from './SideNav';
 import { ProjectsPanel } from './ProjectsPanel';
 import { BottomTabBar } from './BottomTabBar';
+import { PhoneDrawer } from './PhoneDrawer';
 import { RouteTransition } from './RouteTransition';
 import { FestivalBanner } from '../../features/festival/FestivalBanner';
 import { useFestivalSync } from '../../features/festival/useFestivalSync';
@@ -34,7 +35,7 @@ export const AppShell: React.FC<AppShellProps> = ({ extras, banner }) => {
   }, [userId]);
 
   return (
-    <div className="relative isolate min-h-screen bg-[var(--tm-bg)] pb-24 lg:pb-0">
+    <div className="relative isolate min-h-screen bg-[var(--tm-bg)] pb-24 max-md:pb-[calc(1.5rem+env(safe-area-inset-bottom))] lg:pb-0">
       <AmbientEffects />
       {extras}
       <LeaveDecisionHost />
@@ -51,6 +52,7 @@ export const AppShell: React.FC<AppShellProps> = ({ extras, banner }) => {
         </main>
       </div>
       <BottomTabBar />
+      <PhoneDrawer />
     </div>
   );
 };

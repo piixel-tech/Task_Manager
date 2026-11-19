@@ -114,7 +114,7 @@ export const ClientMeetingsPage: React.FC = () => {
           <section aria-label="Team">
             <h2 className="text-[13px] font-extrabold uppercase tracking-wide text-[var(--tm-ink-muted)]">1 · Who</h2>
             <p data-hint className="mb-3 mt-0.5 text-[13px] text-[var(--tm-ink-muted)]">Pick who you would like to meet.</p>
-            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3 max-sm:gap-2.5">
               {project?.team.map(({ user }) => (
                 <li key={user.id}>
                   <button

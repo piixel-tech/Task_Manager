@@ -117,7 +117,7 @@ export const BadgesGrid: React.FC<BadgesGridProps> = ({ targetUserId, showAwardB
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 max-sm:gap-2.5">
         {ALL_BADGE_TYPES.map((b) => {
           const isUnlocked = unlockedTypes.has(b.type);
           const userBadge = stats.badges.find((x) => x.badgeType === b.type);

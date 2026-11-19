@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronLeft } from 'lucide-react';
+import { useIsPhone } from '../../hooks/useBreakpoint';
 import { PillTabs, type PillTabItem } from './PillTabs';
 import { heatAttrs, type Heat } from '../../utils/deadlineHeat';
 
@@ -53,11 +55,25 @@ export const MasterDetail: React.FC<MasterDetailProps> = ({
   onBack,
   className = '',
   variant = 'default'
-}) => (
+}) => {
+  const phone = useIsPhone();
+  const pane = (
+      <div className={`min-w-0 ${detailOpen ? 'block' : 'hidden lg:block'}`}>
+        <button
+          type="button"
+          onClick={onBack}
+          className={`${variant === 'dark' || phone ? '' : 'tm-dark-scope'} mb-3 inline-flex items-center gap-1 rounded-full px-3 py-2 text-[13px] font-bold text-[var(--tm-ink)] hover:bg-[var(--tm-bg-sunken)] lg:hidden`}
+        >
+          <ChevronLeft className="h-4 w-4" /> {phone ? 'Back' : 'All'}
+        </button>
+        {detail}
+      </div>
+  );
+  return (
   <section className={`relative ${tabs ? 'mt-6' : ''} ${className}`}>
     {tabs && activeTab !== undefined && onTabChange && (
       // The page-coloured rim around the tabs is what makes them look cut into the panel's edge.
-      <div className="absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--tm-bg)] p-1.5">
+      <div className="absolute left-1/2 top-0 z-10 max-w-[calc(100%-1rem)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--tm-bg)] p-1.5">
         <PillTabs tabs={tabs} activeTab={activeTab} onChange={onTabChange} showZero={variant === 'dark'} />
       </div>
     )}
@@ -74,19 +90,16 @@ export const MasterDetail: React.FC<MasterDetailProps> = ({
           {list}
         </div>
       </div>
-      <div className={`min-w-0 ${detailOpen ? 'block' : 'hidden lg:block'}`}>
-        <button
-          type="button"
-          onClick={onBack}
-          className={`${variant === 'dark' ? '' : 'tm-dark-scope'} mb-3 inline-flex items-center gap-1 rounded-full px-3 py-2 text-[13px] font-bold text-[var(--tm-ink)] hover:bg-[var(--tm-bg-sunken)] lg:hidden`}
-        >
-          <ChevronLeft className="h-4 w-4" /> All
-        </button>
-        {detail}
-      </div>
+      {phone && detailOpen
+        ? createPortal(
+            <div className="fixed inset-0 z-[45] overflow-y-auto overscroll-contain bg-[var(--tm-bg)] px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-[calc(env(safe-area-inset-top)+0.75rem)]">{pane}</div>,
+            document.body
+          )
+        : pane}
     </div>
   </section>
-);
+  );
+};
 
 /** One row in the list: avatar, title, subtitle, a status chip. Selected = lavender with charcoal text. */
 export const MasterRow: React.FC<{

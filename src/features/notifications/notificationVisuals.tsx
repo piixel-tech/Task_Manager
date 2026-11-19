@@ -69,6 +69,7 @@ export const typeVisual = (type: string, title = ''): TypeVisual => {
   if (['task_due', 'task_reminder', 'task_reminders', 'approval_reminder', 'daily_status'].includes(t)) return { icon: Clock, tone: 'warning', system: true };
   if (t.startsWith('festival')) return { icon: PartyPopper, tone: 'primary', system: true };
   if (t === 'birthday') return { icon: Cake, tone: 'primary', system: true };
+  if (t === 'work_anniversary') return { icon: PartyPopper, tone: 'primary', system: true };
   if (t === 'integration_error') return { icon: AlertTriangle, tone: 'danger', system: true };
   if (t.startsWith('integration_')) return { icon: Plug, tone: 'info', system: true };
   if (t === 'test') return { icon: Bell, tone: 'neutral', system: true };

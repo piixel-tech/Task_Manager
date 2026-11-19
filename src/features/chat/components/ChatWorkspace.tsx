@@ -1,3 +1,6 @@
+import { createPortal } from 'react-dom';
+import { useIsPhone } from '../../../hooks/useBreakpoint';
+import { useKeyboardViewport } from '../../../hooks/useKeyboardViewport';
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { MessageSquare } from 'lucide-react';
@@ -19,6 +22,8 @@ export const ChatWorkspace: React.FC<{ canCreate: boolean; heightClass?: string 
   canCreate,
   heightClass = 'h-[calc(100dvh-10.5rem)]'
 }) => {
+  const phone = useIsPhone();
+  const vp = useKeyboardViewport(phone);
   const me = useAuthStore((s) => s.user)!;
   const groups = useChatStore((s) => s.groups);
   const loaded = useChatStore((s) => s.groupsLoaded);
@@ -78,9 +83,20 @@ export const ChatWorkspace: React.FC<{ canCreate: boolean; heightClass?: string 
           />
         </aside>
 
-        <section className={`${active ? 'block' : 'hidden lg:flex'} min-w-0 flex-1 overflow-hidden rounded-[var(--tm-radius-xl)] border border-[var(--tm-border)] bg-[var(--tm-card)] lg:items-center lg:justify-center`}>
+        {phone && active ? (
+          createPortal(
+            <div
+              className="fixed inset-x-0 top-0 z-[60] flex flex-col overflow-hidden bg-[var(--tm-card)]"
+              style={{ height: vp ? vp.height : '100dvh', transform: vp ? `translateY(${vp.top}px)` : undefined }}
+            >
+              <Conversation group={active} onBack={() => select(null)} onInfo={() => setShowInfo(true)} panelOpen={panelOpen} onTogglePanel={() => setPanelOpen((o) => !o)} />
+            </div>,
+            document.body
+          )
+        ) : null}
+        <section className={`${active ? (phone ? 'hidden' : 'block') : 'hidden lg:flex'} min-w-0 flex-1 overflow-hidden rounded-[var(--tm-radius-xl)] border border-[var(--tm-border)] bg-[var(--tm-card)] lg:items-center lg:justify-center`}>
           {active ? (
-            <Conversation group={active} onBack={() => select(null)} onInfo={() => setShowInfo(true)} panelOpen={panelOpen} onTogglePanel={() => setPanelOpen((o) => !o)} />
+            phone ? null : <Conversation group={active} onBack={() => select(null)} onInfo={() => setShowInfo(true)} panelOpen={panelOpen} onTogglePanel={() => setPanelOpen((o) => !o)} />
           ) : (
             <EmptyState
               icon={<MessageSquare className="h-6 w-6 text-[var(--tm-ink-soft)]" />}

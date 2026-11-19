@@ -7,6 +7,8 @@ from app.models.deliverable import DeliverablePlan
 from app.models.daily_status import DailyStatus
 from app.models.approval import ClientApproval
 from app.models.file import File
+from app.models.email import EmailLog, EmailSender
+from app.models.password_reset import PasswordReset, ResetAttempt
 from app.models.integration import ExternalEvent, IntegrationConnection, IntegrationLink
 from app.models.invite import Invite
 from app.models.leave_request import LeaveRequest
@@ -34,6 +36,10 @@ __all__ = [
     "DeliverablePlan",
     "ExternalEvent",
     "File",
+    "EmailLog",
+    "EmailSender",
+    "PasswordReset",
+    "ResetAttempt",
     "IntegrationConnection",
     "IntegrationLink",
     "Invite",

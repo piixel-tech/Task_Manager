@@ -34,7 +34,7 @@ vi.mock('./sections/AdminSections', () => ({
 
 const ME_TEAM = ['My profile', 'Change password', 'Notifications', 'Focus mode', 'Appearance', 'Connected apps', 'Keyboard shortcuts', 'Help'];
 const ME_CLIENT = ['My profile', 'Change password', 'Notifications', 'Appearance', 'Help'];
-const ADMIN_ONLY = ['People', 'Companies', 'Workspace settings', 'Festival theme', 'Trash', 'Export', 'Security'];
+const ADMIN_ONLY = ['People', 'Companies', 'Workspace settings', 'Festival theme', 'Festival greetings', 'Email', 'Trash', 'Export', 'Security'];
 
 const person = (role: UserRole, id = `${role}-1`): User =>
   ({ id, name: `${role} person`, jobTitle: 'Tester', company: 'piixel', role, loginId: `${role}@x.com`, active: true }) as User;
@@ -232,7 +232,7 @@ describe('the avatar menu', () => {
     open('client');
     const hrefs = screen.getAllByRole('menuitem').map((m) => m.getAttribute('href'));
     expect(hrefs.slice(0, 5)).toEqual(['profile', 'password', 'notifications', 'appearance', 'help'].map((id) => `/client/settings/${id}`));
-    expect(screen.getAllByRole('link').some((a) => a.getAttribute('href') === '/client/people/client-1')).toBe(true);
+    expect(screen.queryAllByRole('link').some((a) => a.getAttribute('href') === '/client/people/client-1')).toBe(false);
   });
 });
 

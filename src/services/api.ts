@@ -43,6 +43,13 @@ api.interceptors.request.use((config) => {
 // One refresh at a time; concurrent 401s share the same request.
 let refreshing: Promise<string> | null = null;
 
+/** The server could not be reached or was waking up (Render sleeps): not a reason to end the session. */
+export const isTransientFailure = (err: unknown): boolean => {
+  if (!axios.isAxiosError(err)) return false;
+  const status = err.response?.status;
+  return !err.response || status === 408 || status === 429 || (status !== undefined && status >= 500);
+};
+
 const refreshAccessToken = (): Promise<string> => {
   refreshing ??= (async () => {
     const refresh = tokenStore.refresh;
@@ -72,9 +79,11 @@ api.interceptors.response.use(
       const token = await refreshAccessToken();
       original.headers.Authorization = `Bearer ${token}`;
       return api(original);
-    } catch {
-      tokenStore.clear();
-      onAuthFailure();
+    } catch (refreshError) {
+      if (!isTransientFailure(refreshError)) {
+        tokenStore.clear();
+        onAuthFailure();
+      }
       throw error;
     }
   }
@@ -100,16 +109,19 @@ function tokenExpiresAt(token: string): number {
 
 /**
  * Access token valid for at least the next 30s, refreshing if needed.
- * If the session can't be refreshed the user is logged out and this returns null.
+ * If the session can't be refreshed the user is logged out and this returns null. If the server just can't be reached
+ * (offline, Render waking up) this also returns null but keeps the session: check `tokenStore.access` to tell the two apart.
  */
 export async function getFreshAccessToken(): Promise<string | null> {
   const current = tokenStore.access;
   if (current && tokenExpiresAt(current) > Date.now() + 30_000) return current;
   try {
     return await refreshAccessToken();
-  } catch {
-    tokenStore.clear();
-    onAuthFailure();
+  } catch (err) {
+    if (!isTransientFailure(err)) {
+      tokenStore.clear();
+      onAuthFailure();
+    }
     return null;
   }
 }

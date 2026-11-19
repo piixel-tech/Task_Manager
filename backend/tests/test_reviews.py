@@ -315,3 +315,28 @@ async def test_approving_stops_a_timer_left_running(client, team):
     await TimeLog(task_id=task.id, user_id=team.mia.user.id, started_at=task.created_at).insert()
     await client.post(f"/reviews/{r['id']}/approve", headers=team.hana.headers)
     assert await TimeLog.find(TimeLog.running == True).count() == 0  # noqa: E712
+
+
+# --- Emails: only "waiting for review" goes to email ------------------------------------------------------------------
+async def test_a_submission_emails_the_chosen_head_with_a_button_to_the_task(client, team, monkeypatch):
+    from app.services import email as mail
+
+    box = []
+
+    async def fake(to, type, subject, **kw):
+        box.append((to, type, {"subject": subject, **kw}))
+
+    monkeypatch.setattr(mail, "send_email", fake)
+    t = await make_task(client, team)
+    assert box == [] or all(kind != "review_requested" for _, kind, _ in box)  # creating and assigning a task sends no email
+    assert not box
+    r = await submit(client, team.mia, t, team.hana)
+    assert r.status_code == 201
+    assert [(to, kind) for to, kind, _ in box] == [(team.hana.user.email, "review_requested")]
+    kw = box[0][2]
+    assert kw["button_label"] == "Review submission" and kw["path"].endswith(f"/tasks/{t['id']}")
+    assert t["title"] in kw["subject"] and "Mia" in kw["text"]
+    # Hana's answer is an in-app notification only.
+    box.clear()
+    await client.post(f"/reviews/{r.json()['id']}/changes", json={"comment": "Please fix"}, headers=team.hana.headers)
+    assert not box

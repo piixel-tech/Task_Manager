@@ -555,13 +555,15 @@ async def test_bookings_create_update_and_delete_google_events_for_host_and_book
 
     eid = f"tmb{booking['id']}"
     sent = {c["json"]["summary"]: c["json"] for c in google.of("POST", "/events") + google.of("PUT", "/events")}
-    host_copy, booker_copy = sent["Design review"], sent["Design review · Alice Employee"]
-    assert "Booked by Bob Employee" in host_copy["description"] and "Bring mockups" in host_copy["description"]
+    assert "Design review" not in sent  # the host gets no copy written to their calendar: Google invites them
+    booker_copy = sent["Design review · Alice Employee"]
     assert "With Alice Employee" in booker_copy["description"]
-    assert host_copy["id"] == eid and host_copy["start"]["dateTime"] == a.isoformat()
-    assert host_copy["extendedProperties"]["private"]["tm_source"] == "task-manager"  # so pulling never echoes it back
-    # Both connections write to "their" primary calendar (one shared fake calendar here), so each gets a link.
-    assert await IntegrationLink.find(IntegrationLink.kind == "booking").count() == 2
+    assert booker_copy["id"] == eid and booker_copy["start"]["dateTime"] == a.isoformat()
+    assert booker_copy["extendedProperties"]["private"]["tm_source"] == "task-manager"  # so pulling never echoes it back
+    assert booker_copy["extendedProperties"]["shared"]["tm_source"] == "task-manager"  # ...nor the attendees' copies
+    assert [x["email"] for x in booker_copy["attendees"]] == ["alice@example.com"] or booker_copy["attendees"][0]["displayName"] == "Alice Employee"
+    # Only the organizer (the booker) writes an event, so only they have a link.
+    assert await IntegrationLink.find(IntegrationLink.kind == "booking").count() == 1
 
     calls_before = len(google.calls)
     await sync(client, alice)  # nothing changed: no writes

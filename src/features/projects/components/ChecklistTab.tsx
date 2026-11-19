@@ -272,7 +272,7 @@ export const ChecklistTab: React.FC<{ subfolderId: string }> = ({ subfolderId })
       {pinned.length > 0 && (
         <section aria-label="Quick access">
           <h3 className="mb-3 px-1 text-[11px] font-extrabold uppercase tracking-wider text-[var(--tm-ink-muted)]">Quick access</h3>
-          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4 max-sm:gap-2.5">
             {pinned.map((item) => {
               const first = item.attachments[0];
               return (

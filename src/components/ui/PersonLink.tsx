@@ -15,7 +15,7 @@ export const PersonLink: React.FC<{ userId?: string | null; className?: string; 
     <Link
       to={profilePath(role, userId)}
       onClick={(e) => e.stopPropagation()} // a person inside a clickable row opens the profile, not the row
-      className={`rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--tm-primary)] hover:underline ${className}`}
+      className={`max-md:relative max-md:after:absolute max-md:after:-inset-2 max-md:after:content-[''] rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--tm-primary)] hover:underline ${className}`}
     >
       {children}
     </Link>

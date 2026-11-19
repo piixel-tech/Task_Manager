@@ -14,6 +14,13 @@ class NotifPrefs(BaseModel):
     mentions: bool = True
     office: bool = True
     bookings: bool = True
+    daily_email: bool = True  # the 9:30 morning summary email (not an in-app notification)
+
+
+class GreetingPrefs(BaseModel):
+    """The dashboard greeting always uses the person's real name; the only choice left is a different friendly opener each day."""
+
+    rotate: bool = False
 
 
 BUILT_IN_PALETTES = (
@@ -49,6 +56,7 @@ class UserSettings(BaseModel):
     # Guidance: the short lines under headings and the "i" icons (tooltips are always on), and which first-login tour was finished.
     hints: bool = True
     tour: str | None = Field(default=None, max_length=40)
+    greeting: GreetingPrefs = GreetingPrefs()
 
     @field_validator("palette")
     @classmethod

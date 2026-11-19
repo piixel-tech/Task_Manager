@@ -17,6 +17,9 @@ class UserOut(BaseModel):
     title: str = ""
     phone: str = ""
     bio: str = ""
+    birthday: str = ""
+    birth_year: int | None = None  # only ever returned to the person themselves and to admins
+    joined_on: str = ""  # empty = the day the account was made
     must_change_password: bool = False
     settings: UserSettings = Field(default_factory=UserSettings)
     is_active: bool
@@ -51,6 +54,8 @@ class PersonProfile(BaseModel):
     avatar_url: str | None
     title: str
     bio: str
+    birthday: str = ""  # "MM-DD"; the birth year is never shown
+    joined_on: str = ""
     company: str | None
     status: str | None  # today's daily status; only team members have one
     in_focus: bool = False
@@ -75,6 +80,9 @@ class UserUpdate(BaseModel):
     avatar_url: str | None = None
     is_active: bool | None = None
     title: str | None = Field(default=None, max_length=80)
+    birthday: str | None = None  # "MM-DD" or "" to clear
+    birth_year: int | None = None
+    joined_on: str | None = None  # YYYY-MM-DD or "" to clear
 
 
 class CompanyOut(BaseModel):

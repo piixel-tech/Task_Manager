@@ -1,7 +1,8 @@
 import { FadeIn } from '../../components/ui/FadeIn';
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { CalendarDays, Goal, Pencil } from 'lucide-react';
+import { differenceInCalendarDays, differenceInMonths, differenceInYears, parseISO } from 'date-fns';
+import { Cake, CalendarDays, Goal, Pencil, Sparkles } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
 import { SkeletonRows } from '../../components/ui/Skeleton';
@@ -12,6 +13,25 @@ import { personApi, type PersonProfile } from '../../services/http/personApi';
 import { useAuthStore } from '../../store/authStore';
 import { statusMeta } from '../status/statusMeta';
 import { basePath } from '../settings/settingsMenu';
+
+/** "MM-DD" as "14 March" (the year is never part of it). */
+const birthdayText = (mmdd: string): string => {
+  const m = /^(\d{2})-(\d{2})$/.exec(mmdd);
+  return m ? `${Number(m[2])} ${new Date(2024, Number(m[1]) - 1, 1).toLocaleString('en-GB', { month: 'long' })}` : '';
+};
+
+/** "today", "5 days ago", "3 months ago" or "2 years ago" for a joining date. */
+const joinedAgo = (ymd: string): string => {
+  const d = parseISO(ymd);
+  const now = new Date();
+  const plural = (n: number, unit: string) => `${n} ${unit}${n === 1 ? '' : 's'} ago`;
+  const years = differenceInYears(now, d);
+  if (years >= 1) return plural(years, 'year');
+  const months = differenceInMonths(now, d);
+  if (months >= 1) return plural(months, 'month');
+  const days = differenceInCalendarDays(now, d);
+  return days <= 0 ? 'today' : plural(days, 'day');
+};
 
 const ROLE_LABEL = { admin: 'Admin', employee: 'Team member', client: 'Client' } as const;
 
@@ -48,6 +68,7 @@ export const PersonProfilePage: React.FC = () => {
   return (
     <FadeIn>
       <PageHeader
+        backTo={me?.role === 'admin' ? '/admin/users' : undefined}
         title={person.name}
         description={[person.title, person.company].filter(Boolean).join(' · ') || ROLE_LABEL[person.role]}
         actions={
@@ -77,6 +98,20 @@ export const PersonProfilePage: React.FC = () => {
                 </StatusChip>
               )}
             </div>
+            {isTeam && (person.joined_on || person.birthday) && (
+              <p className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[12.5px] text-[var(--tm-ink-muted)] sm:justify-start">
+                {person.joined_on && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5" /> Joined {joinedAgo(person.joined_on)}
+                  </span>
+                )}
+                {person.birthday && birthdayText(person.birthday) && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Cake className="h-3.5 w-3.5" /> Birthday {birthdayText(person.birthday)}
+                  </span>
+                )}
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

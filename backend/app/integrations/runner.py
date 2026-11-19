@@ -16,18 +16,25 @@ log = logging.getLogger(__name__)
 _pending: set[asyncio.Task] = set()
 
 
+def _parked_by_key_error(conn: IntegrationConnection) -> bool:
+    """Older versions marked a connection "needs reconnect" when a server could not decrypt its tokens (wrong
+    INTEGRATIONS_FERNET_KEY). The login is fine, so keep retrying those: the first sync with the right key restores them."""
+    return conn.status == "needs_reconnect" and "INTEGRATIONS_FERNET_KEY" in (conn.last_error or "")
+
+
 async def sync_connection(connection_id: PydanticObjectId) -> tuple[IntegrationConnection | None, SyncResult]:
     """Pull then push for one connection, recording success or the error. Never raises for provider failures."""
     result = SyncResult()
     async with connection_lock(connection_id):
         conn = await IntegrationConnection.get(connection_id)  # fresh copy: another cycle may have just saved sync tokens
         provider = registry.get(conn.provider) if conn else None
-        if conn is None or provider is None or conn.status != "connected":
+        if conn is None or provider is None or not (conn.status == "connected" or _parked_by_key_error(conn)):
             return conn, result
         try:
             result = await provider.sync(conn)
             conn = await IntegrationConnection.get(connection_id) or conn
             conn.last_sync_at = datetime.now(timezone.utc)
+            conn.status = "connected"  # a connection parked by a key mismatch is healthy again once a full sync worked
             conn.last_error = None
             conn.last_error_at = None
             conn.error_notified = False
@@ -69,7 +76,8 @@ async def record_failure(connection_id: PydanticObjectId, name: str, exc: Integr
 
 async def run_integration_sync() -> int:
     """The scheduled job: every healthy connection, one after another so a slow app can't pile up requests."""
-    ids = [c.id for c in await IntegrationConnection.find({"status": "connected"}).to_list()]
+    rows = await IntegrationConnection.find({"status": {"$in": ["connected", "needs_reconnect"]}}).to_list()
+    ids = [c.id for c in rows if c.status == "connected" or _parked_by_key_error(c)]
     for connection_id in ids:
         await sync_connection(connection_id)
     return len(ids)
@@ -98,6 +106,7 @@ def schedule_sync(connection_id: PydanticObjectId) -> None:
 async def _push(user_ids: list[PydanticObjectId]) -> None:
     try:
         conns = await IntegrationConnection.find({"user_id": {"$in": user_ids}, "status": "connected"}).to_list()
+        conns.sort(key=lambda c: user_ids.index(c.user_id))  # callers list the booker first: their event owns the Meet and the invites
         for conn in conns:
             provider = registry.get(conn.provider)
             if provider is None:

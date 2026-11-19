@@ -89,6 +89,7 @@ export const SubfolderPage: React.FC = () => {
   return (
     <FadeIn>
       <PageHeader
+        backTo={`${prefix}/projects/${project.id}`}
         title={
           <span className="flex flex-wrap items-center gap-3">
             {subfolder.name}
@@ -165,7 +166,7 @@ export const SubfolderPage: React.FC = () => {
       )}
 
       {tab === 'overview' && (
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-2 gap-5 md:grid-cols-2 xl:grid-cols-3 max-sm:gap-2.5">
           <Card className="min-w-0">
             <CardHeader>
               <div className="min-w-0">

@@ -207,6 +207,8 @@ def can(
         return admin
     if action in ("office.resolve", "office.delete"):  # the author or an admin
         return admin or (staff and creator_id == user.id)
+    if action == "email.manage":  # the sender mailbox and the email log: admins
+        return admin
     if action == "integration.manage":  # connect your own Google Calendar etc.; clients have no calendar of their own
         return staff
     if action in ("calendar.view", "booking.create"):

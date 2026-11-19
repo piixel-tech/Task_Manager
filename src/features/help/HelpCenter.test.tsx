@@ -33,9 +33,9 @@ describe('Help centre', () => {
   it('shows the employee answers to an employee, and no admin tools', () => {
     as('employee');
     show();
-    expect(screen.getByText('How do I find my way around?')).toBeTruthy();
+    expect(screen.getByText('How do I jump to anything quickly?')).toBeTruthy();
     expect(screen.queryByText('How do I add or manage team members?')).toBeNull();
-    expect(screen.queryByRole('tab', { name: 'Admin tools' })).toBeNull();
+    expect(screen.queryByText('How do I approve or reject leave requests?')).toBeNull();
   });
 
   it('adds the head topics for someone who heads a subfolder', async () => {
@@ -48,16 +48,15 @@ describe('Help centre', () => {
   it('shows the admin answers to an admin', () => {
     as('admin');
     show();
-    expect(screen.getByText('How do I add or manage team members?')).toBeTruthy();
-    expect(screen.getByText('Where are all the tasks?')).toBeTruthy();
-    expect(screen.getByRole('tab', { name: 'Admin tools' })).toBeTruthy();
+    expect(screen.getByText('How do I approve or reject leave requests?')).toBeTruthy();
+    expect(screen.getByText('How do I see who is working on what?')).toBeTruthy();
   });
 
   it('searches, opens an answer, and takes the person to the page', () => {
     as('employee');
     show();
     fireEvent.change(screen.getByLabelText('Search the help'), { target: { value: 'browser timer' } });
-    expect(screen.queryByText('How do I find my way around?')).toBeNull();
+    expect(screen.queryByText('How do I jump to anything quickly?')).toBeNull();
     fireEvent.click(screen.getByText('What happens if I close the browser with a timer running?'));
     expect(screen.getByText(/the server, not by your browser/)).toBeTruthy();
     fireEvent.click(screen.getAllByRole('button', { name: /Take me there/ })[0]);
@@ -72,7 +71,7 @@ describe('Help centre', () => {
     show();
     fireEvent.change(screen.getByLabelText('Search the help'), { target: { value: 'close the browser' } });
     fireEvent.click(screen.getByText('What happens if I close the browser with a timer running?'));
-    fireEvent.click(screen.getByRole('button', { name: 'How do I track time on a task?' }));
+    fireEvent.click(screen.getByRole('button', { name: 'How do I switch to another task in one click?' }));
     expect((screen.getByLabelText('Search the help') as HTMLInputElement).value).toBe('');
     expect(screen.getByText(/Press the round play button/)).toBeTruthy();
   });
@@ -98,10 +97,10 @@ describe('Help centre', () => {
   it('remembers "Was this helpful?" in this browser', async () => {
     as('employee');
     show();
-    fireEvent.click(screen.getByText('How do I find my way around?'));
+    fireEvent.click(screen.getByText('How do I jump to anything quickly?'));
     fireEvent.click(screen.getByRole('button', { name: 'Yes, this helped' }));
     expect(screen.getByText('Thanks for letting us know.')).toBeTruthy();
-    expect(JSON.parse(localStorage.getItem('tm-help-feedback') ?? '{}')).toEqual({ 'start-navigate': 'yes' });
+    expect(JSON.parse(localStorage.getItem('tm-help-feedback') ?? '{}')).toEqual({ 'start-search': 'yes' });
     await waitFor(() => expect(sidebarApi.tree).toHaveBeenCalled());
   });
 });

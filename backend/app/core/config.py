@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     # Must match an "Authorized redirect URI" in Google Cloud exactly.
     GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/v1/integrations/google/callback"
     GOOGLE_SYNC_MINUTES: int = 5
+    # Emails are sent through the Gmail API (no SMTP). The sender mailbox is connected under Settings > Email with the OAuth app of
+    # EMAIL_OAUTH_COMPANY (GOOGLE_<COMPANY>_CLIENT_ID / _CLIENT_SECRET). EMAIL_REDIRECT_URI must match Google Cloud exactly.
+    EMAIL_OAUTH_COMPANY: str = "Piixel"
+    EMAIL_REDIRECT_URI: str = "http://localhost:8000/api/v1/email/callback"
     # Google push notifications: needs a public HTTPS URL for this API (no localhost). Off by default; polling keeps working either way.
     GOOGLE_PUSH_ENABLED: bool = False
     PUBLIC_BASE_URL: str = ""  # e.g. https://tm.example.com  (the webhook is PUBLIC_BASE_URL/api/v1/integrations/google/webhook)

@@ -12,6 +12,9 @@ export interface ApiUser {
   title?: string;
   phone?: string;
   bio?: string;
+  birthday?: string;
+  birth_year?: number | null;
+  joined_on?: string;
   must_change_password?: boolean;
   settings?: UserSettings;
   is_active: boolean;
@@ -39,6 +42,8 @@ export function toUser(u: ApiUser, companies: ApiCompany[]): User {
     jobTitle: u.title || u.role,
     phone: u.phone || undefined,
     bio: u.bio || undefined,
+    birthday: u.birthday || undefined,
+    birthYear: u.birth_year ?? undefined,
     mustChangePassword: u.must_change_password || undefined,
     settings: u.settings,
     company: (name === 'unwork' ? 'unwork' : 'piixel') as Company,
@@ -49,6 +54,6 @@ export function toUser(u: ApiUser, companies: ApiCompany[]): User {
     avatarUrl: u.avatar_url ?? undefined,
     focusUntil: u.focus_until ?? undefined,
     sidebarState: u.sidebar_state && Object.keys(u.sidebar_state).length ? { open: u.sidebar_state.open ?? [], order: u.sidebar_state.order ?? {} } : undefined,
-    joiningDate: u.created_at.slice(0, 10)
+    joiningDate: u.joined_on || u.created_at.slice(0, 10)
   };
 }

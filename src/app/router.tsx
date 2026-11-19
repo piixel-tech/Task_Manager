@@ -7,6 +7,8 @@ import { EmployeeLayout } from '../components/layout/EmployeeLayout';
 import { ClientLayout } from '../components/layout/ClientLayout';
 
 import { LoginPage } from '../features/auth/pages/LoginPage';
+import { ForgotPasswordPage } from '../features/auth/pages/ForgotPasswordPage';
+import { ResetPasswordPage } from '../features/auth/pages/ResetPasswordPage';
 import { ChangePasswordPage } from '../features/auth/pages/ChangePasswordPage';
 import { LeavePage } from '../features/auth/pages/LeavePage';
 
@@ -62,6 +64,14 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />
+  },
+  {
+    path: '/forgot-password',
+    element: <ForgotPasswordPage />
+  },
+  {
+    path: '/reset-password/:token',
+    element: <ResetPasswordPage />
   },
   {
     path: '/join/:code',

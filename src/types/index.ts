@@ -21,7 +21,9 @@ export interface User {
   focusUntil?: string;
   /** Sidebar: which nodes are open, and the order this person arranged. */
   sidebarState?: { open: string[]; order: Record<string, string[]> };
-  birthday?: string; // MM-DD or YYYY-MM-DD
+  birthday?: string; // MM-DD (the year is private)
+  /** Optional and private: only the person and admins ever get it. */
+  birthYear?: number;
   joiningDate?: string; // YYYY-MM-DD
   nickname?: string;
   /** Backend company id (set for users loaded from the API). */

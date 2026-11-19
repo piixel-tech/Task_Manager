@@ -11,6 +11,7 @@ from app.core.deps import bearer, get_current_user, user_for_token
 from app.core.security import hash_password, verify_password
 from app.models import File, Session, User
 from app.schemas.user import UserOut
+from app.services.celebrations import apply_dates
 from app.services.notify import is_muted
 from app.services.prefs import UserSettings
 from app.services.themes import CUSTOM_PALETTE
@@ -27,6 +28,9 @@ class ProfileUpdate(BaseModel):
     title: str | None = Field(default=None, max_length=100)
     phone: str | None = Field(default=None, max_length=40)
     bio: str | None = Field(default=None, max_length=500)
+    birthday: str | None = None  # "MM-DD", or "" to clear
+    birth_year: int | None = None  # optional, private
+    joined_on: str | None = None  # YYYY-MM-DD, or "" to clear
     avatar_url: str | None = Field(default=None, max_length=300)  # a preset (emoji / icon / initials), an uploaded photo, or "" to clear
 
     @field_validator("name", "title", "phone", "bio")
@@ -48,6 +52,7 @@ async def update_profile(body: ProfileUpdate, user: User = Depends(get_current_u
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Your name can't be empty")
     if "avatar_url" in data:
         data["avatar_url"] = await _check_avatar(data["avatar_url"], user)
+    apply_dates(user, data)
     for field, value in data.items():
         setattr(user, field, value if value is not None else "")
     if "avatar_url" in data and not data["avatar_url"]:
@@ -128,3 +133,6 @@ async def change_password(
     if keep and PydanticObjectId.is_valid(keep):
         others["_id"] = {"$ne": PydanticObjectId(keep)}
     await Session.find(others).update({"$set": {"revoked": True}})
+    from app.services.password_reset import send_changed_notice
+
+    await send_changed_notice(user, "You changed it in Settings.")

@@ -1,5 +1,6 @@
 import { ALERT_SOUNDS, type AlertSound } from '../../services/http/accountApi';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import { pushIsActive } from './webPush';
 
 export const SOUND_LABELS: Record<AlertSound, string> = {
   chime: 'Chime',
@@ -86,6 +87,7 @@ export function showDesktopNotification(title: string, body: string | undefined,
   if (!desktopSupported() || Notification.permission !== 'granted') return;
   if (!useSettingsStore.getState().settings.desktop_popups) return;
   if (document.visibilityState === 'visible' && document.hasFocus()) return; // they are looking at the app: the toast is enough
+  if (pushIsActive()) return; // the service worker shows this one (with the system sound); showing it here too would double it
   if (id) {
     if (shown.has(id) || !claim(id)) return;
     shown.add(id);

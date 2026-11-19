@@ -1,3 +1,4 @@
+import { useLongPress } from '../../../hooks/useLongPress';
 import React, { useState } from 'react';
 import { CheckSquare, CornerUpRight, Eye, FileText, Forward, Info, ListPlus, MoreHorizontal, Pin, PinOff, Reply, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -48,6 +49,7 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
   // Only clients answer approvals; everyone else just watches the status change.
   const isClient = group.members.find((u) => u.id === meId)?.role === 'client';
   const [menu, setMenu] = useState(false);
+  const press = useLongPress(() => !m.deleted && setMenu(true));
   const status = statusOf(m, group);
   const nameOf = (id: string) => (id === meId ? 'You' : (group.members.find((u) => u.id === id)?.name ?? 'Former member'));
 
@@ -71,7 +73,7 @@ export const MessageBubble: React.FC<Props> = ({ message: m, group, meId, showSe
         </div>
       )}
 
-      <div className={`relative flex max-w-[82%] flex-col sm:max-w-[70%] ${mine ? 'items-end' : 'items-start'}`}>
+      <div {...press} className={`relative flex max-w-[82%] flex-col sm:max-w-[70%] ${mine ? 'items-end' : 'items-start'}`}>
         <div
           data-own={mine ? 'true' : undefined}
           className={`tm-msg-in relative rounded-[18px] px-3.5 py-2 transition-shadow ${

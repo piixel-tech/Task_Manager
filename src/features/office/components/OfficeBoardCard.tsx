@@ -78,7 +78,7 @@ export const OfficeBoardCard: React.FC = () => {
             All clear. Spotted something? Post it on the board.
           </p>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-2 xl:grid-cols-3 max-sm:gap-2.5">
             {data?.latest.map((p, i) => (
               <OfficePostCard key={p.id} post={p} index={i} onViewed={onViewed} onReact={react} onToggleResolved={toggleResolved} onDelete={remove} />
             ))}

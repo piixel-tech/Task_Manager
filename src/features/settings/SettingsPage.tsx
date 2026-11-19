@@ -2,11 +2,14 @@ import React from 'react';
 import { NavLink, Navigate, useParams } from 'react-router-dom';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { useAuthStore } from '../../store/authStore';
+import { homeForRole } from '../../app/roleHome';
 import { ProfileSection } from './sections/ProfileSection';
 import { basePath, settingsGroupsFor } from './settingsMenu';
 import { ConnectedAppsSection } from './sections/ConnectedAppsSection';
 import { AppearanceSection, FocusSection, HelpSection, NotificationsSection, PasswordSection, ShortcutsSection } from './sections/PreferenceSections';
 import { FestivalSection } from './sections/FestivalSection';
+import { EmailSection } from './sections/EmailSection';
+import { FestivalGreetingsSection } from './sections/FestivalGreetingsSection';
 import { CompaniesSection, ExportSection, PeopleSection, SecuritySection, TrashSection, WorkspaceSection } from './sections/AdminSections';
 
 const RENDER: Record<string, () => React.ReactNode> = {
@@ -22,6 +25,8 @@ const RENDER: Record<string, () => React.ReactNode> = {
   companies: () => <CompaniesSection />,
   workspace: () => <WorkspaceSection />,
   festival: () => <FestivalSection />,
+  'festival-greetings': () => <FestivalGreetingsSection />,
+  email: () => <EmailSection />,
   trash: () => <TrashSection />,
   export: () => <ExportSection />,
   security: () => <SecuritySection />
@@ -42,9 +47,9 @@ export const SettingsPage: React.FC = () => {
 
   return (
     <>
-      <PageHeader title="Settings" description={current.label} />
-      <div className="grid gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
-        <nav aria-label="Settings sections" className="space-y-5 lg:sticky lg:top-24 lg:self-start">
+      <PageHeader backTo={role ? homeForRole(role) : '/'} backPhoneOnly title="Settings" description={current.label} />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
+        <nav aria-label="Settings sections" className="min-w-0 space-y-5 lg:sticky lg:top-24 lg:self-start">
           {groups.map((g) => (
             <div key={g.title}>
               <p className="mb-1.5 px-3 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[var(--tm-ink-muted)]">{g.title}</p>

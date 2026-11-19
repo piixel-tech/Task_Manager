@@ -19,9 +19,9 @@ async def test_staff_see_the_profile_with_todays_status_and_no_private_details(c
         assert r.status_code == 200
         assert r.json() == {
             "id": ann.id, "name": "Ann Able", "role": "employee", "avatar_url": None, "title": "Designer",
-            "bio": "Loves type.", "company": "Acme", "status": "wfh", "in_focus": False,
+            "bio": "Loves type.", "birthday": "", "joined_on": ann.user.created_at.date().isoformat(), "company": "Acme", "status": "wfh", "in_focus": False,
         }
-    assert "email" not in r.text and "phone" not in r.text and "password" not in r.text
+    assert "email" not in r.text and "phone" not in r.text and "password" not in r.text and "birth_year" not in r.text
 
 
 async def test_status_is_empty_when_not_set_and_unknown_people_are_404(client, alice, bob):

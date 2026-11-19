@@ -309,6 +309,175 @@ input[type='checkbox']:not(.tm-native):disabled {
 /* ==========================================================================
    Reduced motion — honour the OS setting everywhere
    ========================================================================== */
+/* ==========================================================================
+   Mobile (SPEC.md > Mobile). Everything here is inside a small-screen query, so desktop (1024px and up) is untouched.
+   Phone is under 768px, tablet 768-1023px.
+   ========================================================================== */
+@media (max-width: 767px) {
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: clip; /* no sideways page scroll */
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Tap targets: at least 44px tall (switches and checkboxes keep their own size). */
+  :where(button, [role='button'], [role='tab'], [role='menuitem'], summary, select, input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file'])):not([role='switch']):not([role='checkbox']) {
+    min-height: 44px;
+  }
+  :where(button[aria-label]):not([role='switch']):not([role='checkbox']) {
+    min-width: 44px;
+  }
+  :where(a[href][aria-label]):where(.grid, .flex, .inline-flex) {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  :where(a[href]):where(.flex, .grid) {
+    min-height: 44px;
+  }
+  :where([role='tab']) {
+    min-width: 44px;
+  }
+  /* Switches stay small to look at, but their touch area grows to a thumb's size. */
+  button[role='switch'] {
+    position: relative;
+  }
+  button[role='switch']::after {
+    content: '';
+    position: absolute;
+    inset: -8px -4px;
+  }
+
+  /* 16px text in fields, or iOS zooms the page when one is focused. */
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+
+  /* Pickers and menus fit the screen and scroll inside. */
+  [role='menu'],
+  [role='listbox'] {
+    max-width: calc(100vw - 16px);
+    max-height: 70dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+@media (max-width: 1023px) {
+  button,
+  a,
+  [role='button'] {
+    touch-action: manipulation; /* no double-tap delay */
+  }
+}
+
+/* Touch screens have no hover, so tooltips are not shown. */
+@media (max-width: 767px) {
+  /* Long tab rows scroll sideways instead of wrapping or overflowing. */
+  [role='tablist'] {
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  [role='tablist']::-webkit-scrollbar {
+    display: none;
+  }
+  [role='tablist'] > * {
+    flex-shrink: 0;
+  }
+
+  /* Tables marked tm-stack become one card per row: the cell's column name on the left, its value on the right. */
+  table.tm-stack,
+  table.tm-stack tbody {
+    display: block;
+    width: 100%;
+    min-width: 0 !important;
+  }
+  table.tm-stack thead,
+  table.tm-stack colgroup {
+    display: none;
+  }
+  table.tm-stack tr {
+    display: block;
+    margin: 0.5rem 0;
+    padding: 0.5rem 0.875rem;
+    border: 1px solid var(--tm-border);
+    border-radius: var(--tm-radius-md);
+    background: var(--tm-card);
+  }
+  table.tm-stack td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.375rem 0 !important;
+    border: 0;
+    text-align: right;
+    white-space: normal !important;
+    width: auto !important;
+  }
+  table.tm-stack td[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-align: left;
+    color: var(--tm-ink-muted);
+  }
+  table.tm-stack td[colspan] {
+    display: block;
+    text-align: left;
+  }
+
+  /* A form's save row sticks to the bottom (above the tab bar on a page, at the sheet's edge in a popup). */
+  form > div:last-child:has(> button[type='submit']) {
+    position: sticky;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    z-index: 5;
+    margin-top: 1rem;
+    padding: 0.75rem 0;
+    background: var(--tm-card);
+    box-shadow: 0 -8px 12px -8px color-mix(in srgb, var(--tm-ink) 12%, transparent);
+  }
+  [role='dialog'] form > div:last-child:has(> button[type='submit']) {
+    bottom: 0;
+  }
+  form > div:last-child:has(> button[type='submit']) > button {
+    flex: 1;
+  }
+}
+
+@media (max-width: 767px) {
+  /* Files, voice notes, photos and approval cards never grow wider than the message column. */
+  audio,
+  video,
+  img {
+    max-width: 100%;
+  }
+  audio {
+    width: 100%;
+  }
+  [id^='msg-'] > div {
+    min-width: 0;
+  }
+  /* Popups opened by a tap keep their buttons a thumb's width apart. */
+  [role='dialog'] [role='menuitem'],
+  [role='menu'] [role='menuitem'] {
+    min-height: 44px;
+  }
+}
+
+@media (hover: none) {
+  [role='tooltip'] {
+    display: none !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

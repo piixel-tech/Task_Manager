@@ -38,7 +38,7 @@ export const BottomTabBar: React.FC = () => {
       ];
 
   return (
-    <div className="tm-sidebar fixed bottom-3 left-3 right-3 z-50 flex h-16 items-center justify-around rounded-full px-2 lg:hidden">
+    <div className="tm-sidebar fixed bottom-3 left-3 right-3 z-50 hidden h-16 md:flex items-center justify-around rounded-full px-2 lg:hidden">
       {navItems.map((item) => {
         const Icon = item.icon;
         return (

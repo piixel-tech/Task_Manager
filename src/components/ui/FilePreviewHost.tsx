@@ -243,6 +243,54 @@ export const FilePreviewHost: React.FC = () => {
     return () => window.removeEventListener('keydown', onKey, true);
   }, [isOpen, close, go, kind]);
 
+  // Touch: swipe left / right for the next / previous file, pinch to zoom an image.
+  const zoomNow = useRef(1);
+  zoomNow.current = zoom;
+  useEffect(() => {
+    if (!isOpen || !file) return;
+    const el = document.querySelector<HTMLElement>('[data-preview-body]');
+    if (!el) return;
+    let from: { x: number; y: number } | null = null;
+    let pinch: { d: number; z: number } | null = null;
+    let multi = false;
+    const dist = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        multi = true;
+        pinch = { d: dist(e.touches), z: zoomNow.current };
+      } else if (e.touches.length === 1) {
+        multi = false;
+        from = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }
+    };
+    const onMove = (e: TouchEvent) => {
+      if (pinch && e.touches.length === 2 && kind === 'image') {
+        e.preventDefault();
+        const next = (pinch.z * dist(e.touches)) / pinch.d;
+        setZoom(Math.min(ZOOM_STEPS[ZOOM_STEPS.length - 1], Math.max(ZOOM_STEPS[0], next)));
+      }
+    };
+    const onEnd = (e: TouchEvent) => {
+      if (e.touches.length > 0) return;
+      const t = e.changedTouches[0];
+      if (from && !multi && t && zoomNow.current <= 1) {
+        const dx = t.clientX - from.x;
+        const dy = t.clientY - from.y;
+        if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) go(dx < 0 ? 1 : -1);
+      }
+      from = null;
+      pinch = null;
+    };
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: false });
+    el.addEventListener('touchend', onEnd, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove', onMove);
+      el.removeEventListener('touchend', onEnd);
+    };
+  }, [isOpen, file, kind, go, loaded.status]);
+
   const download = async () => {
     if (!file) return;
     setBusy(true);
@@ -267,7 +315,7 @@ export const FilePreviewHost: React.FC = () => {
     switch (kind) {
       case 'image':
         return (
-          <div className="h-full overflow-auto bg-[var(--tm-bg-sunken)] p-4">
+          <div className="h-full touch-pan-x touch-pan-y overflow-auto bg-[var(--tm-bg-sunken)] p-4">
             <img src={loaded.url} alt={file.name} style={{ width: `${zoom * 100}%`, maxWidth: zoom <= 1 ? '100%' : 'none' }} className="mx-auto block h-auto select-none" draggable={false} />
           </div>
         );
@@ -307,10 +355,10 @@ export const FilePreviewHost: React.FC = () => {
   })();
 
   return createPortal(
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-label={`Preview of ${file.name}`}>
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 max-md:p-0 sm:p-6" role="dialog" aria-modal="true" aria-label={`Preview of ${file.name}`}>
       <button type="button" aria-label="Close preview" className="absolute inset-0 cursor-default bg-[var(--tm-ink)]/60 backdrop-blur-sm" onClick={close} />
-      <div className="relative z-10 flex h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-[var(--tm-radius-card)] border border-[var(--tm-border)] bg-[var(--tm-card)] shadow-soft-lg">
-        <header className="flex flex-wrap items-center gap-3 border-b border-[var(--tm-border)] px-4 py-3">
+      <div className="relative z-10 flex h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-[var(--tm-radius-card)] border border-[var(--tm-border)] bg-[var(--tm-card)] shadow-soft-lg max-md:h-[100dvh] max-md:max-w-none max-md:rounded-none max-md:border-0">
+        <header className="flex flex-wrap items-center gap-3 border-b border-[var(--tm-border)] px-4 py-3 max-md:pt-[calc(env(safe-area-inset-top)+0.75rem)]">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[var(--tm-radius-md)] bg-[var(--tm-primary-soft)] text-[var(--tm-primary-dark)]">
             <Icon className="h-[18px] w-[18px]" />
           </span>

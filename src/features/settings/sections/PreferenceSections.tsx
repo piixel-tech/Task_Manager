@@ -14,7 +14,8 @@ import { useSettingsStore } from '../../../store/useSettingsStore';
 import { FocusControls } from '../../focus/FocusMenu';
 import { HelpCenter } from '../../help/HelpCenter';
 import { ShortcutList } from '../../shortcuts/ShortcutList';
-import { desktopPermission, desktopSupported, playAlertSound, requestDesktopPermission, sendTestNotification, SOUND_OPTIONS } from '../../notifications/notificationAlerts';
+import { desktopPermission, desktopSupported, playAlertSound, sendTestNotification, SOUND_OPTIONS } from '../../notifications/notificationAlerts';
+import { pushState, sendTestPush, turnOnPush, type PushState } from '../../notifications/webPush';
 import { toast } from '../../../store/useToastStore';
 import type { AlertSound } from '../../../services/http/accountApi';
 
@@ -24,7 +25,8 @@ const KINDS: { key: keyof NotifPrefs; label: string; note: string }[] = [
   { key: 'chat', label: 'Chat', note: 'New messages, being added to a group, client approvals. Controls the message popups too.' },
   { key: 'mentions', label: 'Mentions', note: 'When someone @mentions you.' },
   { key: 'office', label: 'Office board', note: 'New posts and when issues are resolved.' },
-  { key: 'bookings', label: 'Bookings', note: 'Meetings booked or cancelled on your calendar.' }
+  { key: 'bookings', label: 'Bookings', note: 'Meetings booked or cancelled on your calendar.' },
+  { key: 'daily_email', label: 'Morning summary email', note: 'At 9:30 AM IST: what is due, overdue, waiting for you and on your calendar. Only sent when there is something.' }
 ];
 
 export const NotificationsSection: React.FC = () => {
@@ -112,21 +114,49 @@ const AlertsCard: React.FC = () => {
 
   // Permission belongs to this browser, not to the account: the saved choice can be "on" while this browser has not allowed it yet.
   const [permission, setPermission] = useState(desktopPermission);
+  const [push, setPush] = useState<PushState>('off');
+  const [busy, setBusy] = useState(false);
   useEffect(() => {
-    const refresh = () => setPermission(desktopPermission());
+    const refresh = () => {
+      setPermission(desktopPermission());
+      void pushState().then(setPush);
+    };
+    refresh();
     window.addEventListener('focus', refresh); // it may have been changed in the browser's site settings
     return () => window.removeEventListener('focus', refresh);
   }, []);
 
-  /** The browser asks only now, from this click. */
+  /** The browser asks only now, from this click. Also subscribes this browser so notifications arrive when the app is closed. */
   const enable = async () => {
-    const result = await requestDesktopPermission();
+    setBusy(true);
+    const state = await turnOnPush();
+    setBusy(false);
     setPermission(desktopPermission());
-    if (result === 'granted') {
+    setPush(state);
+    if (desktopPermission() === 'granted') {
       void update({ desktop_popups: true });
-      toast.success('System notifications are on', 'You will see them when you are away from this tab.');
+      if (state === 'on') toast.success('Notifications are on', 'You will get them even when Task Manager is closed.');
+      else toast.success('System notifications are on', 'You will see them when you are away from this tab.');
     } else {
-      toast.error('Notifications are blocked', 'Allow notifications for this site in your browser settings (the lock icon next to the address), then press Enable again.');
+      toast.error('Notifications are blocked', 'Allow notifications for this site in your browser settings (the lock icon next to the address), then press Turn on notifications again.');
+    }
+  };
+
+  /** A real push through the server, so it proves the whole path works. Falls back to a local one where push is unavailable. */
+  const sendTest = async () => {
+    setBusy(true);
+    try {
+      if (push === 'on') {
+        const r = await sendTestPush();
+        if (r.sent > 0) toast.success('Test sent', 'It should appear in a moment.');
+        else toast.error('The test did not arrive', 'Try Turn on notifications again, then retry.');
+      } else if (!sendTestNotification()) {
+        toast.error('Could not show a notification');
+      }
+    } catch {
+      toast.error('Could not send the test', 'Check your connection and try again.');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -173,26 +203,28 @@ const AlertsCard: React.FC = () => {
           <AlertRow
             title="System notifications on this browser"
             note={
-              permission === 'granted'
-                ? settings.desktop_popups
-                  ? 'Allowed. New notifications also appear as a Windows or macOS notification when you are away from the app. Click one to open it.'
-                  : 'Allowed by this browser, but switched off above.'
-                : permission === 'denied'
-                  ? 'Blocked by this browser. Allow notifications for this site in the browser settings (the lock icon next to the address), then press Enable.'
-                  : 'Not enabled yet. Press the button and allow notifications when your browser asks.'
+              permission === 'denied'
+                ? 'Blocked by this browser. Allow notifications for this site in the browser settings (the lock icon next to the address), then press Turn on notifications.'
+                : permission !== 'granted'
+                  ? 'Not enabled yet. Press the button and allow notifications when your browser asks.'
+                  : push === 'on'
+                    ? 'On. New notifications appear as a system notification with a sound, even when Task Manager is closed. Click one to open it.'
+                    : push === 'server-off'
+                      ? 'Allowed, but the server has no push keys yet, so they only appear while Task Manager is open.'
+                      : 'Allowed by this browser. Press Turn on notifications to receive them while the app is closed.'
             }
           >
             <div className="flex items-center gap-2">
               <StatusChip tone={permission === 'granted' ? 'ok' : permission === 'denied' ? 'bad' : 'neutral'} size="sm" dot>
-                {permission === 'granted' ? 'Allowed' : permission === 'denied' ? 'Blocked' : 'Not enabled'}
+                {permission === 'denied' ? 'Blocked' : permission === 'granted' && push !== 'off' ? 'On' : permission === 'granted' ? 'Allowed' : 'Not enabled'}
               </StatusChip>
-              {permission === 'granted' ? (
-                <Button size="sm" variant="outline" onClick={() => !sendTestNotification() && toast.error('Could not show a notification')}>
-                  Send a test
+              {permission === 'granted' && push !== 'off' ? (
+                <Button size="sm" variant="outline" disabled={busy} onClick={() => void sendTest()}>
+                  Send test notification
                 </Button>
               ) : (
-                <Button size="sm" onClick={() => void enable()}>
-                  Enable Notifications
+                <Button size="sm" disabled={busy} onClick={() => void enable()}>
+                  Turn on notifications
                 </Button>
               )}
             </div>

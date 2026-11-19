@@ -15,11 +15,13 @@ import {
   userService
 } from '../../../services';
 import type { Project, Task, User } from '../../../types';
+import { GreetingSubtitle, GreetingTitle } from '../../dashboard/greeting/DashboardGreeting';
 import { AdminWidgets } from '../../dashboard/widgets/AdminWidgets';
 import { WorkingNowSection } from '../../dashboard/widgets/WorkingNowSection';
 import { LeaveRequestsCard } from '../../leave/admin/LeaveRequestsCard';
 import { taskApi, type ApiTask } from '../../../services/http/taskApi';
 import { TodayOverview } from '../../status/components/TodayOverview';
+import { CelebrationsCard } from '../../celebrations/CelebrationsCard';
 import { OfficeBoardCard } from '../../office/components/OfficeBoardCard';
 import { UpcomingHolidays } from '../../workspace/UpcomingHolidays';
 import { useDailyStatusStore } from '../../../store/useDailyStatusStore';
@@ -64,9 +66,7 @@ export const AdminDashboardPage: React.FC = () => {
     loadOverview();
   }, [loadOverview]);
 
-  const displayName = 'Boss'; // the admin is greeted as Boss, whatever their name
-  const currentHour = new Date().getHours();
-  const greeting = currentHour < 12 ? 'Good morning' : currentHour < 17 ? 'Good afternoon' : 'Good evening';
+  const displayName = 'Boss'; // the admin is greeted as Boss, whatever their name (unless they pick their own)
 
   const filteredUsers = useMemo(
     () => users.filter((u) => u.active && (companyFilter === 'all' || u.company === companyFilter)),
@@ -92,8 +92,8 @@ export const AdminDashboardPage: React.FC = () => {
   return (
     <>
       <PageHeader
-        title={`${greeting}, ${displayName}`}
-        description="Today’s team, live work and project health."
+        title={<GreetingTitle defaultName={displayName} />}
+        description={<GreetingSubtitle />}
         actions={
           <>
             <Button
@@ -154,7 +154,7 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
         </HeroCard>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 lg:col-span-12">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 xl:grid-cols-4 lg:col-span-12 max-sm:gap-2.5">
           <StatCard
             label="Working today"
             onClick={() => setDrawer('present')}
@@ -192,6 +192,10 @@ export const AdminDashboardPage: React.FC = () => {
           />
         </div>
 
+        <div className="empty:hidden lg:col-span-12">
+          <CelebrationsCard />
+        </div>
+
         <div className="lg:col-span-12">
           <OfficeBoardCard />
         </div>
@@ -225,7 +229,7 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
 
           {loading ? (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 xl:grid-cols-3 max-sm:gap-2.5">
               <SkeletonCard />
               <SkeletonCard />
               <SkeletonCard />

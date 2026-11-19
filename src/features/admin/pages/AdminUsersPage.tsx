@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowDown,
@@ -7,8 +8,12 @@ import {
   CalendarDays,
   Edit2,
   Eye,
+  KeyRound,
+  Mail,
   MessageSquare,
+  MoreVertical,
   Plus,
+  Shuffle,
   Users
 } from 'lucide-react';
 import { userService, taskService } from '../../../services';
@@ -25,7 +30,12 @@ import { Modal } from '../../../components/ui/Modal';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { SuccessDialog } from '../../../components/ui/SuccessDialog';
 import { Drawer } from '../../../components/ui/Drawer';
+import { BirthdayFields } from '../../../components/ui/BirthdayFields';
 import { Input } from '../../../components/ui/Input';
+import { PasswordInput } from '../../../components/ui/PasswordInput';
+import { PasswordRules } from '../../../components/ui/PasswordRules';
+import { passwordApi } from '../../../services/http/passwordApi';
+import { generatePassword, passwordIsValid } from '../../../utils/passwordRules';
 import { Select } from '../../../components/ui/Select';
 import { FilterBar, FilterSearch } from '../../../components/ui/FilterBar';
 import { PillTabs } from '../../../components/ui/PillTabs';
@@ -45,13 +55,16 @@ interface UserForm {
   companyId: string;
   /** Job role shown under the person's name everywhere. */
   jobTitle: string;
+  birthday: string;
+  birthYear: string;
+  joiningDate: string;
 }
 
-const emptyForm: UserForm = { name: '', email: '', password: '', role: 'employee', companyId: '', jobTitle: '' };
+const emptyForm: UserForm = { name: '', email: '', password: '', role: 'employee', companyId: '', jobTitle: '', birthday: '', birthYear: '', joiningDate: '' };
 
 type PendingAction =
   | { kind: 'create' }
-  | { kind: 'edit' | 'reset' | 'deactivate' | 'rehire'; user: User };
+  | { kind: 'edit' | 'reset' | 'sendlink' | 'deactivate' | 'rehire'; user: User };
 
 const nameOf = (a: PendingAction) => ('user' in a ? a.user.name : 'This member');
 
@@ -70,9 +83,15 @@ const CONFIRM_COPY: Record<
     message: (a) => `Update the details for ${nameOf(a)}.`
   },
   reset: {
-    title: 'Reset password?',
-    action: 'Reset password',
-    message: (a) => `${nameOf(a)} will need the new password to sign in.`
+    title: 'Set a temporary password?',
+    action: 'Set password',
+    message: (a) =>
+      `${nameOf(a)} will be signed out everywhere and must choose their own password at their next sign-in. They get an email saying it was changed.`
+  },
+  sendlink: {
+    title: 'Send a reset link?',
+    action: 'Send link',
+    message: (a) => `${nameOf(a)} will get an email with a link to choose a new password. It works once and expires in 30 minutes.`
   },
   deactivate: {
     title: 'Deactivate this member?',
@@ -124,6 +143,10 @@ export const AdminUsersPage: React.FC = () => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [resettingUser, setResettingUser] = useState<User | null>(null);
   const [viewingUser, setViewingUser] = useState<User | null>(null);
+  // The "more" menu of a row: which person, and where its button is on screen.
+  const [menu, setMenu] = useState<{ user: User; top: number; right: number } | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const me = useAuthStore((st) => st.user);
 
   // Confirm -> run -> success flow
   const [confirm, setConfirm] = useState<PendingAction | null>(null);
@@ -192,10 +215,39 @@ export const AdminUsersPage: React.FC = () => {
       password: '',
       role: u.role,
       companyId: u.companyId ?? companies[0]?.id ?? '',
-      jobTitle: u.jobTitle === u.role ? '' : u.jobTitle
+      jobTitle: u.jobTitle === u.role ? '' : u.jobTitle,
+      birthday: u.birthday ?? '',
+      birthYear: u.birthYear ? String(u.birthYear) : '',
+      joiningDate: u.joiningDate ?? ''
     });
     setFormError(null);
     setEditingUser(u);
+  };
+
+  useEffect(() => {
+    if (!menu) return;
+    const close = (e: Event) => {
+      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !menuRef.current?.contains(e.target as Node)) setMenu(null);
+    };
+    const closeOnScroll = () => setMenu(null);
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', close);
+    window.addEventListener('scroll', closeOnScroll, true);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', close);
+      window.removeEventListener('scroll', closeOnScroll, true);
+    };
+  }, [menu]);
+
+  /** Email reset and temporary passwords exist for active admins and employees (not for yourself: use Settings). */
+  const canReset = (u: User) => u.active && u.role !== 'client' && u.id !== me?.id;
+
+  const openTemporary = (u: User) => {
+    setResettingUser(u);
+    setNewPassword('');
+    setFormError(null);
+    setViewingUser(null);
   };
 
   const closeForms = () => {
@@ -241,18 +293,26 @@ export const AdminUsersPage: React.FC = () => {
             loginId: form.email.trim(),
             role: form.role,
             companyId: form.companyId || undefined,
-            jobTitle: form.jobTitle.trim()
+            jobTitle: form.jobTitle.trim(),
+            birthday: form.birthday,
+            birthYear: form.birthday && form.birthYear ? Number(form.birthYear) : undefined,
+            joiningDate: form.joiningDate
           });
           syncStores(updated);
           result = { title: 'Changes saved', message: `Updated details for ${updated.name}.` };
           break;
         }
         case 'reset': {
-          await userService.resetPassword(confirm.user.id, newPassword);
+          await passwordApi.setTemporaryPassword(confirm.user.id, newPassword);
           result = {
-            title: 'Password reset',
-            message: `New password set for ${confirm.user.name}.`
+            title: 'Temporary password set',
+            message: `${confirm.user.name} must change it when they next sign in. Tell them the password yourself: it is not emailed.`
           };
+          break;
+        }
+        case 'sendlink': {
+          await passwordApi.sendResetLink(confirm.user.id);
+          result = { title: 'Reset link sent', message: `${confirm.user.name} will get an email with a link that works for 30 minutes.` };
           break;
         }
         case 'deactivate': {
@@ -278,7 +338,7 @@ export const AdminUsersPage: React.FC = () => {
       // Keep the form open so the admin can fix the input (e.g. duplicate email).
       setConfirm(null);
       const message = err.message || 'Something went wrong';
-      if (confirm.kind === 'deactivate' || confirm.kind === 'rehire') showToast(message);
+      if (confirm.kind === 'deactivate' || confirm.kind === 'rehire' || confirm.kind === 'sendlink') showToast(message);
       else setFormError(message);
     } finally {
       setBusy(false);
@@ -413,7 +473,7 @@ export const AdminUsersPage: React.FC = () => {
         />
       ) : (
         <div className="animate-fade-in overflow-x-auto rounded-[var(--tm-radius-xl)] border border-[var(--tm-border)] bg-[var(--tm-card)] shadow-soft-xs">
-          <table className="w-full min-w-[960px] text-left text-[13px]">
+          <table className="tm-stack w-full min-w-[960px] text-left text-[13px]">
             <thead className="border-b border-[var(--tm-border)] bg-[var(--tm-card-muted)]">
               <tr>
                 {COLUMNS.map((c) => {
@@ -489,6 +549,21 @@ export const AdminUsersPage: React.FC = () => {
                         <Button variant="ghost" size="sm" aria-label={`Edit ${u.name}`} onClick={() => openEdit(u)}>
                           <Edit2 className="h-4 w-4" />
                         </Button>
+                        {canReset(u) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`More actions for ${u.name}`}
+                            aria-haspopup="menu"
+                            aria-expanded={menu?.user.id === u.id}
+                            onClick={(e) => {
+                              const r = e.currentTarget.getBoundingClientRect();
+                              setMenu(menu?.user.id === u.id ? null : { user: u, top: r.bottom + 6, right: window.innerWidth - r.right });
+                            }}
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        )}
                         {u.active ? (
                           <Button variant="danger" size="sm" onClick={() => setConfirm({ kind: 'deactivate', user: u })}>
                             Deactivate
@@ -536,14 +611,9 @@ export const AdminUsersPage: React.FC = () => {
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    setResettingUser(viewingUser);
-                    setNewPassword('');
-                    setFormError(null);
-                    setViewingUser(null);
-                  }}
+                  onClick={() => openTemporary(viewingUser)}
                 >
-                  Reset password
+                  Temporary password
                 </Button>
                 <Button
                   onClick={() => {
@@ -628,6 +698,23 @@ export const AdminUsersPage: React.FC = () => {
             maxLength={80}
           />
 
+          {editingUser && (
+            <>
+              <div>
+                <BirthdayFields value={form.birthday} year={form.birthYear} onChange={(b, y) => setForm((f) => ({ ...f, birthday: b, birthYear: y }))} />
+                <p className="mt-1.5 pl-1 text-[11.5px] text-[var(--tm-ink-muted)]">The team sees the day and month only. The year is never shown.</p>
+              </div>
+              <Input
+                label="Joining date"
+                type="date"
+                value={form.joiningDate}
+                max={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => setField('joiningDate', e.target.value)}
+                helperText="Used for work anniversaries."
+              />
+            </>
+          )}
+
           <Input
             label="Email"
             type="email"
@@ -679,29 +766,67 @@ export const AdminUsersPage: React.FC = () => {
         </form>
       </Modal>
 
-      {/* Reset Password Modal */}
+      {/* Person menu (portal: the table scrolls sideways and would clip it) */}
+      {menu &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            aria-label={`Actions for ${menu.user.name}`}
+            style={{ position: 'fixed', top: menu.top, right: menu.right }}
+            className="z-[60] min-w-[220px] rounded-[var(--tm-radius-md)] border border-[var(--tm-border)] bg-[var(--tm-card)] p-1.5 shadow-soft-lg"
+          >
+            <button
+              role="menuitem"
+              type="button"
+              className="flex w-full items-center gap-2.5 rounded-[var(--tm-radius-sm)] px-3 py-2.5 text-left text-[13px] font-semibold text-[var(--tm-ink)] hover:bg-[var(--tm-card-muted)]"
+              onClick={() => {
+                setConfirm({ kind: 'sendlink', user: menu.user });
+                setMenu(null);
+              }}
+            >
+              <Mail className="h-4 w-4 text-[var(--tm-ink-muted)]" /> Send reset link
+            </button>
+            <button
+              role="menuitem"
+              type="button"
+              className="flex w-full items-center gap-2.5 rounded-[var(--tm-radius-sm)] px-3 py-2.5 text-left text-[13px] font-semibold text-[var(--tm-ink)] hover:bg-[var(--tm-card-muted)]"
+              onClick={() => {
+                openTemporary(menu.user);
+                setMenu(null);
+              }}
+            >
+              <KeyRound className="h-4 w-4 text-[var(--tm-ink-muted)]" /> Set temporary password
+            </button>
+          </div>,
+          document.body
+        )}
+
+      {/* Temporary password */}
       <Modal
         isOpen={!!resettingUser}
         onClose={closeForms}
-        title={resettingUser ? `Reset password — ${resettingUser.name}` : 'Reset password'}
-        description="Set a new password for this member."
+        title={resettingUser ? `Temporary password — ${resettingUser.name}` : 'Temporary password'}
+        description="Signed out everywhere; they must choose their own at next sign-in."
       >
         {resettingUser && (
           <form noValidate
             onSubmit={(e) => {
               e.preventDefault();
+              if (!passwordIsValid(newPassword)) {
+                setFormError('The password does not meet the rules below.');
+                return;
+              }
               setConfirm({ kind: 'reset', user: resettingUser });
             }}
             className="space-y-4"
           >
             <FormError message={formError} />
 
-            <Input
-              label="New password"
-              type="password"
+            <PasswordInput
+              label="Temporary password"
+              helperText="You tell them this password yourself. It is never emailed."
               autoComplete="new-password"
-              helperText="At least 8 characters."
-              minLength={8}
               value={newPassword}
               onChange={(e) => {
                 setNewPassword(e.target.value);
@@ -709,13 +834,19 @@ export const AdminUsersPage: React.FC = () => {
               }}
               required
             />
+            <Button variant="outline" size="sm" type="button" leftIcon={<Shuffle className="h-4 w-4" />} onClick={() => setNewPassword(generatePassword())}>
+              Generate one
+            </Button>
+            <div className="rounded-[var(--tm-radius-md)] bg-[var(--tm-card-muted)] p-4 text-[var(--tm-ink)]">
+              <PasswordRules password={newPassword} />
+            </div>
 
             <div className="flex justify-end gap-3 pt-2">
               <Button variant="outline" type="button" onClick={closeForms}>
                 Cancel
               </Button>
-              <Button variant="danger" type="submit">
-                Reset password
+              <Button type="submit" disabled={!passwordIsValid(newPassword)}>
+                Set temporary password
               </Button>
             </div>
           </form>

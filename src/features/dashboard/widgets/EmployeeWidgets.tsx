@@ -119,7 +119,7 @@ export const EmployeeWidgets: React.FC = () => {
       </StaggerItem>
 
       <StaggerItem className="lg:col-span-12">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 xl:grid-cols-4 max-sm:gap-2.5">
           <StatCard to="/app/tasks?quick=due_today" label="Due today" value={dueToday.length} icon={<Clock className="h-5 w-5" />} tone="ok" hint="Open tasks due over the next 7 days" trend={upcomingCounts(open, (t) => t.due_date, 7)} />
           <StatCard to="/app/tasks?quick=overdue" label="Overdue" value={overdue.length} icon={<AlertTriangle className="h-5 w-5" />} tone="bad" hint="Overdue tasks by due date, last 7 days" trend={dailyCounts(overdue, (t) => t.due_date, 7)} />
           <StatCard to="/app/tasks?quick=in_review" label="In review" value={submissions.length} icon={<ClipboardCheck className="h-5 w-5" />} tone="neutral" hint="Submitted or sent back" />

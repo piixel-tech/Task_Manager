@@ -75,7 +75,7 @@ async def test_notify_pushes_to_a_person_whose_app_is_closed(client, alice, vapi
     assert payload["title"] == "Task due today" and payload["body"] == "Write the brief" and payload["url"] == "/app/tasks/1"
 
 
-async def test_notify_does_not_push_when_the_app_is_open(client, alice, vapid, sent):
+async def test_notify_pushes_even_with_a_socket_open_because_the_worker_hides_it_when_the_app_is_on_screen(client, alice, vapid, sent):
     await client.post("/push/subscribe", json=SUB, headers=alice.headers)
     class OpenTab:
         async def send_json(self, message):
@@ -87,7 +87,21 @@ async def test_notify_does_not_push_when_the_app_is_open(client, alice, vapid, s
         await wait_for_pushes()
     finally:
         manager._connections.pop(alice.user.id, None)
-    assert sent == []
+    assert len(sent) == 1  # a stale socket must never swallow a notification; sw.js stays quiet if the app is visible
+
+
+async def test_test_notification_goes_to_this_persons_browsers_only(client, alice, bob, vapid, sent):
+    other = {"endpoint": "https://push.example/other", "keys": {"p256dh": "k", "auth": "a"}}
+    await client.post("/push/subscribe", json=SUB, headers=alice.headers)
+    await client.post("/push/subscribe", json=other, headers=bob.headers)
+    r = await client.post("/push/test", headers=alice.headers)
+    assert r.status_code == 200 and r.json() == {"sent": 1, "subscriptions": 1}
+    assert [e for e, _ in sent] == [SUB["endpoint"]] and sent[0][1]["force"] is True
+
+
+async def test_test_notification_needs_the_server_keys(client, alice, monkeypatch):
+    monkeypatch.setattr(settings, "VAPID_PUBLIC_KEY", "")
+    assert (await client.post("/push/test", headers=alice.headers)).status_code == 503
 
 
 async def test_notify_still_works_without_vapid_keys(client, alice, monkeypatch):

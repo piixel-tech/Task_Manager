@@ -77,7 +77,7 @@ export const PinNote: React.FC<{
       ref={ref}
       data-resolved={post.resolved || undefined}
       style={{ background: tint.bg, ['--tilt' as string]: `${tilt}deg` }}
-      className={`group relative flex min-h-[250px] rotate-[var(--tilt)] flex-col gap-3 rounded-[18px] p-5 pt-7 shadow-soft-sm transition-all duration-200 hover:z-20 hover:-translate-y-1.5 hover:rotate-0 hover:shadow-soft focus-within:z-20 ${
+      className={`group relative flex min-h-[250px] max-sm:min-h-0 rotate-[var(--tilt)] flex-col gap-3 max-sm:gap-2 rounded-[18px] p-5 max-sm:p-3 pt-7 max-sm:pt-6 shadow-soft-sm transition-all duration-200 hover:z-20 hover:-translate-y-1.5 hover:rotate-0 hover:shadow-soft focus-within:z-20 ${
         post.resolved ? 'opacity-60 hover:opacity-100' : ''
       }`}
     >
@@ -106,7 +106,7 @@ export const PinNote: React.FC<{
       <div>
         <p
           ref={textRef}
-          className={`whitespace-pre-wrap break-words text-[22px] font-bold leading-tight tracking-[-0.01em] text-[var(--tm-ink)] ${expanded ? '' : 'line-clamp-4'} ${post.resolved ? 'line-through decoration-2' : ''}`}
+          className={`whitespace-pre-wrap break-words text-[22px] max-sm:text-[17px] font-bold leading-tight tracking-[-0.01em] text-[var(--tm-ink)] ${expanded ? '' : 'line-clamp-4'} ${post.resolved ? 'line-through decoration-2' : ''}`}
         >
           {post.text}
         </p>
@@ -212,7 +212,7 @@ export const PinNote: React.FC<{
       </div>
 
       {/* Dashed divider, then seen by + resolve */}
-      <div className="mt-auto flex items-center justify-between gap-2 border-t border-dashed border-[var(--tm-ink-muted)]/50 pt-3">
+      <div className="mt-auto flex items-center justify-between gap-2 max-sm:flex-wrap border-t border-dashed border-[var(--tm-ink-muted)]/50 pt-3">
         <div className="relative flex min-w-0 items-center text-[11.5px] text-[var(--tm-ink-soft)]">
           {post.seen_by.length > 0 ? (
             <>

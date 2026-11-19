@@ -10,6 +10,8 @@ from app.core.timeutil import tz
 from app.integrations.runner import run_integration_sync
 from app.services.alerts import run_digest, run_late_timers, run_meeting_reminders, run_snoozed
 from app.services.approvals import run_approval_reminders
+from app.services.celebrations import run_celebration_notifications
+from app.services.daily_summary import run_daily_summary
 from app.services.monthly_report import finalize_previous_month
 from app.services.reminders import run_reminders
 from app.services.scheduled import run_scheduled_sends
@@ -17,6 +19,8 @@ from app.services.trash import purge_expired
 
 log = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler(timezone=settings.TIMEZONE)
+# 9:30 AM India time. The zone is explicit: a trigger object does not inherit the scheduler's, it would use the server's (UTC on Render).
+DAILY_SUMMARY_TRIGGER = CronTrigger(hour=9, minute=30, timezone="Asia/Kolkata")
 
 
 async def _reminder_job() -> None:
@@ -38,6 +42,14 @@ async def _safely(name: str, job) -> None:
 
 async def _digest_job() -> None:
     await _safely("Daily digest", run_digest)
+
+
+async def _daily_summary_job() -> None:
+    await _safely("Morning summary emails", run_daily_summary)
+
+
+async def _celebrations_job() -> None:
+    await _safely("Celebration notifications", run_celebration_notifications)
 
 
 async def _month_end_job() -> None:
@@ -110,9 +122,17 @@ def start_scheduler() -> None:
     scheduler.add_job(
         _digest_job, CronTrigger(hour=9, minute=30), id="daily_digest", replace_existing=True, coalesce=True, misfire_grace_time=3600
     )
+    # 9:30 IST (TIMEZONE): the morning summary email. A restart up to 3 hours late still sends it; each person gets at most one a day.
+    scheduler.add_job(
+        _daily_summary_job, DAILY_SUMMARY_TRIGGER, id="daily_summary_email", replace_existing=True, coalesce=True, misfire_grace_time=3 * 3600
+    )
     # On the 1st, last month's reports are frozen. A later request makes any that were missed (server down), once.
     scheduler.add_job(
         _month_end_job, CronTrigger(day=1, hour=0, minute=30), id="monthly_reports", replace_existing=True, coalesce=True, misfire_grace_time=6 * 3600
+    )
+    # From 8 AM each day (and for anything added later that day); every item is only sent once.
+    scheduler.add_job(
+        _celebrations_job, IntervalTrigger(minutes=10), id="celebrations", replace_existing=True, coalesce=True, max_instances=1
     )
     scheduler.add_job(
         _minute_job, IntervalTrigger(minutes=1), id="alerts_minute", replace_existing=True, coalesce=True, max_instances=1

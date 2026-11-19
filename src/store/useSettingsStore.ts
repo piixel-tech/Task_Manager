@@ -45,7 +45,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   settings: DEFAULT_SETTINGS,
 
   init: (saved) => {
-    const settings = saved ? { ...DEFAULT_SETTINGS, ...saved, theme: 'light' as const, palette: coercePalette(saved.palette), notif_prefs: { ...DEFAULT_SETTINGS.notif_prefs, ...saved.notif_prefs } } : DEFAULT_SETTINGS;
+    const settings = saved ? { ...DEFAULT_SETTINGS, ...saved, theme: 'light' as const, palette: coercePalette(saved.palette), notif_prefs: { ...DEFAULT_SETTINGS.notif_prefs, ...saved.notif_prefs }, greeting: { ...DEFAULT_SETTINGS.greeting, ...saved.greeting } } : DEFAULT_SETTINGS;
     applyAppearance(settings);
     setSoundPreference(settings.sound); // the existing sound code reads this local copy
     set({ settings });
@@ -54,13 +54,22 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   update: async (patch) => {
     const before = get().settings;
     if (patch.palette && patch.palette !== before.palette) useFestivalStore.getState().useOwnTheme(); // picking a theme means "use mine"
-    const next: UserSettings = { ...before, ...patch, theme: 'light', notif_prefs: { ...before.notif_prefs, ...patch.notif_prefs } };
+    const next: UserSettings = { ...before, ...patch, theme: 'light', notif_prefs: { ...before.notif_prefs, ...patch.notif_prefs }, greeting: patch.greeting ?? before.greeting };
     applyAppearance(next);
     setSoundPreference(next.sound);
     set({ settings: next });
     try {
-      await accountApi.saveSettings(next);
-      useAuthStore.setState((s) => (s.user ? { user: { ...s.user, settings: next } } : s));
+      // What the server answers is what was saved: take that, not our own copy, so nothing can look saved when it was not.
+      const saved = await accountApi.saveSettings(next);
+      const confirmed: UserSettings = {
+        ...next,
+        ...saved,
+        theme: 'light',
+        notif_prefs: { ...next.notif_prefs, ...saved.notif_prefs },
+        greeting: { ...DEFAULT_SETTINGS.greeting, ...saved.greeting }
+      };
+      set({ settings: confirmed });
+      useAuthStore.setState((s) => (s.user ? { user: { ...s.user, settings: confirmed } } : s));
     } catch (err) {
       applyAppearance(before);
       setSoundPreference(before.sound);

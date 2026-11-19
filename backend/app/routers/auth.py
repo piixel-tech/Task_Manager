@@ -1,11 +1,21 @@
 from beanie import PydanticObjectId
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.core.deps import bearer, get_current_user, user_for_token
 from app.core.security import create_access_token, create_refresh_token, verify_password
 from app.models import Session, User
-from app.schemas.auth import LoginRequest, RefreshRequest, TokenResponse
+from app.schemas.auth import (
+    ForgotPasswordRequest,
+    LoginRequest,
+    MessageOut,
+    RefreshRequest,
+    ResetPasswordRequest,
+    ResetTokenRequest,
+    ResetTokenStatus,
+    TokenResponse,
+)
+from app.services import password_reset
 from app.schemas.user import UserOut
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -48,6 +58,30 @@ async def logout(creds: HTTPAuthorizationCredentials | None = Depends(bearer)) -
     sid = found[1].get("sid") if found else None
     if sid and PydanticObjectId.is_valid(sid):
         await Session.find({"_id": PydanticObjectId(sid)}).update({"$set": {"revoked": True}})
+
+
+@router.post("/forgot-password", response_model=MessageOut)
+async def forgot_password(body: ForgotPasswordRequest, background: BackgroundTasks) -> MessageOut:
+    """Always the same answer, instantly: it does not depend on the account existing, being allowed, or the hourly limit."""
+    background.add_task(password_reset.request_by_email, body.email)
+    return MessageOut(message=password_reset.GENERIC_MESSAGE)
+
+
+@router.post("/reset-password/check", response_model=ResetTokenStatus)
+async def check_reset_link(body: ResetTokenRequest) -> ResetTokenStatus:
+    """Lets the reset page show the form, or the "expired / already used" page, before anything is typed."""
+    row, why = await password_reset.check(body.token)
+    return ResetTokenStatus(valid=row is not None, reason=why)
+
+
+@router.post("/reset-password", status_code=status.HTTP_204_NO_CONTENT)
+async def reset_password(body: ResetPasswordRequest) -> None:
+    """Set a new password with a link from the email. The link works once; every device is signed out."""
+    try:
+        await password_reset.complete(body.token, body.new_password)
+    except password_reset.ResetFailed as exc:
+        code = status.HTTP_422_UNPROCESSABLE_CONTENT if exc.reason == "password" else status.HTTP_410_GONE
+        raise HTTPException(code, exc.message) from exc
 
 
 @router.get("/me", response_model=UserOut)

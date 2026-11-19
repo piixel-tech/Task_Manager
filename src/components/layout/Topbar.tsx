@@ -17,6 +17,7 @@ import { useChatRealtime } from '../../features/chat/useChatRealtime';
 import { AccountMenu } from './AccountMenu';
 import { CommandPalette } from './CommandPalette';
 import { FocusMenu } from '../../features/focus/FocusMenu';
+import { PhoneTimerChip } from '../../features/tasks/components/PhoneTimerChip';
 import { ShortcutsModal } from '../../features/shortcuts/ShortcutList';
 import { useShortcuts } from '../../features/shortcuts/shortcuts';
 import { AllCaughtUp, matchesTab, NotificationGroups, NotificationSkeleton, type NotificationTab } from '../../features/notifications/notificationVisuals';
@@ -97,7 +98,7 @@ export const Topbar: React.FC = () => {
       <header
         className="tm-topbar sticky top-0 z-30 bg-[color-mix(in_srgb,var(--tm-bg)_84%,transparent)] backdrop-blur-xl"
       >
-        <div className="relative mx-auto flex min-h-[76px] w-full max-w-[1600px] flex-wrap items-center justify-end gap-x-3 gap-y-1.5 px-4 py-2 sm:px-6 lg:pl-[108px] lg:pr-8">
+        <div className="relative mx-auto flex min-h-[76px] w-full max-w-[1600px] flex-wrap items-center justify-end gap-x-3 gap-y-1.5 px-4 py-2 max-md:min-h-[60px] max-md:flex-nowrap max-md:pt-[calc(env(safe-area-inset-top)+0.5rem)] sm:px-6 lg:pl-[108px] lg:pr-8">
           {/* Left: menu toggle (phones) + logo */}
           <div className="mr-auto flex min-w-0 items-center gap-3">
             <button
@@ -147,7 +148,7 @@ export const Topbar: React.FC = () => {
                 onClick={openStatusEditor}
                 data-tour="status"
                 title="Change today's status"
-                className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-[var(--tm-card)] p-1 pr-1.5 text-[12px] font-semibold
+                className="flex shrink-0 max-md:hidden items-center gap-2 whitespace-nowrap rounded-full bg-[var(--tm-card)] p-1 pr-1.5 text-[12px] font-semibold
                   text-[var(--tm-ink)] shadow-soft-xs transition-all hover:-translate-y-px"
               >
                 <span className="flex items-center gap-1.5 rounded-full bg-[var(--tm-solid)] px-3 py-1.5 text-[11.5px] font-bold text-[var(--tm-solid-ink)]">
@@ -165,9 +166,18 @@ export const Topbar: React.FC = () => {
               </button>
             )}
             <div className="flex shrink-0 items-center justify-end gap-2">
-            {user && !isClient && <FocusMenu />}
+            {user && !isClient && (
+              <span className="contents max-md:hidden">
+                <FocusMenu />
+              </span>
+            )}
+            {user && !isClient && (
+              <span className="contents md:hidden">
+                <PhoneTimerChip />
+              </span>
+            )}
 
-            <button type="button" onClick={() => setPaletteOpen(true)} aria-label="Search" title="Search (Ctrl+K)" className={ICON_BTN}>
+            <button type="button" onClick={() => setPaletteOpen(true)} aria-label="Search" title="Search (Ctrl+K)" className={`${ICON_BTN} max-md:hidden`}>
               <Search className="h-4 w-4" />
             </button>
 
@@ -214,7 +224,7 @@ export const Topbar: React.FC = () => {
                     initial={reduced ? 'show' : 'hidden'}
                     animate="show"
                     exit={reduced ? 'show' : 'exit'}
-                    className="glass-strong absolute right-0 top-[calc(100%+10px)] z-50 w-96 max-w-[calc(100vw-2rem)] origin-top-right
+                    className="glass-strong absolute right-0 top-[calc(100%+10px)] z-50 w-96 max-w-[calc(100vw-2rem)] origin-top-right max-md:fixed max-md:inset-x-4 max-md:top-[calc(100%+8px)] max-md:w-auto max-md:max-w-none
                       overflow-hidden rounded-[var(--tm-radius-xl)]"
                   >
                     <div className="flex items-center justify-between border-b border-[var(--tm-border)] px-5 py-3.5">
@@ -275,7 +285,7 @@ export const Topbar: React.FC = () => {
               </AnimatePresence>
             </div>
 
-            <AccountMenu />
+            <AccountMenu onSearch={() => setPaletteOpen(true)} />
             </div>
           </>
 

@@ -21,6 +21,7 @@ from app.core.timeutil import as_utc, today_local, tz
 from app.integrations import crypto
 from app.integrations.base import IntegrationError, Provider, SyncResult
 from app.integrations.google import client, credentials
+from app.services.notify import notify
 from app.services.ws_manager import manager
 from app.models import Booking, ExternalEvent, IntegrationConnection, IntegrationLink, Task, User
 
@@ -47,6 +48,14 @@ def _translate(exc: client.GoogleError, what: str = "Google Calendar") -> Integr
     if exc.status == 0:
         return IntegrationError(exc.message or "Could not reach Google.")
     return IntegrationError(f"{what} returned an error ({exc.status}{' ' + exc.reason if exc.reason else ''}).")
+
+
+def _key_problem(exc: crypto.CryptoError, conn: IntegrationConnection) -> IntegrationError:
+    """A token we can't decrypt means THIS server has the wrong INTEGRATIONS_FERNET_KEY (local and Render share one database, so
+    one of them can easily differ). The login itself is fine, so it must not flip the shared connection to "reconnect": that
+    stranded everybody's Calendar until they clicked Connect again. It is logged loudly and shown on the card instead."""
+    log.error("Cannot decrypt the Google tokens of connection %s: %s. Check INTEGRATIONS_FERNET_KEY on this server.", conn.id, exc)
+    return IntegrationError(f"{exc}. Ask an admin to check INTEGRATIONS_FERNET_KEY on the server; nobody needs to reconnect Google.")
 
 
 SERVICES = [
@@ -93,7 +102,7 @@ class _Auth:
         try:
             data = await client.refresh_access_token(self.creds, crypto.decrypt(self.conn.refresh_token))
         except crypto.CryptoError as exc:
-            raise IntegrationError(str(exc), reconnect=True) from exc
+            raise _key_problem(exc, self.conn) from exc
         except client.GoogleError as exc:
             raise _translate(exc) from exc
         fields: dict[str, Any] = {
@@ -114,7 +123,7 @@ class _Auth:
         try:
             return crypto.decrypt(self.conn.access_token)
         except crypto.CryptoError as exc:
-            raise IntegrationError(str(exc), reconnect=True) from exc
+            raise _key_problem(exc, self.conn) from exc
 
     async def call(self, fn: Callable[..., Awaitable[Any]], *args: Any, **kwargs: Any) -> Any:
         try:
@@ -370,9 +379,10 @@ class GoogleCalendarProvider(Provider):
             ExternalEvent.external_id == ext_id,
         ]
         existing = await ExternalEvent.find_one(*key)
-        private = (item.get("extendedProperties") or {}).get("private") or {}
+        props = item.get("extendedProperties") or {}
+        ours = (props.get("private") or {}).get("tm_source") == TM_TAG or (props.get("shared") or {}).get("tm_source") == TM_TAG
         when = _parse_when(item)
-        if item.get("status") == "cancelled" or private.get("tm_source") == TM_TAG or when is None:
+        if item.get("status") == "cancelled" or ours or when is None:
             if existing:
                 await existing.delete()
                 return 1
@@ -477,18 +487,37 @@ class GoogleCalendarProvider(Provider):
             ).to_list()
         }
         count = 0
+        first_failure: client.GoogleError | None = None
 
         for (kind, local_id), (fingerprint, body) in desired.items():
             link = links.get((kind, local_id))
             if link and link.fingerprint == fingerprint and link.calendar_id == write_cal:
                 continue
-            if link and link.calendar_id != write_cal:  # they chose another calendar to write to: move the event
-                await auth.call(client.delete_event, link.calendar_id, link.external_id)
-                event = await self._write_event(auth, write_cal, body, exists=False)
-            else:
-                event = await self._write_event(auth, write_cal, body, exists=link is not None)
-            if kind == "booking" and "conferenceData" in body:
-                await self._claim_meet(conn, local_id, event)
+            try:
+                if link and link.calendar_id != write_cal:  # they chose another calendar to write to: move the event
+                    await auth.call(client.delete_event, link.calendar_id, link.external_id)
+                    event = await self._write_event(auth, write_cal, body, exists=False)
+                else:
+                    event = await self._write_event(auth, write_cal, body, exists=link is not None)
+            except client.GoogleError as exc:
+                if kind != "booking" or _translate(exc).reconnect:
+                    raise  # a dead login is reported (once) by the caller; tasks keep their old behaviour
+                # One bad booking must not stop the rest, and the person has to hear about it: log it, tell them, carry on.
+                await self._report_booking(conn, local_id, body.get("summary", "your booking"), _translate(exc).message, exc)
+                first_failure = first_failure or exc
+                continue
+            if kind == "booking":
+                if event.get("_tm_meet_refused"):
+                    await self._report_booking(
+                        conn, local_id, body.get("summary", "your booking"),
+                        "The event is on your calendar but Google would not create a Meet link "
+                        f"({event['_tm_meet_refused']}). Your Google account may not allow Meet.",
+                        None,
+                    )
+                else:
+                    await self._clear_booking_report(conn, local_id)
+                if "conferenceData" in body:
+                    await self._claim_meet(conn, local_id, event)
             if link is None:
                 link = IntegrationLink(
                     user_id=conn.user_id, provider=self.key, kind=kind, local_id=local_id,
@@ -514,20 +543,51 @@ class GoogleCalendarProvider(Provider):
                 )
                 await link.delete()
                 count += 1
+        if first_failure is not None:
+            raise first_failure  # shows on the Connected apps card too; the person was already told about each booking
         return count
+
+    @staticmethod
+    async def _report_booking(
+        conn: IntegrationConnection, booking_id: PydanticObjectId, title: str, message: str, exc: client.GoogleError | None
+    ) -> None:
+        """A booking could not be written to Google (or lost its Meet). Log it and tell the owner of the connection once per
+        distinct problem: the 5-minute sync retries, and must not repeat the same notification every time."""
+        log.error("Google Calendar booking %s for user %s: %s (%s)", booking_id, conn.user_id, message, exc or "no detail")
+        known = conn.config.setdefault("booking_errors", {})
+        if known.get(str(booking_id)) == message:
+            return
+        known[str(booking_id)] = message
+        await conn.set({"config": conn.config})
+        await notify(
+            [conn.user_id],
+            type="integration_error",
+            title="Booking not fully added to Google Calendar",
+            body=f"“{title}”: {message}",
+            link="/app/settings/connected-apps",
+        )
+
+    @staticmethod
+    async def _clear_booking_report(conn: IntegrationConnection, booking_id: PydanticObjectId) -> None:
+        known = conn.config.get("booking_errors") or {}
+        if known.pop(str(booking_id), None) is not None:
+            await conn.set({"config": conn.config})
 
     @staticmethod
     async def _insert(auth: _Auth, calendar_id: str, body: dict) -> dict:
         """Insert; when the body asks for a Meet and Google refuses it (an account that can't make Meet links), write the
-        event without it rather than lose the booking on their calendar."""
+        event without it rather than lose the booking on their calendar. The event comes back flagged `_tm_meet_refused`
+        so the caller can tell the person, never silently."""
         meet = "conferenceData" in body
         notify_guests = "all" if body.get("attendees") else None  # Google emails the invitations and puts it on their calendars
         try:
             return await auth.call(client.insert_event, calendar_id, body, with_meet=meet, send_updates=notify_guests)
         except client.GoogleError as exc:
             if meet and exc.status == 400:
+                log.warning("Google refused a Meet link for %s on %s: %s", body.get("id"), calendar_id, exc)
                 plain = {k: v for k, v in body.items() if k != "conferenceData"}
-                return await auth.call(client.insert_event, calendar_id, plain, send_updates=notify_guests)
+                event = await auth.call(client.insert_event, calendar_id, plain, send_updates=notify_guests)
+                return {**event, "_tm_meet_refused": exc.message or exc.reason or "400"}
             raise
 
     @classmethod
@@ -577,8 +637,19 @@ class GoogleCalendarProvider(Provider):
         since = _local_midnight(today_local())
         bookings = await Booking.find({"$or": [{"host_user_id": user_id}, {"booked_by": user_id}], "end": {"$gte": since}}).to_list()
         people = {u.id: u for u in await User.find({"_id": {"$in": list({b.host_user_id for b in bookings} | {b.booked_by for b in bookings})}}).to_list()}
+        involved = list({b.host_user_id for b in bookings} | {b.booked_by for b in bookings})
+        writers = {
+            c.user_id
+            for c in await IntegrationConnection.find({"user_id": {"$in": involved}, "provider": self.key, "status": "connected"}).to_list()
+            if c.config.get("write_calendar")
+        }
         for b in bookings:
             host, booker = people.get(b.host_user_id), people.get(b.booked_by)
+            # The booker is the organizer when they have Google connected (else the host). The organizer's event invites everyone
+            # else as an attendee, so Google emails them and puts it on their calendar; nobody else gets a copy written directly.
+            owner_id = b.booked_by if b.booked_by in writers else b.host_user_id if b.host_user_id in writers else None
+            if owner_id != user_id:
+                continue
             hosting = b.host_user_id == user_id
             other = booker if hosting else host
             lines = [f"{'Booked by' if hosting else 'With'} {other.name if other else 'a teammate'} in Task Manager."]
@@ -589,20 +660,26 @@ class GoogleCalendarProvider(Provider):
                 "summary": b.title if hosting else f"{b.title} · {other.name if other else 'Task Manager'}",
                 "start": {"dateTime": as_utc(b.start).isoformat()},
                 "end": {"dateTime": as_utc(b.end).isoformat()},
-                "extendedProperties": {"private": {"tm_source": TM_TAG, "tm_kind": "booking", "tm_id": str(b.id)}},
+                "extendedProperties": {
+                    "private": {"tm_source": TM_TAG, "tm_kind": "booking", "tm_id": str(b.id)},
+                    "shared": {"tm_source": TM_TAG},  # attendees' copies carry it too, so their sync never pulls the invite back in
+                },
             }
-            if b.meet_url and b.meet_owner_id != user_id:
-                # One Meet per booking: it lives on one person's event, everyone else gets the same link as text.
+            if b.meet_url and b.meet_owner_id not in (None, user_id):
+                # Legacy booking whose Meet lives on someone else's event: this one only gets the link as text.
                 lines.append(f"Join with Google Meet: {b.meet_url}")
                 body["location"] = b.meet_url
             else:
                 body["conferenceData"] = {  # the request id is fixed, so a retry can never make a second Meet
                     "createRequest": {"requestId": f"tmb-{b.id}", "conferenceSolutionKey": {"type": "hangoutsMeet"}}
                 }
-                if b.attendees:  # the invitation comes from the event that owns the Meet, so each guest gets exactly one
-                    body["attendees"] = [
-                        {"email": a.email, **({"displayName": a.name} if a.name else {})} for a in b.attendees
-                    ]
+                invited = [(g.email, g.name) for g in b.attendees]
+                if other and other.email:
+                    invited.append((other.email.lower(), other.name))
+                body["attendees"] = []
+                for email, name in invited:
+                    if email and email not in {x["email"] for x in body["attendees"]}:
+                        body["attendees"].append({"email": email, **({"displayName": name} if name else {})})
             body["description"] = "\n\n".join(lines)
             add("booking", b.id, body)
 

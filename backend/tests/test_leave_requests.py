@@ -297,3 +297,69 @@ async def test_deleting_tells_the_admin_live(client, team, monkeypatch):
     sent.clear()
     await client.delete(f"/leave-requests/{a['id']}", headers=team.eva.headers)
     assert sent == [({team.ada.user.id}, "leave_requests", "deleted")]
+
+
+# --- Emails: the three leave emails (in-app notifications are covered above and unchanged) -----------------------------
+import pytest  # noqa: E402
+
+from app.services import email as mail  # noqa: E402
+
+
+@pytest.fixture
+def sent(monkeypatch):
+    box: list[tuple[str, str, dict]] = []
+
+    async def fake(to, type, subject, **kw):
+        box.append((to, type, {"subject": subject, **kw}))
+
+    monkeypatch.setattr(mail, "send_email", fake)
+    return box
+
+
+async def test_a_new_request_emails_only_the_chosen_admin(client, team, sent):
+    r = await ask(client, team, type="wfh", start_date=day(3), end_date=day(3), duration="first_half", reason="Plumber visit")
+    assert r.status_code == 201
+    assert [(to, kind) for to, kind, _ in sent] == [(team.ada.user.email, "leave_requested")]  # not Abe, not the employee
+    kw = sent[0][2]
+    assert kw["button_label"] == "Review request" and kw["path"] == "/admin/leave-requests"
+    assert "Eva Employee" in kw["text"] and "work from home" in kw["text"] and "Plumber visit" in kw["text"] and "(first half)" in kw["text"]
+
+
+async def test_a_refused_request_sends_no_email(client, team, sent):
+    assert (await ask(client, team, admin_id=team.uma.id)).status_code == 422  # not an admin of Eva's company
+    assert sent == []
+
+
+async def test_approving_and_rejecting_email_the_employee_with_the_details(client, team, sent):
+    a = (await ask(client, team)).json()
+    b = (await ask(client, team, start_date=day(8), end_date=day(8), reason="Trip")).json()
+    sent.clear()
+    await client.post(f"/leave-requests/{a['id']}/approve", headers=team.ada.headers)
+    await client.post(f"/leave-requests/{b['id']}/reject", json={"reason": "Release week"}, headers=team.ada.headers)
+    assert [(to, kind) for to, kind, _ in sent] == [(team.eva.user.email, "leave_decision")] * 2
+    approved, rejected = sent[0][2], sent[1][2]
+    assert "Status: Approved" in approved["text"] and "Type: Leave" in approved["text"] and "Reason" not in approved["text"]
+    assert "approved" in approved["heading"] and approved["path"] == "/app/leave-requests" and approved["button_label"] == "View my requests"
+    assert "Status: Rejected" in rejected["text"] and "Reason: Release week" in rejected["text"]
+    assert (await client.post(f"/leave-requests/{a['id']}/approve", headers=team.ada.headers)).status_code == 409
+    assert len(sent) == 2  # a refused second decision sends nothing
+
+
+async def test_cancelling_an_approved_request_emails_that_admin_only(client, team, sent):
+    pending = (await ask(client, team, start_date=day(5), end_date=day(5))).json()
+    approved = (await ask(client, team, start_date=day(8), end_date=day(8))).json()
+    await client.post(f"/leave-requests/{approved['id']}/approve", headers=team.ada.headers)
+    sent.clear()
+    await client.post(f"/leave-requests/{pending['id']}/cancel", headers=team.eva.headers)
+    assert sent == []  # cancelling a pending one is not emailed
+    await client.post(f"/leave-requests/{approved['id']}/cancel", headers=team.eva.headers)
+    assert [(to, kind) for to, kind, _ in sent] == [(team.ada.user.email, "leave_cancelled")]
+    assert sent[0][2]["path"] == "/admin/leave-requests"
+
+
+async def test_an_email_problem_never_breaks_the_request(client, team, monkeypatch):
+    async def boom(*a, **k):
+        raise RuntimeError("mail is down")
+
+    monkeypatch.setattr(mail, "send_email", boom)
+    assert (await ask(client, team)).status_code == 201

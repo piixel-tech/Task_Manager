@@ -393,7 +393,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
                 setEmojiOpen((o) => !o);
                 setLinkOpen(false);
               }}
-              className={small}
+              className={`${small} max-md:hidden`}
             >
               <Smile className="h-[18px] w-[18px]" />
             </button>

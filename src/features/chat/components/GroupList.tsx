@@ -3,6 +3,8 @@ import { AtSign, MessageSquarePlus, Search, Users } from 'lucide-react';
 import { Avatar } from '../../../components/ui/Avatar';
 import { SkeletonRows } from '../../../components/ui/Skeleton';
 import { EmptyState } from '../../../components/ui/EmptyState';
+import { PullToRefresh } from '../../../components/ui/PullToRefresh';
+import { useChatStore } from '../../../store/useChatStore';
 import type { ChatGroup } from '../../../services/http/chatApi';
 import { listTime } from '../chatUtils';
 
@@ -95,7 +97,7 @@ export const GroupList: React.FC<Props> = ({ groups, loaded, activeId, meId, onS
         ))}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto pt-1">
+      <PullToRefresh onRefresh={() => useChatStore.getState().loadGroups()} className="min-h-0 flex-1 overflow-y-auto pt-1">
         {!loaded ? (
           <div className="p-3">
             <SkeletonRows count={5} />
@@ -161,7 +163,7 @@ export const GroupList: React.FC<Props> = ({ groups, loaded, activeId, meId, onS
             })}
           </ul>
         )}
-      </div>
+      </PullToRefresh>
     </div>
   );
 };

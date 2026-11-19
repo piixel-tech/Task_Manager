@@ -136,7 +136,7 @@ export const StatCard: React.FC<StatCardProps> = ({
           : undefined
       }
       className={`group flex h-full min-w-0 flex-col bg-[var(--tm-card)] border border-[var(--tm-border)]/60
-        rounded-[var(--tm-radius-card)] p-4 shadow-soft-xs hover:shadow-soft
+        rounded-[var(--tm-radius-card)] p-4 max-sm:p-3 shadow-soft-xs hover:shadow-soft
         transition-shadow duration-[var(--tm-dur-fast)]
         ${act ? 'cursor-pointer hover:border-[var(--tm-accent)] focus-visible:outline-none focus-visible:shadow-glow' : ''} ${className}`}
     >
@@ -159,7 +159,7 @@ export const StatCard: React.FC<StatCardProps> = ({
 
       <div className="mt-2 flex items-end justify-between gap-3">
         <div className="flex items-end gap-2.5">
-          <span className={`text-[28px] font-bold leading-none tracking-[-0.03em] ${valueClassName} tabular-nums`}>
+          <span className={`text-[28px] max-sm:text-[22px] font-bold leading-none tracking-[-0.03em] ${valueClassName} tabular-nums`}>
             {isNumeric ? (
               <CountUp value={value as number} decimals={decimals} prefix={prefix} suffix={suffix} />
             ) : (
@@ -189,7 +189,11 @@ export const StatCard: React.FC<StatCardProps> = ({
             </span>
           )}
         </div>
-        {trend && <MiniChart data={trend} kind={trendKind} color={trendColour[tone]} />}
+        {trend && (
+          <div className="contents max-sm:hidden">
+            <MiniChart data={trend} kind={trendKind} color={trendColour[tone]} />
+          </div>
+        )}
       </div>
 
       {progress !== undefined && (

@@ -9,10 +9,11 @@ from app.models.review import ReviewDecision
 from app.models.task import OPEN_STATUSES
 from app.schemas.project import UserBrief
 from app.schemas.review import ApproveBody, ChangesBody, ReviewOut, ReviewSubmit
+from app.services import email as mail
 from app.services.activity import log_task
 from app.services.projects import brief, get_subfolder_or_404, subfolders_of
 from app.services.reviews import eligible_approvers, get_review_or_404, review_outs
-from app.services.tasks import check_assets, get_task_or_404, notify_task, now_utc, stop_timers
+from app.services.tasks import check_assets, get_task_or_404, link_for, notify_task, now_utc, stop_timers
 
 router = APIRouter(tags=["reviews"])
 
@@ -68,6 +69,14 @@ async def submit_task(task_id: PydanticObjectId, body: ReviewSubmit, user: User 
         actor=user,
         page="reviews",
     )
+    head = await User.get(body.approver_id)
+    if head is not None and head.is_active and head.id != user.id:
+        await mail.send_quietly(
+            head.email, "review_requested", f"Review needed: {task.title}",
+            heading="A submission is waiting for your review",
+            text=f"{user.name} submitted \u201c{task.title}\u201d{again} for your review.",
+            button_label="Review submission", path=link_for(head, task.id),  # the task page, where the head approves or asks for changes
+        )
     return (await review_outs([review], user))[0]
 
 

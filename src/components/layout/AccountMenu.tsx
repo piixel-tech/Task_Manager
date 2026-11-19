@@ -1,23 +1,31 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowUpRight, ChevronDown, LogOut, Shield } from 'lucide-react';
+import { ChevronDown, Clock, LogOut, Search, Shield } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useFocusOf } from '../../store/useFocusStore';
-import { basePath, profilePath, settingsGroupsFor } from '../../features/settings/settingsMenu';
+import { useDailyStatusStore } from '../../store/useDailyStatusStore';
+import { statusMeta } from '../../features/status/statusMeta';
+import { formatDate } from '../../utils/time';
+import { useIsPhone } from '../../hooks/useBreakpoint';
+import { basePath, settingsGroupsFor } from '../../features/settings/settingsMenu';
 import { UserAvatar } from '../ui/UserAvatar';
 import { Badge } from '../ui/Badge';
 import { useMotionPrefs } from '../ui/useMotionPrefs';
 import { popoverVariants } from '../ui/motion';
 
 /** The avatar button and its menu, shared by every role's top bar. What it lists comes from `settingsMenu`, so roles never drift apart. */
-export const AccountMenu: React.FC = () => {
+export const AccountMenu: React.FC<{ onSearch?: () => void }> = ({ onSearch }) => {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const { reduced } = useMotionPrefs();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const focusEnds = useFocusOf(user ? { id: user.id } : null);
+  const todayStatus = useDailyStatusStore((s) => s.today?.status);
+  const openStatusEditor = useDailyStatusStore((s) => s.openEditor);
+  const statusInfo = statusMeta(todayStatus);
+  const phone = useIsPhone();
 
   // Dismiss on an outside click.
   useEffect(() => {
@@ -64,10 +72,8 @@ export const AccountMenu: React.FC = () => {
             className="glass-strong absolute right-0 top-[calc(100%+10px)] z-50 w-72 origin-top-right overflow-hidden
               rounded-[var(--tm-radius-lg)]"
           >
-            <Link
-              to={profilePath(user.role, user.id)}
-              onClick={() => setOpen(false)}
-              className="m-2 flex items-center gap-4 rounded-[var(--tm-radius-lg)] bg-[var(--tm-card)] px-4 py-4 shadow-soft-xs transition-all hover:-translate-y-px hover:shadow-soft-sm"
+            <div
+              className="m-2 flex items-center gap-4 rounded-[var(--tm-radius-lg)] bg-[var(--tm-card)] px-4 py-4 shadow-soft-xs"
             >
               <UserAvatar userId={user.id} size="xl" ring />
               <div className="min-w-0 flex-1 leading-tight">
@@ -86,15 +92,41 @@ export const AccountMenu: React.FC = () => {
                   )}
                 </div>
               </div>
-              <span
-                aria-hidden="true"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--tm-solid)] text-[var(--tm-solid-ink)]"
-              >
-                <ArrowUpRight className="h-4 w-4" />
-              </span>
-            </Link>
+            </div>
 
             <div className="max-h-[min(70vh,34rem)] overflow-y-auto p-2 pt-0">
+              {/* Phones only: the top bar has no room for these, so they live here. */}
+              {phone && (
+              <div className="mb-2 border-b border-[var(--tm-border)] pb-2">
+                <p className="flex items-center gap-2 px-3 pb-1 pt-1.5 text-[12px] font-semibold text-[var(--tm-ink-muted)]">
+                  <Clock className="h-3.5 w-3.5" /> {formatDate(new Date().toISOString(), 'd MMM')}
+                </p>
+                {user.role !== 'client' && (
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setOpen(false);
+                      openStatusEditor();
+                    }}
+                    className="flex w-full items-center gap-3 rounded-[var(--tm-radius-md)] px-3 py-2 text-left text-[13px] font-semibold text-[var(--tm-ink-soft)] hover:bg-[var(--tm-bg-sunken)]"
+                  >
+                    <span className="h-2.5 w-2.5 rounded-full bg-[var(--tm-accent)]" /> Status: {statusInfo ? statusInfo.label : 'Set status'}
+                  </button>
+                )}
+                {onSearch && (
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setOpen(false);
+                      onSearch();
+                    }}
+                    className="flex w-full items-center gap-3 rounded-[var(--tm-radius-md)] px-3 py-2 text-left text-[13px] font-semibold text-[var(--tm-ink-soft)] hover:bg-[var(--tm-bg-sunken)]"
+                  >
+                    <Search className="h-4 w-4" /> Search
+                  </button>
+                )}
+              </div>
+              )}
               {groups.map((g, i) => (
                 <React.Fragment key={g.title}>
                   <p

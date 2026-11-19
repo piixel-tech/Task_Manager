@@ -44,7 +44,7 @@ export const AdminWidgets: React.FC = () => {
       {error && <div className="tm-error px-4 py-3 text-xs font-semibold lg:col-span-12">{error}</div>}
 
       {/* Tasks overview */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 lg:col-span-12">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 xl:grid-cols-4 lg:col-span-12 max-sm:gap-2.5">
           <StatCard label="Overdue" to="/admin/tasks?quick=overdue" value={t?.overdue ?? 0} icon={<AlertTriangle className="h-5 w-5" />} tone={t?.overdue ? 'bad' : 'neutral'} hint="Overdue tasks per person" trend={data?.workload.map((w) => w.overdue)} />
           <StatCard label="Due today" to="/admin/tasks?quick=due_today" value={t?.due_today ?? 0} icon={<CalendarClock className="h-5 w-5" />} tone={t?.due_today ? 'warn' : 'neutral'} hint="Finish before the day ends" />
           <StatCard label="In review" to="/admin/reviews" value={t?.in_review ?? 0} icon={<ClipboardCheck className="h-5 w-5" />} tone="primary" hint="In review per project" trend={data?.projects.map((p) => p.in_review)} />

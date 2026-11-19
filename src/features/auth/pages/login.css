@@ -1,0 +1,501 @@
+/*
+ * Login page: "Z1 Charcoal precision". Visual only.
+ * Four colours and nothing else (no gradients): #26252C charcoal, #CDBDEB lavender, #F4F2F8 off-white, #FFFFFF white.
+ * The font is the app's own (inherited). Every moving part is off under prefers-reduced-motion and then shows its finished state.
+ */
+.z1 {
+  --z1-char: #26252c;
+  --z1-lav: #cdbdeb;
+  --z1-bg: #f4f2f8;
+  --z1-white: #ffffff;
+
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  gap: 16px;
+  padding: 16px;
+  background: var(--z1-bg);
+  color: var(--z1-char);
+}
+
+/* ---------- left: the charcoal brand panel (decorative) ---------- */
+.z1-brand {
+  position: relative;
+  display: none;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 32px;
+  background: var(--z1-char);
+  color: var(--z1-bg);
+}
+@media (min-width: 1024px) {
+  .z1-brand {
+    display: block;
+  }
+}
+
+.z1-hl,
+.z1-vl {
+  position: absolute;
+  overflow: visible;
+}
+.z1-hl {
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 1px;
+}
+.z1-vl {
+  top: 0;
+  left: 50%;
+  width: 1px;
+  height: 100%;
+}
+.z1-line {
+  fill: none;
+  stroke: var(--z1-bg);
+  stroke-opacity: 0.2;
+  stroke-width: 1;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: z1-draw 2s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+.z1-vl .z1-line {
+  animation-delay: 0.25s;
+}
+
+.z1-stage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(70%, 62vh);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+}
+.z1-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.z1-ring {
+  fill: none;
+  stroke: var(--z1-lav);
+  stroke-width: 0.45; /* the 200-unit drawing is shown about 2x, so this is a hairline */
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: z1-draw 2s cubic-bezier(0.65, 0, 0.35, 1) 0.4s both;
+}
+.z1-bezel {
+  animation: z1-spin 240s linear infinite;
+}
+.z1-tick {
+  stroke: var(--z1-bg);
+  stroke-opacity: 0.22;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.z1-tick.major {
+  stroke-opacity: 0.4;
+}
+.z1-sweep {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 43%;
+  height: 1px;
+  background: var(--z1-lav);
+  opacity: 0.7;
+  transform-origin: 0 50%;
+  animation: z1-spin 20s linear infinite;
+}
+
+/* the "T": the bar builds across, then the stem builds down */
+.z1-bar,
+.z1-stem {
+  position: absolute;
+  border-radius: 999px;
+}
+.z1-bar {
+  top: 33%;
+  left: 35%;
+  width: 30%;
+  height: 7%;
+  background: var(--z1-bg);
+  transform-origin: 50% 50%;
+  animation: z1-bar 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.5s both;
+}
+.z1-stem {
+  top: 42.5%;
+  left: 46.5%;
+  width: 7%;
+  height: 25%;
+  background: var(--z1-lav);
+  transform-origin: 50% 0;
+  animation: z1-stem 0.9s cubic-bezier(0.22, 1, 0.36, 1) 1.3s both;
+}
+
+.z1-cap {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--z1-bg);
+  opacity: 0.62;
+}
+.z1-cap b {
+  font-weight: 600;
+  color: var(--z1-lav);
+}
+.z1-cap.tl {
+  top: 32px;
+  left: 36px;
+}
+.z1-cap.tr {
+  top: 32px;
+  right: 36px;
+  text-align: right;
+}
+.z1-cap.bl {
+  bottom: 32px;
+  left: 36px;
+}
+.z1-cap.br {
+  bottom: 32px;
+  right: 36px;
+  text-align: right;
+  justify-content: flex-end;
+}
+.z1-cap .num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.14em;
+}
+
+/* ---------- right: the form panel ---------- */
+.z1-form {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  border-radius: 32px;
+  background: var(--z1-white);
+  padding: 40px 24px;
+}
+@media (min-width: 1024px) {
+  .z1-form {
+    width: 520px;
+    flex: none;
+    padding: 56px;
+  }
+}
+.z1-inner {
+  width: 100%;
+  max-width: 380px;
+  margin: 0 auto;
+}
+
+.z1-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--z1-char);
+  opacity: 0.6;
+}
+.z1-title {
+  margin: 14px 0 36px;
+  font-size: clamp(30px, 5vw, 38px);
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  color: var(--z1-char);
+}
+.z1-title .light {
+  font-weight: 300;
+}
+.z1-title .bold {
+  font-weight: 800;
+}
+/* each line of the heading rises out of a clip */
+.z1-clip {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.08em;
+}
+.z1-clip > span {
+  display: block;
+  animation: z1-rise 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.z1-clip:nth-child(2) > span {
+  animation-delay: 0.12s;
+}
+
+.z1-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.z1-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--z1-char);
+  opacity: 0.7;
+}
+.z1-field {
+  position: relative;
+  border-bottom: 1px solid rgba(38, 37, 44, 0.25);
+}
+.z1-field::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--z1-char);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.z1-field:focus-within::after {
+  transform: scaleX(1);
+}
+.z1-input {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 8px 0 12px;
+  font: inherit;
+  font-size: 16px;
+  color: var(--z1-char);
+  outline: none;
+}
+.z1-input::placeholder {
+  color: var(--z1-char);
+  opacity: 0.4;
+}
+.z1-input:-webkit-autofill {
+  -webkit-text-fill-color: var(--z1-char);
+  box-shadow: 0 0 0 1000px var(--z1-white) inset;
+}
+
+.z1-error {
+  margin-bottom: 24px;
+  border: 1px solid var(--z1-char);
+  border-left-width: 4px;
+  border-radius: 12px;
+  background: var(--z1-bg);
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--z1-char);
+  animation: z1-fade 0.25s ease-out both;
+}
+
+/* Sign in: a charcoal pill; the lavender rises from the bottom on hover */
+.z1-btn {
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  overflow: hidden;
+  margin-top: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--z1-char);
+  padding: 17px 28px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--z1-white);
+  cursor: pointer;
+  transition: color 0.35s ease;
+  isolation: isolate;
+}
+.z1-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--z1-lav);
+  transform: translateY(101%);
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.z1-btn:hover:not(:disabled),
+.z1-btn:focus-visible {
+  color: var(--z1-char);
+}
+.z1-btn:hover:not(:disabled)::before,
+.z1-btn:focus-visible::before {
+  transform: translateY(0);
+}
+.z1-btn:focus-visible {
+  outline: 2px solid var(--z1-char);
+  outline-offset: 3px;
+}
+.z1-btn:disabled {
+  cursor: progress;
+  opacity: 0.85;
+}
+.z1-spin {
+  width: 15px;
+  height: 15px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: z1-spin 0.7s linear infinite;
+}
+
+.z1-note {
+  margin-top: 28px;
+  text-align: center;
+  font-size: 11.5px;
+  letter-spacing: 0.03em;
+  color: var(--z1-char);
+  opacity: 0.55;
+}
+
+/* ---------- motion ---------- */
+@keyframes z1-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+@keyframes z1-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes z1-bar {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes z1-stem {
+  from {
+    transform: scaleY(0);
+  }
+}
+@keyframes z1-rise {
+  from {
+    transform: translateY(105%);
+  }
+}
+@keyframes z1-fade {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .z1 *,
+  .z1 *::before,
+  .z1 *::after {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------- forgot / reset password ---------- */
+.z1-link {
+  display: inline-block;
+  margin-top: 12px;
+  border: 0;
+  background: none;
+  padding: 2px 0;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--z1-char);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(38, 37, 44, 0.35);
+  cursor: pointer;
+}
+.z1-link:hover,
+.z1-link:focus-visible {
+  text-decoration-color: var(--z1-char);
+}
+.z1-link:focus-visible {
+  outline: 2px solid var(--z1-char);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.z1-link-center {
+  display: block;
+  margin: 20px auto 0;
+  text-align: center;
+}
+.z1-help {
+  margin-bottom: 28px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--z1-char);
+  opacity: 0.75;
+}
+.z1-notice {
+  margin-bottom: 20px;
+  border: 1px solid rgba(38, 37, 44, 0.25);
+  border-left: 4px solid var(--z1-lav);
+  border-radius: 12px;
+  background: var(--z1-white);
+  padding: 14px 16px;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  animation: z1-fade 0.25s ease-out both;
+}
+/* a link that looks like the main button */
+.z1-btn-plain {
+  text-decoration: none;
+  margin-top: 8px;
+}
+.z1-input-eye {
+  padding-right: 36px;
+}
+.z1-eye {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  display: flex;
+  transform: translateY(-60%);
+  border: 0;
+  background: none;
+  padding: 6px;
+  color: var(--z1-char);
+  opacity: 0.6;
+  cursor: pointer;
+}
+.z1-eye:hover,
+.z1-eye:focus-visible {
+  opacity: 1;
+}
+.z1-eye:focus-visible {
+  outline: 2px solid var(--z1-char);
+  border-radius: 6px;
+}
+.z1-spin-dark {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  border-width: 3px;
+  border-color: var(--z1-char);
+  border-right-color: transparent;
+}

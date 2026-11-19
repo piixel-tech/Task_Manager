@@ -61,7 +61,7 @@ export const Modal: React.FC<ModalProps> = ({
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 max-md:items-end max-md:p-0 sm:p-6">
           <motion.div
             variants={backdropVariants}
             initial="hidden"
@@ -81,7 +81,7 @@ export const Modal: React.FC<ModalProps> = ({
             exit={reduced ? 'show' : 'exit'}
             className={`glass-strong relative z-10 flex w-full flex-col overflow-hidden
               rounded-[var(--tm-radius-xl)]
-              ${widthClasses[maxWidth]} max-h-[calc(100vh-3rem)]`}
+              ${widthClasses[maxWidth]} max-h-[calc(100vh-3rem)] max-md:max-h-[92dvh] max-md:max-w-none max-md:rounded-b-none max-md:pb-[env(safe-area-inset-bottom)]`}
           >
             {(title || !hideClose) && (
               <div className="flex items-start justify-between gap-4 px-7 pt-7 pb-4">

@@ -41,6 +41,22 @@ export function useNotificationSync(): void {
     void enablePush(); // system notifications even when the tab is closed
     const offPushClick = listenForPushNavigation((url) => void router.navigate(url));
 
+    // The subscription can expire or be replaced by the browser: check it again when the person returns, at most every 10 minutes.
+    let lastPushCheck = Date.now();
+    const onFocus = () => {
+      if (Date.now() - lastPushCheck < 10 * 60_000) return;
+      lastPushCheck = Date.now();
+      void enablePush();
+    };
+    window.addEventListener('focus', onFocus);
+
+    // After the socket drops and comes back (Render waking up, wifi change, sleep) reload what was missed meanwhile.
+    let firstOpen = true;
+    const offReconnected = socket.on('socket:reconnected', () => {
+      if (firstOpen) firstOpen = false;
+      else fetchNotifications();
+    });
+
     const off = socket.on('notification', (data: ApiNotification) => {
       const notification = toNotification(data);
       addLive(notification);
@@ -67,6 +83,8 @@ export function useNotificationSync(): void {
       off();
       offRevoked();
       offPushClick();
+      offReconnected();
+      window.removeEventListener('focus', onFocus);
       socket.disconnect();
     };
   }, [userId]);

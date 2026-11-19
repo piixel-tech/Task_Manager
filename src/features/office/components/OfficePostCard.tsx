@@ -66,7 +66,7 @@ export const OfficePostCard: React.FC<Props> = ({ post, index = 0, onViewed, onR
     <article
       ref={ref}
       style={{ animationDelay: `${Math.min(index, 9) * 55}ms`, animationFillMode: 'both' }}
-      className={`animate-fade-in tm-lift relative flex flex-col hover:z-20 focus-within:z-20 gap-3 rounded-[20px] bg-[var(--tm-card)] p-4 shadow-soft-sm ${post.resolved ? 'opacity-75' : ''}`}
+      className={`animate-fade-in tm-lift relative flex flex-col hover:z-20 focus-within:z-20 gap-3 max-sm:gap-2 rounded-[20px] bg-[var(--tm-card)] p-4 max-sm:p-3 shadow-soft-sm ${post.resolved ? 'opacity-75' : ''}`}
     >
       {/* Author, time, state */}
       <div className="flex items-center gap-2">
@@ -181,7 +181,7 @@ export const OfficePostCard: React.FC<Props> = ({ post, index = 0, onViewed, onR
       </div>
 
       {/* Footer: seen by + resolve */}
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 max-sm:flex-wrap">
         <div className="relative flex min-w-0 items-center text-[11.5px] text-[var(--tm-ink-muted)]">
           {post.seen_by.length > 0 ? (
             <>

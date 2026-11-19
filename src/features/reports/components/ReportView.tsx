@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Skeleton } from '../../../components/ui/Skeleton';
+import { BackButton } from '../../../components/ui/BackButton';
 import type { MonthlyReport, ReportTaskRow } from '../../../services/http/reportApi';
 import { clock12, niceTime } from '../reportFormat';
 import { buildSheet, STATUS_WORD, type DayRow, type Sheet, type VsTone } from '../sheet';
@@ -281,7 +282,7 @@ const LoginRecord: React.FC<{ report: MonthlyReport; sheet: Sheet }> = ({ report
   return (
     <SectionCard id="report-login" n={2} title="Daily login record" subtitle="One line per day, set against the usual login" chip={usual ? `Usual login ${clock12(usual)}` : undefined}>
       <div className="overflow-x-auto rounded-2xl border border-[var(--tm-border)]/60" aria-label="Login by day">
-        <table className="w-full min-w-[520px]">
+        <table className="tm-stack w-full min-w-[520px]">
           <thead className="bg-[var(--tm-card-muted)]">
             <tr>
               {['Date', 'Day', 'Status', 'Login time', 'vs usual'].map((h) => (
@@ -379,7 +380,7 @@ const TaskGroup: React.FC<{
         <p className="rounded-2xl bg-[var(--tm-card-muted)] px-4 py-3 text-[13px] text-[var(--tm-ink-muted)]">Nothing here.</p>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-[var(--tm-border)]/60">
-          <table className="w-full min-w-[720px] table-fixed">
+          <table className="tm-stack w-full min-w-[720px] table-fixed">
             <colgroup>
               <col style={{ width: '34%' }} />
               <col />
@@ -496,7 +497,7 @@ type GroupKey = 'done' | 'overdue' | 'remaining';
 const GROUP_OF_ID: Record<string, GroupKey> = { 'report-done': 'done', 'report-overdue': 'overdue', 'report-remaining': 'remaining' };
 
 /** One employee's month as a sheet: attendance summary, daily login record, then the task report. `controls` sit above the section links. */
-export const ReportView: React.FC<{ report: MonthlyReport; onOpenTask?: (taskId: string) => void; admin?: boolean; controls?: React.ReactNode }> = ({ report, onOpenTask, admin, controls }) => {
+export const ReportView: React.FC<{ report: MonthlyReport; onOpenTask?: (taskId: string) => void; admin?: boolean; controls?: React.ReactNode; backTo?: string }> = ({ report, onOpenTask, admin, controls, backTo }) => {
   const sheet = buildSheet(report);
   const p = report.person;
   // The task report folds, and so does each of its three groups (Done and Overdue start open). The PDF always has everything open.
@@ -520,9 +521,12 @@ export const ReportView: React.FC<{ report: MonthlyReport; onOpenTask?: (taskId:
     >
       <article aria-label="Monthly report" className="space-y-7">
         <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 border-b-2 border-[var(--tm-ink)] px-1 pb-5">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--tm-ink-muted)]">Monthly report</p>
-            <h1 className="mt-1 text-[30px] font-bold leading-tight tracking-[-0.02em] text-[var(--tm-ink)]">{monthLabel(report.month)}</h1>
+          <div className="flex items-center gap-4">
+            {backTo && <BackButton fallback={backTo} />}
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--tm-ink-muted)]">Monthly report</p>
+              <h1 className="mt-1 text-[30px] font-bold leading-tight tracking-[-0.02em] text-[var(--tm-ink)]">{monthLabel(report.month)}</h1>
+            </div>
           </div>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-[13px]">
             {[

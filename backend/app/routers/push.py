@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 from app.core.config import settings
 from app.core.deps import get_current_user
 from app.models import PushSubscription, User
-from app.services.push import is_configured
+from app.services.push import is_configured, send_test
 
 router = APIRouter(prefix="/push", tags=["push"])
 
@@ -47,6 +47,20 @@ async def subscribe(body: SubscriptionIn, user: User = Depends(get_current_user)
         sub = PushSubscription(user_id=user.id, endpoint=body.endpoint, p256dh=body.keys.p256dh, auth=body.keys.auth)
     sub.user_id, sub.p256dh, sub.auth, sub.user_agent = user.id, body.keys.p256dh, body.keys.auth, user_agent[:300]
     await sub.save()
+
+
+class TestResult(BaseModel):
+    sent: int
+    subscriptions: int
+
+
+@router.post("/test", response_model=TestResult)
+async def test_push(user: User = Depends(get_current_user)) -> TestResult:
+    """Send a test notification to this person's subscribed browsers (the "Send test notification" button)."""
+    if not is_configured():
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Push notifications are not set up on this server")
+    sent, total = await send_test(user.id)
+    return TestResult(sent=sent, subscriptions=total)
 
 
 @router.post("/unsubscribe", status_code=status.HTTP_204_NO_CONTENT)

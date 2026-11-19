@@ -71,6 +71,11 @@ export const AttachMenu: React.FC<Props> = ({ onUpload, onAdded, variant = 'butt
     const vh = window.innerHeight;
     const edge = 8; // breathing room from the screen edge
     const gap = 6; // between the button and the menu
+    if (vw < 768) {
+      // Phone: a full-width panel along the bottom edge, in easy reach of the thumb.
+      setPlace({ left: edge, width: vw - edge * 2, bottom: edge, maxHeight: Math.round(vh * 0.7) });
+      return;
+    }
     const width = Math.min(320, vw - edge * 2);
     const cap = vh * 0.6;
     const below = vh - r.bottom - gap - edge;

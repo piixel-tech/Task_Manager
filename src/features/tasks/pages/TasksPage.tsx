@@ -24,6 +24,7 @@ import { TaskFormModal } from '../components/TaskFormModal';
 import { ViewTiles, type ViewTileGroup } from '../components/ViewTiles';
 import { FilterChips, FiltersPopover } from '../components/TaskFilters';
 import { TaskListRow } from '../components/TaskListRow';
+import { PullToRefresh } from '../../../components/ui/PullToRefresh';
 import { TaskDetailPanel } from '../components/TaskDetailPanel';
 
 const STATUS_OPTIONS: { value: '' | ApiTaskStatus; label: string }[] = [
@@ -331,7 +332,7 @@ export const TasksPage: React.FC = () => {
           <h2 className="text-[15px] font-semibold text-[var(--tm-ink)]">{view.label} at a glance</h2>
           <p className="text-[12.5px] font-medium text-[var(--tm-ink-muted)]">Click a number to show only those tasks</p>
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-4 max-sm:gap-2.5">
           <StatCard
             label="Tasks"
             value={scoped.length}
@@ -421,7 +422,7 @@ export const TasksPage: React.FC = () => {
 
           <FilterChips chips={chips} />
 
-          <div className="max-h-[calc(100dvh-16rem)] min-h-[240px] space-y-4 overflow-y-auto pr-1">
+          <PullToRefresh onRefresh={load} className="max-h-[calc(100dvh-16rem)] min-h-[240px] space-y-4 overflow-y-auto pr-1">
             {loading ? (
               <SkeletonGrid count={4} />
             ) : visible.groups.length === 0 ? (
@@ -478,10 +479,10 @@ export const TasksPage: React.FC = () => {
                 </div>
               ))
             )}
-          </div>
+          </PullToRefresh>
         </section>
 
-        <div className={`min-w-0 ${open ? 'block' : 'hidden lg:block'}`}>
+        <div className={`min-w-0 ${open ? 'block max-md:fixed max-md:inset-0 max-md:z-[45] max-md:overflow-y-auto max-md:overscroll-contain max-md:bg-[var(--tm-bg)] max-md:px-4 max-md:pb-[calc(5rem+env(safe-area-inset-bottom))] max-md:pt-[calc(env(safe-area-inset-top)+0.75rem)]' : 'hidden lg:block'}`}>
           <button
             type="button"
             onClick={back}

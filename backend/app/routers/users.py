@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 from pymongo.errors import DuplicateKeyError
 
 from app.core.deps import get_current_user, require_role
@@ -9,8 +10,10 @@ from app.core.security import hash_password
 from app.core.timeutil import today_local
 from app.models import Company, User
 from app.models.daily_status import DailyStatus
+from app.services.celebrations import apply_dates, joined_on
 from app.schemas.user import PersonProfile, TeamMember, UserCreate, UserOut, UserUpdate
 from app.schemas.project import UserBrief
+from app.services import password_reset
 from app.services.notify import notify
 from app.services.projects import brief, client_team_ids
 
@@ -82,6 +85,8 @@ async def profile(user_id: PydanticObjectId, viewer: User = Depends(get_current_
         avatar_url=person.avatar_url,
         title=person.title,
         bio=person.bio,
+        birthday=person.birthday,
+        joined_on=joined_on(person),
         company=company.name if company else None,
         status=record.status if record else None,
         in_focus=bool(focus and focus.replace(tzinfo=focus.tzinfo or timezone.utc) > datetime.now(timezone.utc)),
@@ -132,6 +137,7 @@ async def update_user(user_id: PydanticObjectId, body: UserUpdate) -> User:
         user.password_hash = hash_password(password)
     if "email" in data:
         data["email"] = data["email"].lower()
+    apply_dates(user, data)
     for field, value in data.items():
         setattr(user, field, value)
     try:
@@ -139,6 +145,48 @@ async def update_user(user_id: PydanticObjectId, body: UserUpdate) -> User:
     except DuplicateKeyError:
         raise HTTPException(status.HTTP_409_CONFLICT, "Email already in use")
     return user
+
+
+class TemporaryPassword(BaseModel):
+    password: str = Field(max_length=200)
+
+
+async def _resettable(user_id: PydanticObjectId, admin: User) -> User:
+    """Email reset and temporary passwords are for admins and employees only (clients join through their invitation)."""
+    user = await _get_or_404(user_id)
+    if user.id == admin.id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Change your own password in Settings")
+    if not password_reset.can_reset(user):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Only active admins and employees can have their password reset here")
+    return user
+
+
+@router.post("/{user_id}/send-reset-link", status_code=status.HTTP_204_NO_CONTENT)
+async def send_reset_link(user_id: PydanticObjectId, admin: User = Depends(admin_only)) -> None:
+    """Email the person a one-time link to choose a new password. Any link they had before stops working."""
+    user = await _resettable(user_id, admin)
+    await password_reset.send_link(user, by_admin=True)
+
+
+@router.post("/{user_id}/temporary-password", status_code=status.HTTP_204_NO_CONTENT)
+async def set_temporary_password(user_id: PydanticObjectId, body: TemporaryPassword, admin: User = Depends(admin_only)) -> None:
+    """The admin picks a password and tells the person. They are signed out everywhere and must change it at their next sign-in."""
+    user = await _resettable(user_id, admin)
+    problems = password_reset.rule_problems(body.password)
+    if problems:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "The password needs " + ", ".join(problems) + ".")
+    user.password_hash = hash_password(body.password)
+    user.must_change_password = True
+    await password_reset.revoke_all_sessions(user)
+    await user.save()
+    await password_reset.send_changed_notice(user, "An administrator set a temporary password for you. You will be asked to choose your own when you sign in.")
+    await notify(
+        [user.id],
+        type="password_changed",
+        title="An administrator set a temporary password for you",
+        body="You will be asked to choose your own password at your next sign-in.",
+        actor_id=admin.id,
+    )
 
 
 @router.delete("/{user_id}", response_model=UserOut)

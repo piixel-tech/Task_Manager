@@ -67,7 +67,7 @@ async def _call(user: User, service: str, work: Callable[[_Auth, IntegrationConn
                     raise drive_error from exc
             raise _translate(exc, f"Google {name}") from exc
     except (IntegrationError, crypto.CryptoError) as exc:
-        err = exc if isinstance(exc, IntegrationError) else IntegrationError(str(exc), reconnect=True)
+        err = exc if isinstance(exc, IntegrationError) else IntegrationError(f"{exc}. Ask an admin to check INTEGRATIONS_FERNET_KEY on the server.")
         if err.reconnect:
             await record_failure(conn.id, "Google", err)
             raise _problem("reconnect", f"{err.message} Reconnect it in Settings > Connected apps.", service) from exc

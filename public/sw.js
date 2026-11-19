@@ -1,7 +1,18 @@
-/* Task Manager service worker: shows Web Push notifications while the app is closed, and opens the right page on click. */
+/*
+ * Task Manager notifications worker. It does exactly one thing: show Web Push notifications (also when the app is closed)
+ * and open the right page when one is clicked. No install prompt, no manifest, no caching, no fetch handling.
+ */
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
+
+const sameOrigin = (w) => {
+  try {
+    return new URL(w.url).origin === self.location.origin;
+  } catch (e) {
+    return false;
+  }
+};
 
 self.addEventListener('push', (event) => {
   let data = {};
@@ -15,12 +26,23 @@ self.addEventListener('push', (event) => {
     body: data.body || '',
     icon: '/favicon.svg',
     badge: '/favicon.svg',
-    // The same notification never shows twice; a new one with the same tag replaces the old.
+    // The same notification never shows twice; a new one with the same tag replaces the old one (and sounds again).
     tag: data.id ? 'tm-' + data.id : undefined,
+    renotify: Boolean(data.id),
+    silent: false, // the system plays its notification sound
+    vibrate: [120, 60, 120],
     requireInteraction: data.priority === 'important',
     data: { url: data.url || '/' }
   };
-  event.waitUntil(self.registration.showNotification(title, options));
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      // Someone is looking at the app right now: its own toast and sound already told them. (A test always shows.)
+      const looking = windows.some((w) => sameOrigin(w) && w.visibilityState === 'visible' && w.focused);
+      if (looking && !data.force) return undefined;
+      return self.registration.showNotification(title, options);
+    })
+  );
 });
 
 self.addEventListener('notificationclick', (event) => {
@@ -31,13 +53,23 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (windows) => {
-      const open = windows.find((w) => new URL(w.url).origin === self.location.origin);
+      const open = windows.find(sameOrigin);
       if (open) {
         await open.focus();
         open.postMessage({ type: 'tm:navigate', url: path }); // the app routes there without reloading
         return;
       }
       await self.clients.openWindow(path);
+    })
+  );
+});
+
+// The browser replaced an expired subscription. A worker cannot sign in on its own, so it asks any open page to save the new one;
+// otherwise the page does it the next time the app is opened.
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      windows.filter(sameOrigin).forEach((w) => w.postMessage({ type: 'tm:resubscribe' }));
     })
   );
 });

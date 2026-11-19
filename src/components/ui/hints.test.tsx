@@ -30,7 +30,7 @@ describe('hints', () => {
   it('does not mark tooltips or buttons: they stay when hints are off', () => {
     render(
       <MemoryRouter>
-        <PageHeader title="Tasks" actions={<button type="button">New task</button>} />
+        <PageHeader backTo="/app/tasks" title="Tasks" actions={<button type="button">New task</button>} />
       </MemoryRouter>
     );
     expect(screen.getByRole('button', { name: 'New task' }).hasAttribute('data-hint')).toBe(false);

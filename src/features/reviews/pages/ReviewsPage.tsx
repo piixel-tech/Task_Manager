@@ -183,7 +183,7 @@ export const ReviewsPage: React.FC = () => {
       );
     return (
       <>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 xl:grid-cols-4 max-sm:gap-2.5">
           <StatCard label="Waiting on you" value={stats.waiting} icon={<ClipboardCheck className="h-5 w-5" />} tone="warn" hint="You can decide these now" onClick={() => { setTab('pending'); setQuick('waiting'); }} />
           <StatCard
             label="Waiting 2+ days"

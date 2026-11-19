@@ -230,7 +230,7 @@ export const Composer: React.FC<Props> = ({ group, meId, replyTo, onCancelReply,
   const pressTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   return (
-    <div className="border-t border-[var(--tm-border)] bg-[var(--tm-card)] px-4 pb-4 pt-3">
+    <div className="border-t border-[var(--tm-border)] bg-[var(--tm-card)] px-4 pb-4 pt-3 max-md:px-2 max-md:pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
       {replyTo && (
         <div className="mb-2 flex items-start gap-2 rounded-[var(--tm-radius-sm)] border-l-[3px] border-[var(--tm-ink)] bg-[var(--tc-other-bg)] px-3.5 py-2">
           <div className="min-w-0 flex-1 text-[12.5px]">

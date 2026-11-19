@@ -6,6 +6,12 @@ import { api } from '../../services/api';
  * Everything here is best effort: if anything is unsupported or refused, the in-app notifications keep working.
  */
 
+export type PushState = 'unsupported' | 'blocked' | 'off' | 'on' | 'server-off';
+
+let active = false; // this browser has a saved subscription: the service worker will show notifications
+/** True once this browser is subscribed. The page then leaves system notifications to the worker, so nothing shows twice. */
+export const pushIsActive = (): boolean => active;
+
 export const pushSupported = (): boolean =>
   typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 
@@ -26,6 +32,8 @@ export function listenForPushNavigation(navigate: (url: string) => void): () => 
   const onMessage = (event: MessageEvent) => {
     const msg = event.data as { type?: string; url?: string } | undefined;
     if (msg?.type === 'tm:navigate' && typeof msg.url === 'string' && msg.url.startsWith('/')) navigate(msg.url);
+    // The browser replaced an expired subscription: save the new one.
+    if (msg?.type === 'tm:resubscribe') void subscribe().catch(() => undefined);
   };
   navigator.serviceWorker.addEventListener('message', onMessage);
   return () => navigator.serviceWorker.removeEventListener('message', onMessage);
@@ -33,7 +41,10 @@ export function listenForPushNavigation(navigate: (url: string) => void): () => 
 
 async function subscribe(): Promise<void> {
   const { data } = await api.get<{ enabled: boolean; public_key: string | null }>('/push/public-key');
-  if (!data.enabled || !data.public_key) return; // the server has no VAPID keys yet
+  if (!data.enabled || !data.public_key) {
+    active = false;
+    return; // the server has no VAPID keys yet
+  }
   const reg = await register();
   await navigator.serviceWorker.ready;
   const key = urlBase64ToBytes(data.public_key);
@@ -47,6 +58,7 @@ async function subscribe(): Promise<void> {
   }
   // Always tell the server: the same browser may now belong to a different person.
   await api.post('/push/subscribe', sub.toJSON());
+  active = true;
 }
 
 let askedThisSession = false;
@@ -74,12 +86,46 @@ export async function enablePush(): Promise<void> {
   }
 }
 
+/** What Settings shows: can this browser get notifications while the app is closed, and has the person allowed it? */
+export async function pushState(): Promise<PushState> {
+  if (!pushSupported()) return 'unsupported';
+  if (Notification.permission === 'denied') return 'blocked';
+  if (Notification.permission !== 'granted') return 'off';
+  try {
+    const { data } = await api.get<{ enabled: boolean }>('/push/public-key');
+    if (!data.enabled) return 'server-off';
+    const reg = await navigator.serviceWorker.getRegistration('/');
+    return (await reg?.pushManager.getSubscription()) ? 'on' : 'off';
+  } catch {
+    return active ? 'on' : 'off';
+  }
+}
+
+/** From a click ("Turn on notifications"): ask the browser, then subscribe and save it. Returns the resulting state. */
+export async function turnOnPush(): Promise<PushState> {
+  if (!pushSupported()) return 'unsupported';
+  try {
+    if (Notification.permission === 'default') await Notification.requestPermission();
+    if (Notification.permission === 'granted') await subscribe();
+  } catch {
+    /* fall through to the state we can see */
+  }
+  return pushState();
+}
+
+/** "Send test notification": the server pushes one to every browser this person turned notifications on in. */
+export async function sendTestPush(): Promise<{ sent: number; subscriptions: number }> {
+  const { data } = await api.post<{ sent: number; subscriptions: number }>('/push/test');
+  return data;
+}
+
 /** On sign-out: this browser stops receiving the previous person's notifications. Call it before the token is dropped. */
 export async function disablePush(): Promise<void> {
   if (!pushSupported()) return;
   try {
     const reg = await navigator.serviceWorker.getRegistration('/');
     const sub = await reg?.pushManager.getSubscription();
+    active = false;
     if (!sub) return;
     await api.post('/push/unsubscribe', { endpoint: sub.endpoint }).catch(() => undefined);
     await sub.unsubscribe();

@@ -8,7 +8,8 @@ import pytest
 import respx
 
 from app.integrations.google import client as gclient
-from app.integrations.runner import wait_for_pushes
+from app.integrations import crypto
+from app.integrations.runner import run_integration_sync, wait_for_pushes
 from app.models import Booking, File, IntegrationConnection, Notification, Subfolder
 from tests.test_chat import group  # noqa: F401
 from tests.test_google_integration import (  # noqa: F401  (the autouse fixtures keep these tests isolated like the Calendar ones)
@@ -42,6 +43,7 @@ class WorkspaceGoogle(FakeGoogle):
         self.meets = 0
         self.reject_next = 0  # Drive answers 401 this many times (an access token that died early)
         self.refuse_meet = False  # an account that cannot make Meet links
+        self.fail_insert = False  # Google answers 500 to every event insert
         router.get(DRIVE_FILE).mock(side_effect=self._drive_get)
         router.post(DRIVE_FILES).mock(side_effect=self._drive_create)
         router.get(DRIVE_FILES).mock(side_effect=self._drive_list)
@@ -76,6 +78,9 @@ class WorkspaceGoogle(FakeGoogle):
         return httpx.Response(200, json=meta)
 
     def _insert(self, request, **groups):
+        if self.fail_insert:
+            self._rec(request)
+            return httpx.Response(500, json={"error": {"code": 500, "message": "Backend Error", "errors": [{"reason": "backendError"}]}})
         if self.refuse_meet and request.url.params.get("conferenceDataVersion"):
             self._rec(request)
             return httpx.Response(400, json={"error": {"code": 400, "message": "Invalid conference type value.", "errors": [{"reason": "invalid"}]}})
@@ -350,25 +355,25 @@ async def book(client, host, booker, title="Design review"):
     return r.json()["id"]
 
 
-async def test_a_booking_gets_one_meet_made_on_the_hosts_event_and_the_booker_gets_the_same_link(client, alice, bob, make_user, wg):
+async def test_a_booking_gets_one_meet_made_on_the_bookers_event_and_the_host_gets_the_same_link(client, alice, bob, make_user, wg):
     await connect_user(alice)
     await connect_user(bob)
     booking_id = await book(client, alice, bob)
 
     inserts = wg.of("POST", "/events")
-    host_event = next(c for c in inserts if c["json"]["summary"] == "Design review")
-    assert host_event["params"]["conferenceDataVersion"] == "1"
-    request = host_event["json"]["conferenceData"]["createRequest"]
+    booker_event = next(c for c in inserts if c["json"]["summary"] == "Design review · Alice Employee")
+    assert booker_event["params"]["conferenceDataVersion"] == "1"
+    request = booker_event["json"]["conferenceData"]["createRequest"]
     assert request["requestId"] == f"tmb-{booking_id}" and request["conferenceSolutionKey"] == {"type": "hangoutsMeet"}
 
     booking = await Booking.get(booking_id)
-    assert booking.meet_url == "https://meet.google.com/abc-defg-001" and booking.meet_owner_id == alice.user.id
+    assert booking.meet_url == "https://meet.google.com/abc-defg-001" and booking.meet_owner_id == bob.user.id
     assert wg.meets == 1  # one Meet for the booking, not one per person
 
     sent = {c["json"]["summary"]: c["json"] for c in wg.of("POST", "/events") + wg.of("PUT", "/events")}
-    booker_event = sent["Design review · Alice Employee"]
-    assert "conferenceData" not in booker_event
-    assert booker_event["location"] == booking.meet_url and booking.meet_url in booker_event["description"]
+    assert "Design review" not in sent  # the host is invited by Google (attendee), not written to directly
+    assert [a["displayName"] for a in booker_event["json"]["attendees"]] == ["Alice Employee"]
+    assert booker_event["params"]["sendUpdates"] == "all"
 
     # The people in the meeting see the link on the booking; everyone else just sees "Busy".
     day = (datetime.now(timezone.utc) + timedelta(days=3)).date().isoformat()
@@ -396,6 +401,52 @@ async def test_a_google_account_that_cannot_make_meet_links_still_gets_the_booki
     assert wg.written["alice@example.com"][f"tmb{booking_id}"]["summary"] == "Design review"
     booking = await Booking.get(booking_id)
     assert booking.meet_url == "" and booking.meet_owner_id is None  # nobody claims a Meet that does not exist
+
+
+async def test_a_failed_google_call_tells_the_booker_once_and_still_saves_the_booking(client, alice, bob, wg):
+    await connect_user(bob)
+    wg.fail_insert = True
+    booking_id = await book(client, alice, bob)
+    assert await Booking.get(booking_id) is not None
+    told = await Notification.find(Notification.user_id == bob.user.id, Notification.type == "integration_error").to_list()
+    assert len(told) == 1 and "Design review" in told[0].body and "500" in told[0].body
+    conn = await IntegrationConnection.find_one(IntegrationConnection.user_id == bob.user.id)
+    assert conn.status == "connected" and conn.last_error  # a Google hiccup is not a reason to reconnect; the card shows it
+    await run_integration_sync()  # the 5-minute retry hits the same problem: no second notification
+    assert await Notification.find(Notification.user_id == bob.user.id, Notification.type == "integration_error").count() == 1
+    wg.fail_insert = False
+    await run_integration_sync()  # Google recovers: the event lands and the problem note is cleared
+    assert wg.written["alice@example.com"][f"tmb{booking_id}"]["summary"].startswith("Design review")
+    conn = await IntegrationConnection.find_one(IntegrationConnection.user_id == bob.user.id)
+    assert not conn.config.get("booking_errors") and conn.last_error is None
+
+
+async def test_a_refused_meet_link_is_reported_to_the_booker(client, alice, bob, wg):
+    await connect_user(bob)
+    wg.refuse_meet = True
+    await book(client, alice, bob)
+    told = await Notification.find(Notification.user_id == bob.user.id, Notification.type == "integration_error").to_list()
+    assert len(told) == 1 and "Meet" in told[0].body
+
+
+async def test_a_wrong_server_key_does_not_strand_the_connection_and_heals_when_the_key_is_right(client, alice, wg, monkeypatch):
+    conn = await connect_user(alice)
+    good = conn.refresh_token
+    from cryptography.fernet import Fernet
+
+    conn.refresh_token = Fernet(Fernet.generate_key()).encrypt(b"x").decode()  # as if another server encrypted it
+    conn.access_token = ""
+    await conn.save()
+    await run_integration_sync()
+    conn = await IntegrationConnection.get(conn.id)
+    assert conn.status == "connected" and "INTEGRATIONS_FERNET_KEY" in conn.last_error  # not "needs reconnect"
+
+    # Rows parked by the older behaviour are retried too, and restored by the first sync that works.
+    conn.refresh_token, conn.status = good, "needs_reconnect"
+    await conn.save()
+    await run_integration_sync()
+    conn = await IntegrationConnection.get(conn.id)
+    assert conn.status == "connected" and conn.last_error is None
 
 
 async def test_start_meet_in_chat_makes_a_meet_and_posts_the_link(client, team, wg):
@@ -508,12 +559,14 @@ async def test_guests_are_invited_by_google_with_the_meet_on_one_event(client, a
     assert sorted(a["email"] for a in r.json()["attendees"]) == ["client@example.org", dana.user.email.lower()]
 
     posts = wg.of("POST", "/events")
-    host_event = next(c for c in posts if c["json"]["summary"] == "Kickoff")
-    assert host_event["params"]["sendUpdates"] == "all" and host_event["params"]["conferenceDataVersion"] == "1"
-    assert host_event["json"]["attendees"] == [{"email": dana.user.email.lower(), "displayName": "Dana Designer"}, {"email": "client@example.org"}]
-    assert host_event["json"]["conferenceData"]["createRequest"]["conferenceSolutionKey"] == {"type": "hangoutsMeet"}
-    booker_event = next(c for c in posts + wg.of("PUT", "/events") if c["json"]["summary"].endswith("· Alice Employee"))
-    assert "attendees" not in booker_event["json"] and "sendUpdates" not in booker_event["params"]
+    booker_event = next(c for c in posts if c["json"]["summary"] == "Kickoff · Alice Employee")  # the booker's calendar owns the invite
+    assert booker_event["params"]["sendUpdates"] == "all" and booker_event["params"]["conferenceDataVersion"] == "1"
+    assert booker_event["json"]["attendees"] == [
+        {"email": dana.user.email.lower(), "displayName": "Dana Designer"}, {"email": "client@example.org"},
+        {"email": alice.user.email.lower(), "displayName": "Alice Employee"},  # the host is invited too
+    ]
+    assert booker_event["json"]["conferenceData"]["createRequest"]["conferenceSolutionKey"] == {"type": "hangoutsMeet"}
+    assert not [c for c in posts + wg.of("PUT", "/events") if c["json"]["summary"] == "Kickoff"]  # no direct copy on the host's calendar
     assert await Notification.find(Notification.user_id == dana.user.id, Notification.type == "booking_invited").count() == 1
 
 

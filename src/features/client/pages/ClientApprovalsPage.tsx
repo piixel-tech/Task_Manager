@@ -52,7 +52,7 @@ export const ClientApprovalsPage: React.FC = () => {
   return (
     <>
       <PageHeader title="Approvals" description="Questions from the team that need your yes or no." />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 xl:grid-cols-4 max-sm:gap-2.5">
         <StatCard
           label="Waiting for you"
           onClick={() => {

@@ -176,7 +176,7 @@ export const TaskDetailPanel: React.FC<{
             {task.timer_running ? <Pause className="h-6 w-6" fill="currentColor" /> : <Play className="ml-0.5 h-6 w-6" fill="currentColor" />}
           </button>
         )}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 max-md:min-w-[calc(100%-5rem)]">
           <p className="flex items-center gap-2 text-[10.5px] font-semibold uppercase tracking-[0.12em] opacity-70">
             <StatusDot running={task.timer_running} />
             {task.timer_running ? 'Stop timer' : 'Start timer'} · Total tracked
@@ -187,7 +187,7 @@ export const TaskDetailPanel: React.FC<{
           <button
             type="button"
             onClick={onSubmit}
-            className="inline-flex h-11 items-center gap-2 rounded-full bg-[var(--tm-card)] px-5 text-[13px] font-semibold text-[var(--tm-ink)] transition hover:brightness-95"
+            className="inline-flex h-11 items-center gap-2 rounded-full bg-[var(--tm-card)] px-5 text-[13px] font-semibold text-[var(--tm-ink)] transition hover:brightness-95 max-md:w-full max-md:justify-center"
           >
             <Send className="h-4 w-4" /> Submit for review
           </button>

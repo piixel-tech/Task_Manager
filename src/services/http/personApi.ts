@@ -8,6 +8,10 @@ export interface PersonProfile {
   avatar_url: string | null;
   title: string;
   bio: string;
+  /** "MM-DD"; the birth year is never shown. */
+  birthday: string;
+  /** YYYY-MM-DD */
+  joined_on: string;
   company: string | null;
   /** Today's daily status, if they are on the team and have set one. */
   status: 'present' | 'wfh' | 'half_day' | 'leave' | null;

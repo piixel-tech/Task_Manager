@@ -52,6 +52,9 @@ export class HttpUserService implements IUserService {
       if (updates.role !== undefined) body.role = updates.role;
       if (updates.companyId !== undefined) body.company_id = updates.companyId;
       if (updates.avatarUrl !== undefined) body.avatar_url = updates.avatarUrl;
+      if (updates.birthday !== undefined) body.birthday = updates.birthday;
+      if (updates.birthYear !== undefined) body.birth_year = updates.birthYear;
+      if (updates.joiningDate !== undefined) body.joined_on = updates.joiningDate;
       if (updates.active !== undefined) body.is_active = updates.active;
       if (updates.password !== undefined) body.password = updates.password;
       const { data } = await api.patch<ApiUser>(`/users/${id}`, body);

@@ -157,6 +157,7 @@ export const TaskDetailPage: React.FC = () => {
   return (
     <FadeIn className="grid gap-4">
       <PageHeader
+        backTo={`${prefix}/tasks`}
         className="pb-1"
         title={
           <span className="flex flex-wrap items-center gap-3">

@@ -55,7 +55,7 @@ In-house tool for ~15 people across two companies (Piixel, Unwork). Each user be
 - **Chat:** WhatsApp-like groups (sent/delivered/seen ticks, seen-by, files, voice notes, forward, reactions, delete for me/everyone). Anyone creates groups. Clients join via invite link. Client approvals in chat: custom button labels, reject needs reason, reminder every 24h until answered.
 - **Client portal:** chat groups, pending approvals, deliverables tracker, requirements list, book team slots.
 - **Client requirements (per project):** a running record of what the client asked for. Client, admin and heads of any subfolder in that project can add a requirement: title, written details and/or attachments (any file: doc, pdf, excel, image, plus URLs via file service), optional subfolder tag. Project members can view. Author can edit their own; every edit keeps history. Only admin can delete. Shows author, role badge (Client/Head/Admin) and date; newest first, search + filter by subfolder. Visible in both client portal and the project page. New requirement → notify project heads and admin.
-- **Emails (last):** via Google Workspace SMTP — task assigned, approval waiting, changes requested, client tagged, client approval pending.
+- **Emails (last):** via the Gmail API (see the Emails section below) — task assigned, approval waiting, changes requested, client tagged, client approval pending.
 
 ## Phase 10 — Upgrades (better than ClickUp + Slack)
 
@@ -212,7 +212,8 @@ New notifications also appear as a Windows / macOS system notification while the
 - **What triggers it:** every live notification the server pushes (task assigned, due tomorrow / today, overdue, reminders, task updates, reviews, mentions, bookings...) and chat messages, after the server's own filters: the per-kind switches (`notif_prefs`), Focus mode and muted chats / subfolders. Nothing was added to the backend or to the in-app bell, toasts or sounds.
 - **Click:** brings the browser forward and opens the notification's link (the task page for task notifications).
 - **No duplicates:** the notification id is the OS tag, a repeat of the same id is ignored in the same tab, and when several tabs are open the first one to claim the id (`localStorage`, one minute) shows it.
-- **Not built: Web Push for a fully closed browser.** It needs a service worker, VAPID keys and a push endpoint on the backend. Phase 16 removed service workers on purpose and the app unregisters any on every start, so this stays off unless that decision changes. The system notifications above need the browser (any tab) to be open.
+- **Web Push (app closed): built.** A notifications-only service worker, `public/sw.js` (no manifest, no install button, no caching), shows the push and opens or focuses the app on the notification's page when clicked. The app registers it and subscribes after login (`features/notifications/webPush.ts`, `POST /push/subscribe`), and saves the subscription again if the browser replaced it (on focus every 10 minutes, and when the worker reports `pushsubscriptionchange`). `notify()` pushes the same events as the in-app notifications, with the system sound, to every subscribed browser; the worker stays quiet when the app is visible and focused. Needs `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` on the backend (`python -m scripts.generate_vapid`). `removeLegacyServiceWorkers` removes every OTHER worker and keeps `/sw.js`. Settings > Notifications shows the permission status with "Turn on notifications" and "Send test notification" (`POST /push/test`).
+- **Realtime connection.** The websocket reconnects with backoff after a drop, keeps retrying while the server is unreachable (Render waking up) without signing the person out, replaces a silent connection, reconnects at once when the network returns or the tab is shown again, and reloads the bell afterwards.
 
 ## Phase 20 — Subfolder visibility (backend only, no UI yet)
 
@@ -226,6 +227,19 @@ Every subfolder has a `visibility`: **private** (the default), **view_only** or 
 - **Stays as it was:** a task assigned to you stays visible to you even if you are no longer in a private subfolder; chat groups remain visible to their own members; clients keep their access through the project (portal, deliverables, requirements, their invited chat groups), because visibility is about the team; admin-only exports, trash and dashboards are unchanged.
 - **UI:** the subfolder's **Edit subfolder** dialog has a **Visibility** selector (three radio cards, each with a one-line explanation) for admins and the heads of that subfolder only; it saves with the rest after the usual confirm. A small icon marks every subfolder in the sidebar tree, the project's folder cards and the subfolder page (lock = private, eye = view only, globe = open; the tooltip says what it means). Where someone can read a subfolder but not work in it, a "View only" badge shows next to its name and on its folder card, the subfolder page says so, and the composers for comments and mid-way changes are hidden (the API sends `can_post`, and each subfolder carries `can_work` and `can_set_visibility`). Task and chat-group pickers list only subfolders you can work in, so view-only ones are not offered. Private subfolders you are not in are never listed anywhere (sidebar, project page, task lists, requirement tags, chat groups, timer presence); the command palette and calendars do not list subfolders.
 - **Storage:** `subfolders.visibility` and `subfolders.company_ids` (a copy of the project's companies, kept in step when the project's companies change, so permission checks need no extra lookup). On every start, subfolders without a `visibility` become `private` and every subfolder gets its project's companies (`core/db.py` `migrate_subfolders`, safe to repeat). A shared subfolder is visible only to people whose company is one of the project's companies; people without a company never see someone else's shared subfolder.
+
+## Emails (Gmail API, no SMTP)
+
+Render's free tier blocks SMTP, so email goes out over HTTPS through the Gmail API. This replaces the old "Google Workspace SMTP" line.
+
+- **Sender mailbox (workspace-wide, one):** Settings > Email (admin only). "Connect sender mailbox" runs Google OAuth with the Piixel OAuth app (`GOOGLE_PIIXEL_CLIENT_ID/_SECRET`, company set by `EMAIL_OAUTH_COMPANY`) and the scopes `gmail.send`, `openid`, `email` (the last two only to learn the address). The refresh token is Fernet-encrypted (`INTEGRATIONS_FERNET_KEY`) and never returned by the API. The page shows the connected address and status (Connected / Needs reconnecting), **Reconnect**, **Disconnect** (revokes the token) and **Send test email** (to the signed-in admin).
+- **Shared service** (`backend/app/services/email.py`): `send_email(to, type, subject, heading=, text=, button_label=, path=)` returns at once and sends in the background. Up to 3 retries after the first try (5 s, 30 s, 2 min). A revoked token is not retried: the mailbox becomes "Needs reconnecting". The display name is always "Task Manager". Nothing connected is logged as a failure, never raised to the caller.
+- **Email log (admin only):** every email gets a row (`email_log`): to, type, subject, status (queued / sent / failed), error, attempts, created/sent time. Shown under Settings > Email (last 50); `GET /email/log`.
+- **Template** (`email_template.py`): one mobile-friendly HTML layout (max 600 px, inline styles) in the lavender theme (#26252C, #CDBDEB, #F4F2F8, #FFFFFF): heading, short text, one button, small footer, plus a plain-text part. The button link is always `FRONTEND_URL` + the exact page path; links are never hard-coded.
+- **API (all admin-only except the callback):** `GET /email`, `POST /email/connect`, `GET /email/callback` (signed state), `DELETE /email`, `POST /email/test`, `GET /email/log`.
+- **Collections:** `email_sender` (one row: address, encrypted refresh token, status), `email_log`.
+- **Env:** `EMAIL_REDIRECT_URI` (must equal an Authorized redirect URI of the Piixel OAuth client), `EMAIL_OAUTH_COMPANY` (default Piixel), `FRONTEND_URL`, `INTEGRATIONS_FERNET_KEY`, `GOOGLE_PIIXEL_CLIENT_ID`, `GOOGLE_PIIXEL_CLIENT_SECRET`.
+- **Not wired yet:** the service exists and is tested; sending task assigned / approval waiting / changes requested / client tagged / client approval pending emails is the next step (call `send_email` next to the matching `notify()`).
 
 ## Collections
 | Collection | Key fields |
@@ -273,7 +287,7 @@ Every subfolder has a `visibility`: **private** (the default), **view_only** or 
 13. DONE — Send animation (+ chat mini plane), booking confirmed popup, floating scrollbar with back-to-top and clock (see Phase 13).
 14. DONE — each deliverable is its own dropdown (collapsed by default, several can be open), and per-subfolder editable stages (rename, add, hold-to-delete, drag to reorder) from an opened deliverable (see Phase 14).
 15. DONE — task timer: play / pause on every task card, rail timer, tab title, "working now" in subfolders (live), one running timer per person, "Paused X, started Y" toast, live time on the running card (see Phase 15).
-16. REMOVED — installable app (PWA): built, then taken out completely; old service workers are unregistered on start (see Phase 16).
+16. REMOVED — installable app (PWA): built, then taken out completely; old caching service workers are unregistered on start, only the notifications worker `/sw.js` stays (see Phase 16).
 17. REMOVED — desktop helper: built, then taken out completely, with its backend parts (see Phase 17). The timer stays in the web app (Phase 15).
 18. DONE — Monthly Report: live current month, frozen past months, PDF and ZIP downloads, admin list and employee view (see Phase 18).
 20. DONE (backend) — subfolder visibility: private / view only / open, who can change it, enforced on every subfolder, task, checklist, deliverable, chat and requirement response (see Phase 20). No UI yet.
@@ -289,3 +303,33 @@ An employee asks for **leave** or to **work from home** and sends it to one admi
 - **Notifications** (`notify()`, so the bell, the live socket and Web Push): a new request tells the chosen admin; approving or rejecting tells the employee, and a rejection carries the reason. Links point to `/admin/leave-requests` (admin screen, to be built) and `/app/leave-requests` (the employee page: calendar, form, My requests, decision popups).
 - **Not wired yet:** an approved request does not change the employee's daily status or the calendar.
 
+## Mobile (phones and tablets; admin, employee and client share it)
+
+**The rule: desktop stays exactly as it is.** Every mobile style sits inside a small-screen breakpoint (Tailwind `max-md:` / `md:hidden`, or an `@media (max-width: ...)` block in `src/index.css`). Nothing is changed for 1024px and up. Check desktop before and after any mobile change.
+
+- **Breakpoints.** Phone: under 768px. Tablet: 768-1023px. Desktop: 1024px and up. They match Tailwind `md` and `lg`. In code use `useBreakpoint()` / `useIsPhone()` (`src/hooks/useBreakpoint.ts`); in markup prefer the Tailwind variants so there is no flash.
+- **Viewport.** `viewport-fit=cover` in `index.html`; fixed bars add `env(safe-area-inset-*)` padding so nothing hides under the notch or the home bar. No horizontal page scroll anywhere (`overflow-x: clip` on `html, body`; wide content scrolls inside its own box).
+- **Navigation (phone).** The menu button in the top bar opens `PhoneDrawer`: a slim dark pill floating on the left edge (margin from top, bottom and left, safe-area aware, the `tm-sidebar` dark style). Every place is in one column, icon over a small label, centred; a thin divider separates the main places (Home, Projects, Tasks, Chats, Office board) from the rest (Activity, Calendar, Leave, Reviews, Monthly report, Settings; Team for admins). The active place is lavender and badges stay on the icons. It slides in over a dimmed page and scrolls inside when it does not fit; tapping outside, swiping left, Esc or choosing a place closes it. It reads the same list as the rail (`navItems`), so admin, employee and client each get their own items. There is no bottom bar on phones (`PhoneTabBar` is kept in the code but not mounted). Tablets keep the older drawer and floating pill.
+- **Top bar (phone).** Only: logo, timer chip (task and live time; tap opens a sheet to pause, resume or open the task), notifications, profile. The date, today's status and Search move into the profile menu. Focus mode and the menu button are not shown on phones.
+- **Tap targets.** At least 44px high (and 44px wide for icon-only buttons). Switches and checkboxes keep their size.
+- **Inputs.** 16px text in every input, textarea and select, so iOS does not zoom.
+- **Popups.** `Modal` is a bottom sheet on phones (full width, rounded top, scrolls inside, safe-area padding); `Drawer` is full width. Menus and pickers (`role="menu"`, `role="listbox"`) fit the screen (max 70% of the height) and scroll inside. Use `BottomSheet` for new phone-only panels.
+- **Touch.** No tooltips on touch screens (`hover: none`); nothing may depend on hover. `touch-action: manipulation` removes the double-tap delay.
+- **Later phases** cover each screen (tables, boards, chat, calendar) one by one; this phase only sets the shared rules and the shell.
+- **Chat (phone).** The chat list is the page; opening a chat covers the screen (z-60, over the tab bar) with a back button. Its height follows the visual viewport (`useKeyboardViewport`), so the message box stays just above the keyboard. The formatting toolbar is behind the "Aa" button. Files, voice notes and approval cards never exceed the message column.
+- **File preview (phone).** Full screen. Swipe sideways for the next or previous file; pinch to zoom an image.
+- **Touch gestures.** `useLongPress` (500 ms, cancelled by moving) opens an item's action menu: a message's menu, and for a task row a sheet with Open, Start/Pause timer, Fix and resubmit. `PullToRefresh` reloads a list pulled down from its top (task list, chat list). Both are touch-only; mouse behaviour is unchanged.
+- **Pickers.** The Assets (attach) menu is a full-width panel along the bottom edge on phones (max 70% of the height, scrolls inside).
+- **Cards (phone).** Card grids (KPI, projects, subfolders, tasks, office board, reviews, deliverables) are 2 per row, with a tighter gap and smaller padding and text; text truncates. Wide content (charts, chat lists, forms, long posts) stays 1 per row. Only below 640px (`max-sm:`); larger sizes keep their own columns.
+
+## Password reset (admins and employees)
+- Login > "Forgot password?" asks for an email and always answers the same, whether or not the account exists (clients and inactive accounts get no email).
+- The emailed link holds a one-time token (stored hashed), valid 30 minutes; a new request cancels the old link; max 3 requests per email per hour (counted for unknown addresses too).
+- `/reset-password/:token`: new + confirm password with show/hide and live rules (8+ characters, a letter, a number). An expired, used or replaced link shows a page with "Send a new link".
+- A reset signs the person out on every device, and a "Your password was changed" email goes out (also after a change in Settings or a temporary password).
+- Admin, Team > person menu: "Send reset link", and "Set temporary password" (the person must change it at their next sign-in). Both exist only for active admins and employees other than yourself.
+
+## Morning summary email (admins and employees)
+- 9:30 AM IST, one email per person, only when there is something: tasks due today, overdue tasks, reviews waiting for them, meetings today, and for admins the leave requests waiting for them. Each item links to its page; long lists are cut with a "+N more" link.
+- Nothing to show means no email. At most one per person per day, even after a restart. Clients and inactive accounts never get it.
+- On by default; Settings > Notifications > "Morning summary email" turns it off (`notif_prefs.daily_email`). The in-app "Your day" notification is separate.

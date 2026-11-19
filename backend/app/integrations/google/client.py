@@ -1,5 +1,6 @@
 """Thin async wrapper over the Google OAuth + Calendar v3 REST endpoints (httpx). No business logic here."""
 import asyncio
+import logging
 from typing import Any
 from urllib.parse import quote, urlencode
 
@@ -11,6 +12,8 @@ from app.integrations.google.credentials import GoogleCredentials
 AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 REVOKE_URL = "https://oauth2.googleapis.com/revoke"
+log = logging.getLogger(__name__)
+
 API = "https://www.googleapis.com/calendar/v3"
 DRIVE_API = "https://www.googleapis.com/drive/v3"
 
@@ -63,7 +66,6 @@ def authorize_url(creds: GoogleCredentials, state: str, scopes: list[str] | None
             **({"login_hint": login_hint} if login_hint else {}),
             "access_type": "offline",  # we need a refresh token to sync in the background
             "prompt": "consent",  # ...and Google only issues one on a consent screen
-            "include_granted_scopes": "true",
             "state": state,
         }
     )
@@ -184,6 +186,17 @@ async def list_events(token: str, calendar_id: str, *, sync_token: str | None, t
     return await _api("GET", f"/calendars/{_q(calendar_id)}/events", token, params=params)
 
 
+def _log_event_call(op: str, calendar_id: str, params: dict | None, body: dict | None, response: dict | None) -> None:
+    """One line per events.* call with the exact query parameters and what Google answered (no tokens, no event text)."""
+    attendees = [(a.get("email"), a.get("responseStatus")) for a in (response or {}).get("attendees", [])]
+    log.info(
+        "Google events.%s calendar=%s params=%s sent_attendees=%s -> id=%s status=%s organizer=%s hangoutLink=%s attendees=%s",
+        op, calendar_id, params or {}, [a.get("email") for a in (body or {}).get("attendees", [])],
+        (response or {}).get("id"), (response or {}).get("status"), ((response or {}).get("organizer") or {}).get("email"),
+        (response or {}).get("hangoutLink"), attendees,
+    )
+
+
 async def insert_event(token: str, calendar_id: str, body: dict, *, with_meet: bool = False, send_updates: str | None = None) -> dict:
     """`with_meet` lets Google read `conferenceData.createRequest` in the body and attach a new Meet to the event.
     `send_updates="all"` makes Google email the attendees their invitation."""
@@ -192,11 +205,21 @@ async def insert_event(token: str, calendar_id: str, body: dict, *, with_meet: b
         params["conferenceDataVersion"] = "1"
     if send_updates:
         params["sendUpdates"] = send_updates
-    return await _api("POST", f"/calendars/{_q(calendar_id)}/events", token, json=body, params=params or None)
+    event = await _api("POST", f"/calendars/{_q(calendar_id)}/events", token, json=body, params=params or None)
+    _log_event_call("insert", calendar_id, params, body, event)
+    return event
 
 
 async def update_event(token: str, calendar_id: str, event_id: str, body: dict) -> dict:
-    return await _api("PUT", f"/calendars/{_q(calendar_id)}/events/{_q(event_id)}", token, json=body)
+    """Without conferenceDataVersion=1 Google ignores `conferenceData`, and without sendUpdates guests hear nothing about a change."""
+    params: dict[str, str] = {}
+    if "conferenceData" in body:
+        params["conferenceDataVersion"] = "1"
+    if body.get("attendees"):
+        params["sendUpdates"] = "all"
+    event = await _api("PUT", f"/calendars/{_q(calendar_id)}/events/{_q(event_id)}", token, json=body, params=params or None)
+    _log_event_call("update", calendar_id, params, body, event)
+    return event
 
 
 async def delete_event(token: str, calendar_id: str, event_id: str, *, send_updates: str | None = None) -> None:

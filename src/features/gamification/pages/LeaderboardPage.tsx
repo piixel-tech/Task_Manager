@@ -85,7 +85,7 @@ export const LeaderboardPage: React.FC = () => {
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="tm-stack w-full text-left text-sm">
               <thead className="bg-[var(--tm-card-muted)] border-b border-[var(--tm-border)] text-xs font-semibold text-[var(--tm-ink-muted)] uppercase tracking-wider">
                 <tr>
                   <th className="px-6 py-3">Rank</th>

@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Megaphone, Plus, Search } from 'lucide-react';
+import { Megaphone, Plus, Search } from 'lucide-react';
 import { PillTabs } from '../../../components/ui/PillTabs';
 import { Button } from '../../../components/ui/Button';
 import { EmptyState } from '../../../components/ui/EmptyState';
@@ -27,7 +26,6 @@ export function solvedLine(p: OfficePost): string {
 
 /** The office board: a pinboard of notes from everyone. Resolved posts stay as history. */
 export const OfficePage: React.FC = () => {
-  const navigate = useNavigate();
   const setUnseen = useOfficeStore((s) => s.setUnseen);
 
   const [status, setStatus] = useState<OfficeStatus>('open');
@@ -103,14 +101,6 @@ export const OfficePage: React.FC = () => {
     <>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
         <div className="flex min-w-0 items-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            aria-label="Back"
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[var(--tm-border)] bg-[var(--tm-card)] text-[var(--tm-ink)] transition-colors hover:bg-[var(--tm-bg-sunken)]"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
           <div className="min-w-0">
             <h1 className="text-[24px] font-bold leading-tight tracking-[-0.01em] text-[var(--tm-ink)]">Office board</h1>
             <p data-hint className="text-[13px] text-[var(--tm-ink-muted)]">Issues and notices for the whole office.</p>
@@ -159,7 +149,7 @@ export const OfficePage: React.FC = () => {
             <EmptyState icon={<Megaphone className="h-6 w-6 text-[var(--tm-primary-dark)]" />} title="No posts match" description="Try another filter or search." />
           ) : (
             <FadeIn>
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-2 gap-6 sm:grid-cols-2 xl:grid-cols-3 max-sm:gap-2.5">
                 {items.map((p, i) => (
                   <PinNote key={p.id} post={p} index={i} onViewed={onViewed} onReact={react} onToggleResolved={toggleResolved} onDelete={remove} />
                 ))}

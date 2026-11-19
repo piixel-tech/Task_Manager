@@ -18,7 +18,7 @@ export const NavDrawer: React.FC = () => {
     if (!sidebarOpen) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeSidebar();
     document.addEventListener('keydown', onKey);
-    const narrow = window.matchMedia('(max-width: 1023px)').matches;
+    const narrow = window.matchMedia('(min-width: 768px) and (max-width: 1023px)').matches;
     const before = document.body.style.overflow;
     if (narrow) document.body.style.overflow = 'hidden';
     return () => {
@@ -57,7 +57,7 @@ export const NavDrawer: React.FC = () => {
   };
 
   return (
-    <div className="lg:hidden">
+    <div className="hidden md:block lg:hidden">
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 bg-[var(--tm-scrim)] backdrop-blur-[4px]" onClick={closeSidebar} />
       )}

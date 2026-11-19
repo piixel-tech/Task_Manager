@@ -8,6 +8,7 @@ from fastapi import HTTPException, status
 from app.core.timeutil import as_utc, today_local
 from app.models import Company, LeaveRequest, User
 from app.schemas.leave_request import LeaveRequestCreate, LeaveRequestOut
+from app.services import email as mail
 from app.services.notify import notify
 from app.services.projects import brief, load_users
 from app.services.ws_manager import manager
@@ -56,6 +57,17 @@ async def tell_admin(admin_id: PydanticObjectId, request_id: PydanticObjectId, s
         pass
 
 
+def _word(r: LeaveRequest) -> str:
+    return "Leave" if r.type == "leave" else "Work from home"
+
+
+async def _email(user_id: PydanticObjectId | None, kind: str, subject: str, heading: str, text: str, button: str, path: str) -> None:
+    """Email one of the four leave emails to an active person. Never raises."""
+    person = await User.get(user_id) if user_id else None
+    if person is not None and person.is_active:
+        await mail.send_quietly(person.email, kind, subject, heading=heading, text=text, button_label=button, path=path)
+
+
 async def create_request(user: User, body: LeaveRequestCreate) -> LeaveRequest:
     if user.company_id is None:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Your account is not assigned to a company yet")
@@ -90,6 +102,12 @@ async def create_request(user: User, body: LeaveRequestCreate) -> LeaveRequest:
         actor_id=user.id,
     )
     await tell_admin(req.admin_id, req.id, "created")
+    await _email(
+        req.admin_id, "leave_requested", f"{user.name} asked for {TYPE_LABEL[req.type]}: {when_text(req)}",
+        f"New {TYPE_LABEL[req.type]} request",
+        f"{user.name} asked for {TYPE_LABEL[req.type]}.\nDates: {when_text(req)}\nReason: {req.reason}",
+        "Review request", ADMIN_LINK,
+    )
     return req
 
 
@@ -114,6 +132,13 @@ async def decide(req: LeaveRequest, admin: User, *, approve: bool, reason: str |
         title, text = f"Your {word} request was rejected", f"{admin.name} rejected {when_text(req)}. Reason: {reason}"
     await notify([req.user_id], type="leave_decision", title=title, body=text, link=EMPLOYEE_LINK, actor_id=admin.id)
     await tell_admin(req.admin_id, req.id, req.status)  # the admin's other open tabs
+    details = f"Type: {_word(req)}\nDates: {when_text(req)}\nStatus: {req.status.capitalize()}"
+    if not approve:
+        details += f"\nReason: {reason}"
+    await _email(
+        req.user_id, "leave_decision", title, f"Your {word} request was {req.status}", f"{admin.name} {req.status} your request.\n{details}",
+        "View my requests", EMPLOYEE_LINK,
+    )
     return req
 
 
@@ -141,6 +166,12 @@ async def cancel_request(req: LeaveRequest, user: User) -> LeaveRequest:
             body=f"{when_text(req)}. It was approved and has now been cancelled.",
             link=ADMIN_LINK,
             actor_id=user.id,
+        )
+        await _email(
+            req.decided_by or req.admin_id, "leave_cancelled", f"{user.name} cancelled approved {TYPE_LABEL[req.type]}: {when_text(req)}",
+            f"Approved {TYPE_LABEL[req.type]} was cancelled",
+            f"{user.name} cancelled a request you approved.\nType: {_word(req)}\nDates: {when_text(req)}",
+            "Open leave requests", ADMIN_LINK,
         )
     await tell_admin(req.admin_id, req.id, "cancelled")  # it leaves the admin's lists at once
     return req

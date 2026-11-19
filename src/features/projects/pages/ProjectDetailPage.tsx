@@ -82,6 +82,7 @@ export const ProjectDetailPage: React.FC = () => {
   return (
     <FadeIn>
       <PageHeader
+        backTo={`${prefix}/projects`}
         title={
           <span className="flex flex-wrap items-center gap-3">
             {project.name}
@@ -154,7 +155,7 @@ export const ProjectDetailPage: React.FC = () => {
           <h2 className="text-[20px] font-bold text-[var(--tm-ink)]">Folders</h2>
           <p data-hint className="mt-0.5 text-[13px] text-[var(--tm-ink-muted)]">The subfolders of this project.</p>
         </div>
-        <div className="grid grid-cols-2 gap-6 md:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-6 md:grid-cols-3 xl:grid-cols-4 max-sm:gap-2.5">
           {project.subfolders.map((s) => (
             <FolderCard
               key={s.id}

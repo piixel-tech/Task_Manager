@@ -53,7 +53,7 @@ describe('the "i" icon', () => {
 
   it('offers no "Learn more" when that answer is not for this person', () => {
     as('client');
-    show('admin-people'); // an admin-only answer
+    show('leave-decide'); // an admin-only answer
     fireEvent.click(screen.getByRole('button', { name: 'What is this?' }));
     expect(screen.getByRole('dialog')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Learn more' })).toBeNull();

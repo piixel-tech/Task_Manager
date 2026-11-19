@@ -207,7 +207,19 @@ async def create_booking(body: BookingCreate, user: User = Depends(get_current_u
         )
         await booking.insert()
 
-    schedule_push([host.id, user.id])
+    schedule_push([user.id, host.id])  # the booker's calendar first: that event owns the Meet link and invites the guests
+    broken = await IntegrationConnection.find_one(
+        IntegrationConnection.user_id == user.id, IntegrationConnection.provider == "google", IntegrationConnection.status == "needs_reconnect"
+    )
+    if broken:  # their Google login stopped working: the booking is saved, but nothing reaches Google until they reconnect
+        await notify(
+            [user.id],
+            type="integration_error",
+            title="Booking saved, but not on Google Calendar",
+            body="Your Google connection stopped working, so no calendar event, Meet link or guest invitations were created. "
+            "Reconnect Google in Settings > Connected apps and they are added automatically.",
+            link=f"{'/admin' if user.role == 'admin' else '/client' if user.role == 'client' else '/app'}/settings/connected-apps",
+        )
     # Clients invited by id get the invite email only: the in-app link goes to a staff calendar they cannot open.
     ids = [g.user_id for g in guests if g.user_id]
     teammates = [u.id for u in await User.find({"_id": {"$in": ids}, "role": {"$ne": "client"}}).to_list()] if ids else []

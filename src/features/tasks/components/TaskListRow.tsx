@@ -1,3 +1,7 @@
+import { useState } from 'react';
+import { BottomSheet } from '../../../components/ui/BottomSheet';
+import { useLongPress } from '../../../hooks/useLongPress';
+import { useTimerStore } from '../../../store/useTimerStore';
 import React from 'react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { Check, Hourglass } from 'lucide-react';
@@ -32,6 +36,8 @@ export const TaskListRow: React.FC<{
   onFix?: () => void;
 }> = ({ task, selected, heat, onSelect, feedback, onFix }) => {
   const h = selected ? {} : heatAttrs(heat);
+  const [sheet, setSheet] = useState(false);
+  const press = useLongPress(() => setSheet(true));
   const late = isOverdue(task);
   const prio = PRIORITY_LOOK[task.priority];
   const canPlay = task.can_work && task.status !== 'submitted' && task.status !== 'approved';
@@ -70,7 +76,7 @@ export const TaskListRow: React.FC<{
     );
   }
   return (
-    <div className="relative">
+    <div className="relative" {...press}>
       <button
         type="button"
         onClick={onSelect}
@@ -114,6 +120,27 @@ export const TaskListRow: React.FC<{
           </span>
         ) : null}
       </span>
+      <BottomSheet isOpen={sheet} onClose={() => setSheet(false)} title={task.title}>
+        <div className="space-y-1">
+          <SheetAction label="Open task" onClick={() => { setSheet(false); onSelect(); }} />
+          {canPlay && (
+            <SheetAction
+              label={task.timer_running ? 'Pause timer' : 'Start timer'}
+              onClick={() => {
+                setSheet(false);
+                void (task.timer_running ? useTimerStore.getState().pause() : useTimerStore.getState().play(task));
+              }}
+            />
+          )}
+          {onFix && <SheetAction label="Fix and resubmit" onClick={() => { setSheet(false); onFix(); }} />}
+        </div>
+      </BottomSheet>
     </div>
   );
 };
+
+const SheetAction: React.FC<{ label: string; onClick: () => void }> = ({ label, onClick }) => (
+  <button type="button" onClick={onClick} className="flex min-h-[48px] w-full items-center rounded-[var(--tm-radius-md)] px-4 text-left text-[15px] font-semibold text-[var(--tm-ink)] hover:bg-[var(--tm-bg-sunken)]">
+    {label}
+  </button>
+);

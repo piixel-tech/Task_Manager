@@ -17,6 +17,9 @@ class User(Document):
     title: str = ""
     phone: str = ""
     bio: str = ""
+    birthday: str = ""  # "MM-DD"; shown to the team
+    birth_year: int | None = None  # optional and private: never shown to anyone
+    joined_on: str = ""  # YYYY-MM-DD; empty = the day the account was made
     must_change_password: bool = False  # set when an admin creates the account with a temporary password
     sessions_revoked_before: datetime | None = None  # "log out everywhere": older sign-ins without a session record stop working
     settings: dict = Field(default_factory=dict)  # theme, density, sound, notification preferences

@@ -7,10 +7,12 @@ import { StatusChip } from '../../../components/ui/StatusChip';
 import { Stagger } from '../../../components/ui/Stagger';
 import { useAuthStore } from '../../../store/authStore';
 import { useDailyStatusStore } from '../../../store/useDailyStatusStore';
+import { CelebrationsCard } from '../../celebrations/CelebrationsCard';
 import { OfficeBoardCard } from '../../office/components/OfficeBoardCard';
 import { UpcomingHolidays } from '../../workspace/UpcomingHolidays';
 import { TodayOverview } from '../../status/components/TodayOverview';
 import { statusMeta } from '../../status/statusMeta';
+import { GreetingSubtitle, GreetingTitle } from '../greeting/DashboardGreeting';
 import { EmployeeWidgets } from '../widgets/EmployeeWidgets';
 
 /** Employee home: my day at a glance (tasks, reviews, schedule), then today's team overview. */
@@ -19,14 +21,12 @@ export const DashboardPage: React.FC = () => {
   const user = useAuthStore((s) => s.user);
   const { today, openEditor } = useDailyStatusStore();
   const meta = statusMeta(today?.status);
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   return (
     <>
       <PageHeader
-        title={`${greeting}, ${user?.role === 'admin' ? 'Boss' : user?.nickname || user?.name || ''}`}
-        description="Your day at a glance, and who is in today."
+        title={<GreetingTitle defaultName={user?.role === 'admin' ? 'Boss' : user?.nickname || user?.name || ''} />}
+        description={<GreetingSubtitle />}
         actions={
           <>
             <StatusChip tone={meta?.tone ?? 'neutral'}>{meta ? `You: ${meta.label}` : 'Status not set'}</StatusChip>
@@ -45,6 +45,9 @@ export const DashboardPage: React.FC = () => {
       />
       <Stagger className="grid gap-6 lg:grid-cols-12">
         <EmployeeWidgets />
+        <div className="empty:hidden lg:col-span-12">
+          <CelebrationsCard />
+        </div>
         <div className="lg:col-span-12">
           <OfficeBoardCard />
         </div>

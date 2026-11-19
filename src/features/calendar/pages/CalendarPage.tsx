@@ -5,6 +5,7 @@ import {
   addMinutes,
   addMonths,
   eachDayOfInterval,
+  addDays,
   endOfMonth,
   endOfWeek,
   format,
@@ -97,6 +98,7 @@ export const CalendarPage: React.FC = () => {
   const [team2, setTeam2] = useState<GuestPerson[] | null>(null);
   const [teamError, setTeamError] = useState<string | null>(null);
   const [scrolled, setScrolled] = useState(false);
+  const [monthOpen, setMonthOpen] = useState(false); // phones: the month grid is hidden until asked for
 
   const gridDays = useMemo(
     () =>
@@ -339,8 +341,8 @@ export const CalendarPage: React.FC = () => {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
         {/* Left rail: mini month + people */}
-        <div className="space-y-6">
-          <Card className="!p-0">
+        <div className="space-y-6 max-md:contents">
+          <Card className={`!p-0 max-md:order-1 ${monthOpen ? '' : 'max-md:hidden'}`}>
             <CardContent className="pt-6">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-[16px] font-extrabold text-[var(--tm-ink)]">{format(month, 'MMMM yyyy')}</h3>
@@ -427,6 +429,7 @@ export const CalendarPage: React.FC = () => {
             </CardContent>
           </Card>
 
+          <div className="space-y-6 max-md:order-3">
           <UpcomingHolidays />
 
           {overview.length > 0 && (
@@ -461,10 +464,25 @@ export const CalendarPage: React.FC = () => {
               </CardContent>
             </Card>
           )}
+          </div>
         </div>
 
         {/* Main: the month with every day's status, then the week grid and the selected day */}
-        <div className="min-w-0 space-y-6">
+        <div className="min-w-0 space-y-6 max-md:order-2">
+          {/* Phones: step through the days; the month grid opens from the button */}
+          <div className="flex items-center gap-2 md:hidden">
+            <Button variant="outline" size="sm" aria-label="Previous day" onClick={() => { const d = addDays(selected, -1); setSelected(d); setMonth(startOfMonth(d)); }}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="min-w-0 flex-1 truncate text-center text-[14px] font-extrabold text-[var(--tm-ink)]">{format(selected, 'EEE, d MMM')}</span>
+            <Button variant="outline" size="sm" aria-label="Next day" onClick={() => { const d = addDays(selected, 1); setSelected(d); setMonth(startOfMonth(d)); }}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button variant={monthOpen ? 'solid' : 'outline'} size="sm" aria-expanded={monthOpen} onClick={() => setMonthOpen((o) => !o)}>
+              Month
+            </Button>
+          </div>
+          <div className="max-md:hidden">
           <MonthStatusBoard
             month={month}
             days={gridDays}
@@ -478,6 +496,7 @@ export const CalendarPage: React.FC = () => {
             dayOff={dayOff}
             loading={loading}
           />
+          </div>
           <div className="relative grid grid-cols-1 gap-6 lg:grid-cols-2">
             {/* Selected day */}
             <Card>

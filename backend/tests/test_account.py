@@ -35,9 +35,9 @@ async def test_removed_theme_falls_back_to_purple(client, team):
 
 async def test_settings_default_and_can_be_saved(client, team):
     s = (await me(client, team.mia))["settings"]
-    assert s == {"theme": "light", "palette": "purple", "density": "comfortable", "sound": True, "alert_sound": "chime", "alert_sound_important": "bell", "alert_volume": 70, "alert_muted": False, "desktop_popups": False, "notif_prefs": {"tasks": True, "reviews": True, "chat": True, "mentions": True, "office": True, "bookings": True}, "hints": True, "tour": None}
+    assert s == {"theme": "light", "palette": "purple", "density": "comfortable", "sound": True, "alert_sound": "chime", "alert_sound_important": "bell", "alert_volume": 70, "alert_muted": False, "desktop_popups": False, "notif_prefs": {"tasks": True, "reviews": True, "chat": True, "mentions": True, "office": True, "bookings": True, "daily_email": True}, "hints": True, "tour": None, "greeting": {"rotate": False}}
 
-    body = {"theme": "dark", "palette": "blue", "density": "compact", "sound": False, "alert_sound": "bell", "alert_sound_important": "ding", "alert_volume": 40, "alert_muted": True, "desktop_popups": True, "notif_prefs": {**s["notif_prefs"], "office": False}, "hints": False, "tour": "employee-1"}
+    body = {"theme": "dark", "palette": "blue", "density": "compact", "sound": False, "alert_sound": "bell", "alert_sound_important": "ding", "alert_volume": 40, "alert_muted": True, "desktop_popups": True, "notif_prefs": {**s["notif_prefs"], "office": False}, "hints": False, "tour": "employee-1", "greeting": {"rotate": True}}
     r = await client.put("/me/settings", json=body, headers=team.mia.headers)
     assert r.status_code == 200, r.text
     assert (await me(client, team.mia))["settings"] == body
@@ -49,6 +49,13 @@ async def test_settings_default_and_can_be_saved(client, team):
     assert r.status_code == 200 and (await me(client, team.mia))["settings"]["palette"] == "green"
     assert (await client.put("/me/settings", json={**body, "density": "tiny"}, headers=team.mia.headers)).status_code == 422
     assert (await client.put("/me/settings", json={**body, "tour": "x" * 41}, headers=team.mia.headers)).status_code == 422
+    # a custom name or line is gone for good: sending one saves nothing, and the greeting keeps only the daily-opener switch
+    r = await client.put("/me/settings", json={**body, "greeting": {"name": "Captain", "line": "Rise and shine", "rotate": False}}, headers=team.mia.headers)
+    assert r.status_code == 200 and r.json()["greeting"] == {"rotate": False}
+    assert (await me(client, team.mia))["settings"]["greeting"] == {"rotate": False}
+    from app.models import User
+
+    assert "name" not in (await User.get(team.mia.id)).settings["greeting"] and "line" not in (await User.get(team.mia.id)).settings["greeting"]
     assert (await client.put("/me/settings", json=body)).status_code == 401
 
 
@@ -252,3 +259,17 @@ async def test_admin_sets_a_job_role_when_adding_and_editing_a_member(client, te
     assert r.status_code == 201 and r.json()["title"] == "Video editor"
     r = await client.patch(f"/users/{r.json()['id']}", json={"title": "Senior editor"}, headers=team.admin.headers)
     assert r.status_code == 200 and r.json()["title"] == "Senior editor"
+
+
+async def test_saved_custom_greetings_are_deleted_from_the_database(client, team):
+    from app.core.db import migrate_remove_custom_greeting
+    from app.models import User
+
+    coll = User.get_motor_collection()
+    for who, greeting in ((team.mia, {"name": "Captain", "line": "Rise and shine", "rotate": True}), (team.max, {"rotate": False})):
+        await coll.update_one({"_id": who.user.id}, {"$set": {"settings.greeting": greeting}})
+
+    assert await migrate_remove_custom_greeting() == 1  # only Mia had one
+    assert (await coll.find_one({"_id": team.mia.user.id}))["settings"]["greeting"] == {"rotate": True}  # the switch stays
+    assert (await coll.find_one({"_id": team.max.user.id}))["settings"]["greeting"] == {"rotate": False}
+    assert await migrate_remove_custom_greeting() == 0  # nothing left to do on the next start

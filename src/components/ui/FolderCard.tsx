@@ -37,7 +37,7 @@ export const FolderCard: React.FC<FolderCardProps> = ({ title, subtitle, people 
         onClick?.();
       }
     }}
-    className="group cursor-pointer rounded-[var(--tm-radius-lg)] p-4 text-center outline-none transition-colors duration-[var(--tm-dur-fast)] hover:bg-[var(--tm-bg-sunken)] focus-visible:bg-[var(--tm-bg-sunken)] focus-visible:shadow-glow"
+    className="group cursor-pointer rounded-[var(--tm-radius-lg)] p-4 max-sm:p-1.5 text-center outline-none transition-colors duration-[var(--tm-dur-fast)] hover:bg-[var(--tm-bg-sunken)] focus-visible:bg-[var(--tm-bg-sunken)] focus-visible:shadow-glow"
   >
     <div className="relative mx-auto aspect-[4/3] w-full max-w-[260px]">
       {/* back panel with its tab */}
@@ -67,10 +67,10 @@ export const FolderCard: React.FC<FolderCardProps> = ({ title, subtitle, people 
       </div>
     </div>
 
-    <div className="mt-3 truncate text-[14px] font-bold text-[var(--tm-ink)]" title={title}>
+    <div className="mt-3 max-sm:mt-2 truncate text-[14px] max-sm:text-[13px] font-bold text-[var(--tm-ink)]" title={title}>
       {title}
     </div>
-    <div className="mt-0.5 text-[12.5px] font-semibold text-[var(--tm-ink-muted)]">{subtitle}</div>
+    <div className="mt-0.5 truncate text-[12.5px] max-sm:text-[11.5px] font-semibold text-[var(--tm-ink-muted)]">{subtitle}</div>
     {footer && <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1">{footer}</div>}
   </div>
 );

@@ -9,7 +9,8 @@ from app.core.db import close_db, init_db
 from app.integrations.google import credentials as google_credentials
 from app.models import Company
 from app.services.scheduler import start_scheduler, stop_scheduler
-from app.routers import activity, approvals, auth, bookings, chat, chat_extras, checklist, companies, daily_status, dashboard, deliverables, export, external_events, files, google_workspace, festival, focus, health, integrations, integrations_google, invites, leave_requests, me, notifications, office, portal, projects, push, reports, requirements, reviews, security, sidebar, subfolders, tasks, themes, timer, trash, users, workspace, ws
+from app.routers import email as email_router
+from app.routers import activity, approvals, auth, bookings, chat, chat_extras, celebrations, checklist, companies, daily_status, dashboard, deliverables, export, external_events, files, google_workspace, festival, focus, health, integrations, integrations_google, invites, leave_requests, me, notifications, office, portal, projects, push, reports, requirements, reviews, security, sidebar, subfolders, tasks, themes, timer, trash, users, workspace, ws
 
 
 log = logging.getLogger(__name__)
@@ -53,6 +54,7 @@ api_v1.include_router(users.router)
 api_v1.include_router(me.router)
 api_v1.include_router(workspace.router)
 api_v1.include_router(festival.router)
+api_v1.include_router(celebrations.router)
 api_v1.include_router(themes.router)
 api_v1.include_router(security.router)
 api_v1.include_router(trash.router)
@@ -65,6 +67,7 @@ api_v1.include_router(push.router)
 api_v1.include_router(daily_status.router)
 api_v1.include_router(bookings.router)
 api_v1.include_router(dashboard.router)
+api_v1.include_router(email_router.router)
 api_v1.include_router(integrations_google.router)
 api_v1.include_router(google_workspace.router)
 api_v1.include_router(integrations.router)

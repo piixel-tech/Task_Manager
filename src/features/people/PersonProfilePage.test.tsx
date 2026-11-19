@@ -15,7 +15,9 @@ const pat: PersonProfile = {
   bio: 'Loves type.',
   company: 'Piixel',
   status: 'wfh',
-  in_focus: false
+  in_focus: false,
+  birthday: '03-18',
+  joined_on: '2024-01-15'
 };
 
 const viewAs = async (role: UserRole, profile: PersonProfile = pat) => {

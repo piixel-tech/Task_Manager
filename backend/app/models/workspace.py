@@ -23,6 +23,8 @@ class Workspace(Document):
     work_start: str = "09:00"  # local time (TIMEZONE): when bookable hours open
     work_end: str = "18:00"
     holidays: list[Holiday] = Field(default_factory=list)
+    festival_greetings: list[dict] = Field(default_factory=list)  # {id, name, date (YYYY-MM-DD), message}: shown in everyone's dashboard greeting that day
+    celebrations_sent: dict = Field(default_factory=dict)  # {date, keys}: which of today's celebrations already got their notification
     festival: dict | None = None  # the festival theme: name, dates and light/dark palettes (see routers/festival.py)
     weekly_off: list[int] = Field(default_factory=lambda: [6])  # weekdays off every week, Monday=0 .. Sunday=6
 

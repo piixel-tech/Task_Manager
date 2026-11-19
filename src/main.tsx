@@ -4,7 +4,7 @@ import './index.css'
 import App from './App.tsx'
 import { removeLegacyServiceWorkers } from './utils/removeServiceWorkers'
 
-// An earlier version could be installed as an app with a service worker. That feature is gone: remove the worker (and its icon badge) from browsers that still have it.
+// An earlier version could be installed as an app with an offline-caching service worker. That feature is gone: remove those workers (and the icon badge). The notifications-only worker /sw.js is kept.
 removeLegacyServiceWorkers()
 
 createRoot(document.getElementById('root')!).render(
